@@ -10,32 +10,22 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Firebase Libraries -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import {
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import {
-            getFirestore,
-            doc,
-            getDoc,
-            setDoc,
-            onSnapshot
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+        <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script>
         // --- Firebase Configuration ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-study-plan-2026';
-        const firebaseConfig = JSON.parse(
-            typeof __firebase_config !== 'undefined'
-                ? __firebase_config
-                : '{}'
-        );
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let db, auth, userId;
+        const firebaseConfig = {
+            apiKey: "AIzaSyAioH7Rl-R3jfsi7l145y3PKQa2dMYBUGo",
+            authDomain: "x1-787898.firebaseapp.com",
+            projectId: "x1-787898",
+            storageBucket: "x1-787898.firebasestorage.app",
+            messagingSenderId: "69689821491",
+            appId: "1:69689821491:web:d225d85d384faa21d15646"
+        };
+        window.appState = {};
+        let db;
+        let isSyncing = false;
+        let isAppInitialized = false;
         let tasks = [];
         let progressChart;
         let masterLineChart;
@@ -251,7 +241,7 @@
                 window.revisionData.active.push(sub);
                 if (!window.revisionData.progress[sub]) window.revisionData.progress[sub] = {};
             }
-            saveData();
+            saveToCloud();
             renderUI();
             window.renderRevisionModalContent();
 
@@ -303,7 +293,7 @@
             if (barEl) barEl.style.width = `${progressPct}%`;
 
             updateMetrics();
-            saveData();
+            saveToCloud();
 
             if (window.chartDebounce) clearTimeout(window.chartDebounce);
             window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
@@ -347,12 +337,23 @@
         tasks = defaultTasks;
         recalculateTotals();
 
-        function loadData() {
+        function initializeFirebase() {
             try {
-                const stored = localStorage.getItem('studyMasterBackup');
-                let newTasks = defaultTasks;
-                if (stored) {
-                    const data = JSON.parse(stored);
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                console.log("Firebase Connected");
+                loadFromCloud();
+            } catch(e) { console.error("Firebase init error:", e); }
+        }
+
+        function loadFromCloud() {
+            if (!db) return;
+            db.collection('studyPlan').doc('globalData').onSnapshot((docSnap) => {
+                if (isSyncing) return; // Prevent loop
+                
+                if (docSnap.exists) {
+                    const data = docSnap.data();
+                    let newTasks = defaultTasks;
                     
                     if (data.customPrograms) window.customPrograms = data.customPrograms;
                     if (data.customActions) window.customActions = data.customActions;
@@ -389,25 +390,31 @@
                             newEndDate.setDate(newEndDate.getDate() + (lastTask.id - 1));
                             PLAN_END_DATE = newEndDate;
                         }
-                    } else { if (isInitialLoad) saveData(true); }
-                } else { if (isInitialLoad) saveData(true); }
-                
-                tasks = newTasks;
-                console.log("Data Loaded");
+                    } else { if (isInitialLoad) saveToCloud(true); }
+                    
+                    tasks = newTasks;
+                    
+                    // Always backup to localStorage
+                    window.appState = data;
+                    localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
+                    console.log("Cloud Sync Success");
 
-                if (isInitialLoad) { renderUI(); isInitialLoad = false; }
-                else {
-                    requestAnimationFrame(() => {
-                        const scrollPos = window.scrollY; // Preserve scroll position
-                        renderUI();
-                        window.scrollTo(0, scrollPos); // Seamlessly restore scroll
-                        showSync('saved'); // Indicate remote fetch success
-                    });
+                    if (isInitialLoad) { renderUI(); isInitialLoad = false; }
+                    else {
+                        requestAnimationFrame(() => {
+                            const scrollPos = window.scrollY; // Preserve scroll position
+                            renderUI();
+                            window.scrollTo(0, scrollPos); // Seamlessly restore scroll
+                            showSync('saved'); 
+                        });
+                    }
+                } else {
+                    if (isInitialLoad) saveToCloud(true);
                 }
-            } catch (error) {
-                console.error("Load data error:", error);
+            }, (error) => {
+                console.error("Sync Error:", error);
                 if (isInitialLoad) { renderUI(); isInitialLoad = false; }
-            }
+            });
         }
 
         const showSync = (state) => {
@@ -438,7 +445,7 @@
             }
         };
 
-        function saveData(immediate = false) {
+        function saveToCloud(immediate = false) {
             const payload = {
                 tasks: tasks,
                 customSyllabus: syllabusStructure,
@@ -451,27 +458,35 @@
                 successResults: window.successResults,
                 dashboardConfig: window.dashboardConfig
             };
-            window.localDataJSON = JSON.stringify(payload);
+            window.appState = payload;
             
+            // Backup locally
+            localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
+            console.log("Offline Backup Saved");
+
             const executeSave = () => {
-                if (isSaving) { needsSave = true; return; }
-                isSaving = true;
-                try {
-                    showSync('saving');
-                    localStorage.setItem('studyMasterBackup', window.localDataJSON);
-                    console.log("Data Saved");
-                    showSync('saved');
-                } catch (error) {
-                    console.error("Save error:", error);
-                    showSync('error');
-                } finally {
-                    isSaving = false;
-                    if (needsSave) { needsSave = false; saveTimeout = setTimeout(executeSave, 1200); }
-                }
+                if (!db) return;
+                isSyncing = true;
+                showSync('saving');
+                
+                db.collection('studyPlan').doc('globalData').set(window.appState)
+                    .then(() => {
+                        console.log("Cloud Sync Success");
+                        showSync('saved');
+                    })
+                    .catch((error) => {
+                        console.error("Sync Error:", error);
+                        showSync('error');
+                    })
+                    .finally(() => {
+                        // Small buffer after write
+                        setTimeout(() => { isSyncing = false; }, 300);
+                        if (needsSave) { needsSave = false; saveTimeout = setTimeout(executeSave, 800); }
+                    });
             };
             
             if (immediate) { if (saveTimeout) clearTimeout(saveTimeout); executeSave(); }
-            else { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(executeSave, 1200); }
+            else { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(executeSave, 800); }
         }
 
         window.saveHeaderConfigFromForm = function () {
@@ -490,7 +505,7 @@
             safeSetText('dash-sub-title', window.dashboardConfig.subTitle);
             document.title = `${window.dashboardConfig.topTag} - ${window.dashboardConfig.mainTitle}`;
 
-            saveData();
+            saveToCloud();
             showToast("Dashboard titles updated!", "success");
         };
 
@@ -506,7 +521,7 @@
             const newEndDate = new Date(baseDate.getTime());
             newEndDate.setDate(newEndDate.getDate() + (tasks[tasks.length - 1].id - 1));
             PLAN_END_DATE = newEndDate;
-            saveData();
+            saveToCloud();
         }
 
         function updateGlobalDates() {
@@ -1330,7 +1345,7 @@
 
             // Core Global updates & Saves
             updateMetrics();
-            saveData();
+            saveToCloud();
 
             // Smart background debounce for heavy canvas operations
             if (window.chartDebounce) clearTimeout(window.chartDebounce);
@@ -2455,7 +2470,7 @@
 
             if (idx > -1) {
                 tasks[idx][type] = state;
-                saveData();
+                saveToCloud();
                 renderDailyTracker();
                 renderDailyLogs();
 
@@ -3028,7 +3043,7 @@
                 delete window.subjectTimeLinks[sub];
             }
 
-            saveData();
+            saveToCloud();
             renderUI();
             closeModal('subject-time-modal');
             showToast("Subject Time Goal updated!", "success");
@@ -3040,7 +3055,7 @@
             if (window.subjectTimeLinks && window.subjectTimeLinks[sub]) {
                 delete window.subjectTimeLinks[sub];
             }
-            saveData();
+            saveToCloud();
             renderUI();
             closeModal('subject-time-modal');
             showToast("Time Goal reset to default timeline.", "success");
@@ -3191,7 +3206,7 @@
                     }
                 }
 
-                saveData();
+                saveToCloud();
                 renderUI();
                 if (window.chartDebounce) clearTimeout(window.chartDebounce);
                 window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
@@ -3231,7 +3246,7 @@
             if (window.subjectTimeLinks && window.subjectTimeLinks[targetName]) delete window.subjectTimeLinks[targetName];
 
             recalculateTotals();
-            saveData();
+            saveToCloud();
             renderUI();
             closeModal('edit-subject-modal');
             showToast(`Subject "${targetName}" deleted.`, "success");
@@ -3435,7 +3450,7 @@
                 window.successResults.push({ id: 'res_' + Date.now(), type, title, value, date });
             }
 
-            saveData();
+            saveToCloud();
             renderUI();
             closeModal('result-modal');
             showToast("Result saved successfully!", "success");
@@ -3444,7 +3459,7 @@
         window.deleteResult = function (id) {
             window.openConfirmModal("Delete Result", "Are you sure you want to delete this result?", () => {
                 window.successResults = window.successResults.filter(r => r.id !== id);
-                saveData();
+                saveToCloud();
                 renderUI();
                 showToast("Result deleted", "success");
             });
@@ -4403,13 +4418,13 @@
 
             goal.startDate = startStr;
             goal.deadline = deadStr;
-            saveData(); renderUI(); closeModal('edit-pace-modal'); showToast("Pace Goal timeline updated!", "success");
+            saveToCloud(); renderUI(); closeModal('edit-pace-modal'); showToast("Pace Goal timeline updated!", "success");
         };
 
         window.toggleModalDay = function (taskId, typeKey) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex > -1) {
-                tasks[taskIndex][typeKey] = !tasks[taskIndex][typeKey]; saveData();
+                tasks[taskIndex][typeKey] = !tasks[taskIndex][typeKey]; saveToCloud();
                 requestAnimationFrame(() => {
                     renderTrendCharts(); renderDailyTracker(); renderDailyLogs();
                     const modal = document.getElementById('analytics-modal');
@@ -4473,7 +4488,7 @@
                 const newS = syllabusStructure[prog].find(s => s.subject === newSubject); if (newS) newS.chapters++;
                 reorderSubjectChapters(prog, oldSubject); reorderSubjectChapters(prog, newSubject);
             }
-            recalculateTotals(); saveData(); renderUI(); closeModal('edit-task-modal'); showToast("Task updated successfully!", "success");
+            recalculateTotals(); saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task updated successfully!", "success");
         };
 
         window.requestDeleteTask = function () {
@@ -4512,7 +4527,7 @@
                     else tasks[slot.tIdx].bbaTasks[slot.bIdx] = { ...chObj, id: tasks[slot.tIdx].bbaTasks[slot.bIdx].id };
                 }
             }
-            recalculateTotals(); saveData(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
+            recalculateTotals(); saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
         };
 
         // --- Configuration & Expansion System Logic ---
@@ -4646,7 +4661,7 @@
             }
 
             document.getElementById('manage-new-name').value = '';
-            saveData(); renderUI(); updateManageDropdown();
+            saveToCloud(); renderUI(); updateManageDropdown();
         };
 
         window.requestManageDelete = function () {
@@ -4708,7 +4723,7 @@
                 }
             }
 
-            recalculateTotals(); saveData(); renderUI(); updateManageDropdown();
+            recalculateTotals(); saveToCloud(); renderUI(); updateManageDropdown();
         };
 
         window.updateChProgDropdown = function () {
@@ -4744,7 +4759,7 @@
 
             window.customPrograms[track].push(name);
             document.getElementById('add-prog-name').value = '';
-            saveData(); renderUI(); showToast("Program successfully added!", "success");
+            saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
         };
 
         window.appendNewSubject = function () {
@@ -4799,7 +4814,7 @@
             document.getElementById('add-sub-bulk-num').classList.add('hidden');
 
             recalculateTotals();
-            saveData();
+            saveToCloud();
 
             // Unblock main thread to allow modal to close immediately before heavy render
             setTimeout(() => {
@@ -4852,7 +4867,7 @@
             const targetSub = syllabusStructure[track].find(s => s.subject === subj);
             if (targetSub) targetSub.chapters++;
 
-            recalculateTotals(); saveData(); renderUI();
+            recalculateTotals(); saveToCloud(); renderUI();
             document.getElementById('add-ch-num').value = ''; document.getElementById('add-ch-title').value = '';
             showToast("Chapter added and sequenced!", "success");
         };
@@ -4868,7 +4883,7 @@
             window.customActions.push({ id: newId, title: title, desc: desc, color: color, icon: 'generic' });
 
             document.getElementById('add-act-title').value = ''; document.getElementById('add-act-desc').value = '';
-            saveData(); renderUI(); showToast("Daily Action Tracker created!", "success");
+            saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
         };
 
         // --- Freeze & Pass System Logic ---
@@ -4998,7 +5013,7 @@
                 }
             }
 
-            saveData();
+            saveToCloud();
             updateSuccessScore();
             renderUI();
             window.renderPassConfig();
@@ -5198,7 +5213,7 @@
             document.getElementById('add-pace-name').value = '';
             document.getElementById('add-pace-start').value = '';
             document.getElementById('add-pace-date').value = '';
-            saveData(); renderUI(); showToast("Custom Pace Goal added!", "success");
+            saveToCloud(); renderUI(); showToast("Custom Pace Goal added!", "success");
         };
 
         window.requestDeletePaceGoal = function (id) {
@@ -5207,7 +5222,7 @@
 
         window.deletePaceGoal = function (id) {
             window.paceGoals = window.paceGoals.filter(g => g.id !== id);
-            saveData(); renderUI(); showToast("Pace Goal deleted.", "success");
+            saveToCloud(); renderUI(); showToast("Pace Goal deleted.", "success");
         };
 
         function showToast(msg, type) {
@@ -5232,7 +5247,35 @@
             }, 50);
         });
 
-        window.addEventListener('load', () => { loadData(); });
+        document.addEventListener('DOMContentLoaded', () => {
+            if (isAppInitialized) return;
+            isAppInitialized = true;
+            
+            try {
+                const stored = localStorage.getItem('studyMasterBackup');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    if (data.tasks) {
+                        tasks = data.tasks;
+                        if (data.customPrograms) window.customPrograms = data.customPrograms;
+                        if (data.customActions) window.customActions = data.customActions;
+                        if (data.paceGoals) window.paceGoals = data.paceGoals;
+                        if (data.passedItems) window.passedItems = data.passedItems;
+                        if (data.revisionData) window.revisionData = data.revisionData;
+                        if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
+                        if (data.successResults) window.successResults = data.successResults;
+                        if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
+                        if (data.customSyllabus) {
+                            syllabusStructure = data.customSyllabus;
+                            recalculateTotals();
+                        }
+                    }
+                }
+            } catch(e) {}
+            
+            renderUI();
+            initializeFirebase();
+        });
     </script>
     <style>
         * {
