@@ -885,11 +885,11 @@
 
                 if (group.totalChapters > 0) {
                     if (completedCount > 0 && actualStartDateForPace && actualStartDateForPace <= today) {
-                        const daysElapsed = Math.max(0, Math.floor((today - actualStartDateForPace) / msPerDay));
-                        actPaceRaw = daysElapsed > 0 ? completedCount / daysElapsed : completedCount;
+                        const daysElapsed = Math.floor((today - actualStartDateForPace) / msPerDay) + 1;
+                        actPaceRaw = completedCount / daysElapsed;
                     } else if (startDate && startDate <= today) {
-                        const daysElapsed = Math.max(0, Math.floor((today - startDate) / msPerDay));
-                        actPaceRaw = daysElapsed > 0 ? completedCount / daysElapsed : (completedCount > 0 ? completedCount : 0);
+                        const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+                        actPaceRaw = completedCount / daysElapsed;
                     }
 
                     if (hasTimeGoal && targetDate) {
@@ -1276,11 +1276,11 @@
 
             if (totalChapters > 0) {
                 if (completedCount > 0 && actualStartDateForPace && actualStartDateForPace <= today) {
-                    const daysElapsed = Math.max(0, Math.floor((today - actualStartDateForPace) / msPerDay));
-                    actPaceRaw = daysElapsed > 0 ? completedCount / daysElapsed : completedCount;
+                    const daysElapsed = Math.floor((today - actualStartDateForPace) / msPerDay) + 1;
+                    actPaceRaw = completedCount / daysElapsed;
                 } else if (startDate && startDate <= today) {
-                    const daysElapsed = Math.max(0, Math.floor((today - startDate) / msPerDay));
-                    actPaceRaw = daysElapsed > 0 ? completedCount / daysElapsed : (completedCount > 0 ? completedCount : 0);
+                    const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+                    actPaceRaw = completedCount / daysElapsed;
                 }
 
                 if (hasTimeGoal && targetDate) {
@@ -1439,8 +1439,8 @@
                 start.setHours(0, 0, 0, 0);
 
                 if (earliestDate && start <= today) {
-                    const daysElapsed = Math.max(0, Math.floor((today - start) / msPerDay));
-                    globalCurPace = daysElapsed > 0 ? paceCompleted / daysElapsed : (paceCompleted > 0 ? paceCompleted : 0);
+                    const daysElapsed = Math.floor((today - start) / msPerDay) + 1;
+                    globalCurPace = paceCompleted / daysElapsed;
                 }
 
                 window.latestPaceData = {
@@ -1565,19 +1565,22 @@
 
                 const remaining = Math.max(0, paceTotalChapters - paceCompleted);
                 const totalDays = Math.max(1, Math.ceil((end - start) / msPerDay));
-                const daysElapsed = Math.max(0, Math.floor((today - start) / msPerDay));
+                const daysElapsed = Math.floor((today - start) / msPerDay) + 1;
                 const daysRemaining = Math.max(0, Math.ceil((end - today) / msPerDay));
 
                 let globalReqPace = 0;
                 let globalCurPace = 0;
 
                 if (paceTotalChapters > 0) {
-                    if (today < start || today > end) {
-                        globalReqPace = today < start ? paceTotalChapters / totalDays : (remaining > 0 ? remaining : 0);
-                        globalCurPace = 0; // STRICTLY ZERO outside active timeline
+                    if (today < start) {
+                        globalReqPace = paceTotalChapters / totalDays;
+                        globalCurPace = 0;
+                    } else if (today > end) {
+                        globalReqPace = remaining > 0 ? remaining : 0;
+                        globalCurPace = paceCompleted / daysElapsed;
                     } else {
                         globalReqPace = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
-                        globalCurPace = daysElapsed > 0 ? paceCompleted / daysElapsed : (paceCompleted > 0 ? paceCompleted : 0);
+                        globalCurPace = paceCompleted / daysElapsed;
                     }
                 }
 
@@ -1796,21 +1799,22 @@
 
                 const remaining = Math.max(0, total - completed);
                 const totalDays = Math.max(1, Math.ceil((targetDate - startDate) / msPerDay));
-                const daysElapsed = Math.max(0, Math.floor((today - startDate) / msPerDay));
+                const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
                 const daysRemaining = Math.max(0, Math.ceil((targetDate - today) / msPerDay));
 
                 let reqPaceVal = 0;
                 let curPaceVal = 0;
 
                 if (total > 0) {
-                    if (today < startDate || today > targetDate) {
-                        // Future or Overdue timeline
-                        reqPaceVal = today < startDate ? total / totalDays : (remaining > 0 ? remaining : 0);
-                        curPaceVal = 0; // STRICTLY ZERO outside active timeline
+                    if (today < startDate) {
+                        reqPaceVal = total / totalDays;
+                        curPaceVal = 0;
+                    } else if (today > targetDate) {
+                        reqPaceVal = remaining > 0 ? remaining : 0;
+                        curPaceVal = completed / daysElapsed;
                     } else {
-                        // Active timeline
                         reqPaceVal = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
-                        curPaceVal = daysElapsed > 0 ? completed / daysElapsed : (completed > 0 ? completed : 0);
+                        curPaceVal = completed / daysElapsed;
                     }
                 }
 
@@ -2676,17 +2680,20 @@
 
             const remaining = Math.max(0, total - completed);
             const totalDays = Math.max(1, Math.ceil((targetDate - startDate) / msPerDay));
-            const daysElapsed = Math.max(0, Math.floor((today - startDate) / msPerDay));
+            const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
             const daysRemaining = Math.max(0, Math.ceil((targetDate - today) / msPerDay));
 
             let reqPaceVal = 0; let curPaceVal = 0;
             if (total > 0) {
-                if (today < startDate || today > targetDate) {
-                    reqPaceVal = today < startDate ? total / totalDays : (remaining > 0 ? remaining : 0);
+                if (today < startDate) {
+                    reqPaceVal = total / totalDays;
                     curPaceVal = 0;
+                } else if (today > targetDate) {
+                    reqPaceVal = remaining > 0 ? remaining : 0;
+                    curPaceVal = completed / daysElapsed;
                 } else {
                     reqPaceVal = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
-                    curPaceVal = daysElapsed > 0 ? completed / daysElapsed : (completed > 0 ? completed : 0);
+                    curPaceVal = completed / daysElapsed;
                 }
             }
 
