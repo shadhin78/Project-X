@@ -3,22 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Study Dashboard</title>
-    
-    <!-- PWA Settings -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#000000">
-    
-    <!-- Apple Mobile Web App Support -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="StudyMaster">
-    <link rel="apple-touch-icon" href="/icon-192.png">
-    
-    <!-- Mobile Web App Capable -->
-    <meta name="mobile-web-app-capable" content="yes">
-
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
@@ -5296,69 +5282,6 @@
             
             renderUI();
             initializeFirebase();
-
-            // --- Progressive Web App (PWA) Integration ---
-            let deferredPrompt = null;
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                const installBtn = document.getElementById('pwa-install-btn');
-                if (installBtn) {
-                    installBtn.classList.remove('hidden');
-                }
-            });
-
-            window.addEventListener('appinstalled', (evt) => {
-                console.log('App successfully installed to home screen!');
-                const installBtn = document.getElementById('pwa-install-btn');
-                if (installBtn) {
-                    installBtn.classList.add('hidden');
-                }
-                showToast('StudyMaster installed successfully! Welcome to the native app experience.', 'success');
-            });
-
-            window.triggerPwaInstall = function() {
-                if (!deferredPrompt) return;
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the install prompt');
-                    } else {
-                        console.log('User dismissed the install prompt');
-                    }
-                    deferredPrompt = null;
-                    const installBtn = document.getElementById('pwa-install-btn');
-                    if (installBtn) {
-                        installBtn.classList.add('hidden');
-                    }
-                });
-            };
-
-            // Register Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then((reg) => {
-                        console.log('Service Worker registered with scope: ', reg.scope);
-                        
-                        reg.onupdatefound = () => {
-                            const installingWorker = reg.installing;
-                            if (installingWorker == null) return;
-                            installingWorker.onstatechange = () => {
-                                if (installingWorker.state === 'installed') {
-                                    if (navigator.serviceWorker.controller) {
-                                        console.log('New update available, prompting user to reload.');
-                                        showToast('App update available! Close and reopen the app to apply.', 'info');
-                                    } else {
-                                        console.log('Content is cached for offline use.');
-                                    }
-                                }
-                            };
-                        };
-                    })
-                    .catch((err) => {
-                        console.error('Service Worker registration failed: ', err);
-                    });
-            }
         });
     </script>
     <style>
@@ -5460,14 +5383,6 @@
                     onclick="document.getElementById('active-timelines-heading').scrollIntoView({behavior:'smooth'})"
                     class="snap-start shrink-0 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 px-3 sm:px-4 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] sm:text-[10px] md:text-xs text-slate-600 dark:text-slate-300 hover:border-red-400 active:scale-95 transition-all">Active
                     Timelines</button>
-
-                <!-- PWA Install Button (Dynamic) -->
-                <button id="pwa-install-btn" onclick="window.triggerPwaInstall()"
-                    class="hidden snap-start shrink-0 bg-emerald-600 border-2 border-emerald-600 px-3 sm:px-4 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] sm:text-[10px] md:text-xs text-white hover:bg-emerald-700 hover:border-emerald-700 shadow-[0_4px_12px_rgba(16,185,129,0.3)] transition-all active:scale-95 hover:scale-105 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                    </svg>Install App
-                </button>
 
                 <button
                     onclick="document.getElementById('master-configuration-section').scrollIntoView({behavior:'smooth'})"
