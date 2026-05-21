@@ -1,0 +1,20 @@
+{
+  "name": "studymaster",
+  "version": "1.0.0",
+  "description": "Progressive Web App converted to Android using Capacitor",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build.js",
+    "cap-init": "npx cap init StudyMaster com.studymaster.app --web-dir=www",
+    "cap-sync": "npx cap sync",
+    "cap-add-android": "npx cap add android",
+    "cap-open-android": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}
