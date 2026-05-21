@@ -212,12 +212,13 @@
 
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(prog => {
-                    const subs = syllabusStructure[track].filter(s => s.program === prog);
+                    const progName = prog.name || prog;
+                    const subs = syllabusStructure[track].filter(s => s.program === progName);
                     if (subs.length > 0) {
-                        html += `<div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800"><h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">${prog}</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
+                        html += `<div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800"><h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">${progName}</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
                         subs.forEach(s => {
                             const isRevising = window.revisionData && window.revisionData.active && window.revisionData.active.includes(s.subject);
-                            let displaySub = s.subject.replace(prog + ' - ', '').replace(prog + ' ', '');
+                            let displaySub = s.subject.replace(progName + ' - ', '').replace(progName + ' ', '');
                             html += `
                                 <label class="flex items-center space-x-3 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-400 active:scale-95 transition-all shadow-sm">
                                     <input type="checkbox" onchange="window.toggleRevisionMode('${s.subject.replace(/'/g, "\\'")}')" class="form-checkbox h-4 w-4 text-blue-500 rounded border-slate-300 focus:ring-blue-500 transition-all" ${isRevising ? 'checked' : ''}>
@@ -299,13 +300,140 @@
             window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
         };
 
+        window.migrateLegacyData = function () {
+            if (!window.customPrograms) {
+                window.customPrograms = { ca: [], bba: [] };
+            }
+            ['ca', 'bba'].forEach(track => {
+                if (!Array.isArray(window.customPrograms[track])) {
+                    window.customPrograms[track] = [];
+                }
+                window.customPrograms[track] = window.customPrograms[track].map((p, idx) => {
+                    if (typeof p === 'string') {
+                        const id = p.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                        return {
+                            id: id || 'prog-' + idx,
+                            name: p,
+                            priority: 3,
+                            order: idx
+                        };
+                    } else if (p && typeof p === 'object') {
+                        if (!p.id) {
+                            p.id = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'prog-' + idx;
+                        }
+                        if (p.priority === undefined) p.priority = 3;
+                        if (p.order === undefined) p.order = idx;
+                        return p;
+                    }
+                    return null;
+                }).filter(Boolean);
+            });
+
+            // Also migrate syllabusStructure
+            if (syllabusStructure) {
+                ['ca', 'bba'].forEach(track => {
+                    if (Array.isArray(syllabusStructure[track])) {
+                        syllabusStructure[track].forEach((s, idx) => {
+                            if (s.priority === undefined) s.priority = 3;
+                            if (s.order === undefined) s.order = idx;
+                            if (!s.program) s.program = track === 'ca' ? 'CA CL' : (s.subject.includes("1st") ? "BBA 1st" : "BBA 2nd");
+                        });
+                    }
+                });
+            }
+
+            // And customActions
+            if (Array.isArray(window.customActions)) {
+                window.customActions.forEach((a, idx) => {
+                    if (a.priority === undefined) a.priority = 3;
+                    if (a.order === undefined) a.order = idx;
+                });
+            }
+        };
+
+        window.sortAllCustomData = function () {
+            // 1. Sort customPrograms
+            ['ca', 'bba'].forEach(track => {
+                if (Array.isArray(window.customPrograms[track])) {
+                    window.customPrograms[track].sort((a, b) => {
+                        const pA = a.priority !== undefined ? a.priority : 3;
+                        const pB = b.priority !== undefined ? b.priority : 3;
+                        if (pA !== pB) return pA - pB;
+                        const oA = a.order !== undefined ? a.order : 999;
+                        const oB = b.order !== undefined ? b.order : 999;
+                        return oA - oB;
+                    });
+                }
+            });
+
+            // 2. Sort syllabusStructure track subjects
+            ['ca', 'bba'].forEach(track => {
+                if (Array.isArray(syllabusStructure[track])) {
+                    syllabusStructure[track].sort((a, b) => {
+                        const progA = window.customPrograms[track].find(p => (p.name || p) === a.program);
+                        const progB = window.customPrograms[track].find(p => (p.name || p) === b.program);
+                        
+                        const pA_prog = progA ? (progA.priority !== undefined ? progA.priority : 3) : 3;
+                        const pB_prog = progB ? (progB.priority !== undefined ? progB.priority : 3) : 3;
+                        if (pA_prog !== pB_prog) return pA_prog - pB_prog;
+                        
+                        const oA_prog = progA ? (progA.order !== undefined ? progA.order : 999) : 999;
+                        const oB_prog = progB ? (progB.order !== undefined ? progB.order : 999) : 999;
+                        if (oA_prog !== oB_prog) return oA_prog - oB_prog;
+                        
+                        const pA_subj = a.priority !== undefined ? a.priority : 3;
+                        const pB_subj = b.priority !== undefined ? b.priority : 3;
+                        if (pA_subj !== pB_subj) return pA_subj - pB_subj;
+                        
+                        const oA_subj = a.order !== undefined ? a.order : 999;
+                        const oB_subj = b.order !== undefined ? b.order : 999;
+                        return oA_subj - oB_subj;
+                    });
+                }
+            });
+
+            // 3. Sort customActions
+            if (Array.isArray(window.customActions)) {
+                window.customActions.sort((a, b) => {
+                    const pA = a.priority !== undefined ? a.priority : 3;
+                    const pB = b.priority !== undefined ? b.priority : 3;
+                    if (pA !== pB) return pA - pB;
+                    const oA = a.order !== undefined ? a.order : 999;
+                    const oB = b.order !== undefined ? b.order : 999;
+                    return oA - oB;
+                });
+            }
+        };
+
+        window.getSortedPrograms = function (track) {
+            if (!window.customPrograms || !window.customPrograms[track]) return [];
+            return [...window.customPrograms[track]];
+        };
+
+        window.sortAllSubjects = function (subjects, track) {
+            if (!Array.isArray(subjects)) return [];
+            return [...subjects].sort((a, b) => {
+                const pA = a.priority !== undefined ? a.priority : 3;
+                const pB = b.priority !== undefined ? b.priority : 3;
+                if (pA !== pB) return pA - pB;
+                const oA = a.order !== undefined ? a.order : 999;
+                const oB = b.order !== undefined ? b.order : 999;
+                return oA - oB;
+            });
+        };
+
+        window.getSortedTrackSubjects = function (track) {
+            if (!syllabusStructure || !syllabusStructure[track]) return [];
+            return [...syllabusStructure[track]];
+        };
+
         function generateStudyPlan() {
             const startDate = new Date(PLAN_START_DATE);
             const endDate = new Date(PLAN_END_DATE);
             const caQueue = [];
-            syllabusStructure.ca.forEach(s => { for (let i = 1; i <= s.chapters; i++) caQueue.push({ subject: s.subject, chapter: `Ch. ${i}`, title: `Topic ${i}` }); });
+            window.getSortedTrackSubjects('ca').forEach(s => { for (let i = 1; i <= s.chapters; i++) caQueue.push({ subject: s.subject, chapter: `Ch. ${i}`, title: `Topic ${i}` }); });
             const bbaQueue = [];
-            syllabusStructure.bba.forEach(s => { for (let i = 1; i <= s.chapters; i++) bbaQueue.push({ subject: s.subject, chapter: `Ch. ${i}`, title: `Topic ${i}` }); });
+            window.getSortedTrackSubjects('bba').forEach(s => { for (let i = 1; i <= s.chapters; i++) bbaQueue.push({ subject: s.subject, chapter: `Ch. ${i}`, title: `Topic ${i}` }); });
 
             let generated = [];
             let current = new Date(startDate);
@@ -376,6 +504,9 @@
                         recalculateTotals();
                         if (isInitialLoad) window.switchSysTab('chapter');
                     }
+
+                    window.migrateLegacyData();
+                    window.sortAllCustomData();
 
                     if (data.tasks && data.tasks.length > 0) {
                         newTasks = data.tasks.map(t => {
@@ -575,7 +706,7 @@
 
             // Validate currentFilter to prevent cross-device deletion crashes
             if (currentFilter !== 'All') {
-                const isValidProg = window.customPrograms.ca.includes(currentFilter) || window.customPrograms.bba.includes(currentFilter);
+                const isValidProg = window.customPrograms.ca.some(p => (p.name || p) === currentFilter) || window.customPrograms.bba.some(p => (p.name || p) === currentFilter);
                 const isValidSub = [...syllabusStructure.ca, ...syllabusStructure.bba].some(s => s.subject === currentFilter);
                 if (!isValidProg && !isValidSub) currentFilter = 'All';
             }
@@ -712,15 +843,16 @@
             // Group by Track -> Program
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(prog => {
-                    const subs = syllabusStructure[track].filter(s => s.program === prog);
+                    const progName = prog.name || prog;
+                    const subs = syllabusStructure[track].filter(s => s.program === progName).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
                     if (subs.length > 0) {
                         html += `
                         <div class="mb-3 p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm w-full">
                             <div class="flex items-center gap-2 mb-3">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1 w-full">${prog} PROGRAM</span>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1 w-full">${progName} PROGRAM</span>
                             </div>
                             <div class="flex flex-wrap gap-2 md:gap-3">
-                                <button class="${btnClass(prog)}" onclick="window.setFilter('${prog}')">[ ENTIRE ${prog} ]</button>
+                                <button class="${btnClass(progName)}" onclick="window.setFilter('${progName}')">[ ENTIRE ${progName} ]</button>
                                 ${subs.map(s => {
                             let displaySub = s.subject;
                             if (displaySub.startsWith(s.program + ' - ')) displaySub = displaySub.replace(s.program + ' - ', '');
@@ -765,7 +897,7 @@
             if (currentFilter === 'All') {
                 subjectsToRender = [...syllabusStructure.ca, ...syllabusStructure.bba].map(s => s.subject);
             } else {
-                const isProgram = window.customPrograms.ca.includes(currentFilter) || window.customPrograms.bba.includes(currentFilter);
+                const isProgram = window.customPrograms.ca.some(p => (p.name || p) === currentFilter) || window.customPrograms.bba.some(p => (p.name || p) === currentFilter);
                 if (isProgram) {
                     subjectsToRender = [...syllabusStructure.ca, ...syllabusStructure.bba].filter(s => s.program === currentFilter).map(s => s.subject);
                 } else {
@@ -1957,11 +2089,12 @@
             let pIdx = 0;
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(prog => {
-                    const subs = syllabusStructure[track].filter(s => s.program === prog);
+                    const progName = prog.name || prog;
+                    const subs = syllabusStructure[track].filter(s => s.program === progName);
                     if (subs.length === 0) return;
 
                     const cp = colorPairs[pIdx % colorPairs.length];
-                    container.innerHTML += `<h3 class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mt-5 mb-3 tracking-widest">${prog}</h3>`;
+                    container.innerHTML += `<h3 class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mt-5 mb-3 tracking-widest">${progName}</h3>`;
 
                     subs.forEach(sub => {
                         const stats = subjectStats[sub.subject];
@@ -1985,7 +2118,8 @@
 
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(prog => {
-                    const subs = syllabusStructure[track].filter(s => s.program === prog);
+                    const progName = prog.name || prog;
+                    const subs = syllabusStructure[track].filter(s => s.program === progName);
                     if (subs.length === 0) return;
 
                     let totalChap = 0; let doneChap = 0;
@@ -1993,7 +2127,7 @@
                     const perc = totalChap > 0 ? Math.round((doneChap / totalChap) * 100) : 0;
                     const color = colors[catIdx % colors.length]; const shadow = shadows[catIdx % shadows.length];
 
-                    html += `<div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-3xl md:rounded-[2rem] shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-100 dark:border-slate-700/60 flex items-center justify-between group"><div><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight group-hover:translate-x-1 transition-transform">${prog}</h3><p class="text-[10px] text-slate-400 uppercase font-black mt-1 tracking-widest">${Math.round(doneChap)} / ${totalChap} Chapters</p></div><div class="relative flex items-center justify-center w-12 h-12 md:w-14 md:h-14 ${shadow} rounded-full bg-white dark:bg-slate-800 shrink-0"><svg class="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 36 36"><path class="text-slate-100 dark:text-slate-700/50" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="${color}" stroke-width="3.5" stroke-dasharray="${perc}, 100" stroke="currentColor" fill="none" stroke-linecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg><span class="absolute text-[9px] md:text-[10px] font-black ${color}">${perc}%</span></div></div>`;
+                    html += `<div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-3xl md:rounded-[2rem] shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-100 dark:border-slate-700/60 flex items-center justify-between group"><div><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight group-hover:translate-x-1 transition-transform">${progName}</h3><p class="text-[10px] text-slate-400 uppercase font-black mt-1 tracking-widest">${Math.round(doneChap)} / ${totalChap} Chapters</p></div><div class="relative flex items-center justify-center w-12 h-12 md:w-14 md:h-14 ${shadow} rounded-full bg-white dark:bg-slate-800 shrink-0"><svg class="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 36 36"><path class="text-slate-100 dark:text-slate-700/50" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="${color}" stroke-width="3.5" stroke-dasharray="${perc}, 100" stroke="currentColor" fill="none" stroke-linecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg><span class="absolute text-[9px] md:text-[10px] font-black ${color}">${perc}%</span></div></div>`;
                     catIdx++;
                 });
             });
@@ -2013,7 +2147,7 @@
 
         function renderTrendCharts() {
             // CLEANUP ORPHANED DATA
-            let validProgs = [...window.customPrograms.ca, ...window.customPrograms.bba];
+            let validProgs = [...window.customPrograms.ca, ...window.customPrograms.bba].map(p => p.name || p);
             Object.keys(window.latestChartStats.prog).forEach(k => { if (!validProgs.includes(k)) delete window.latestChartStats.prog[k]; });
             Object.keys(window.chartVisibility.prog).forEach(k => { if (!validProgs.includes(k)) delete window.chartVisibility.prog[k]; });
 
@@ -2071,8 +2205,9 @@
             let progCum = {};
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(p => {
-                    progCum[p] = Array(totalMonths).fill(0);
-                    if (window.chartVisibility.prog[p] === undefined) window.chartVisibility.prog[p] = true;
+                    const pName = p.name || p;
+                    progCum[pName] = Array(totalMonths).fill(0);
+                    if (window.chartVisibility.prog[pName] === undefined) window.chartVisibility.prog[pName] = true;
                 });
             });
 
@@ -2229,7 +2364,8 @@
             }
 
             if (ctx2) {
-                let mDatasets = window.customActions.map(a => ({
+                const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
+                let mDatasets = sortedActions.map(a => ({
                     label: a.title, data: actDaily[a.id], borderColor: twColors[a.color].hex, backgroundColor: twColors[a.color].hex + '25', tension: 0.4, borderWidth: 3, pointBackgroundColor: twColors[a.color].hex, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.monthly[a.id]
                 }));
                 if (window.monthlyChartActions) {
@@ -2243,7 +2379,8 @@
 
             const ctxYearly = document.getElementById('yearlyActionsChart');
             if (ctxYearly) {
-                let yDatasets = window.customActions.map(a => ({
+                const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
+                let yDatasets = sortedActions.map(a => ({
                     label: a.title, data: actCum[a.id], borderColor: twColors[a.color].hex, backgroundColor: twColors[a.color].hex + '15', tension: 0.4, borderWidth: 3, pointBackgroundColor: twColors[a.color].hex, pointRadius: 3, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.yearly[a.id]
                 }));
                 if (window.yearlyChartActions) {
@@ -2259,6 +2396,9 @@
                 const subDatasets = Object.keys(subData).map(k => ({
                     label: k.replace('BBA 1st - ', 'BBA1: ').replace('BBA 2nd - ', 'BBA2: '), data: subData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: !window.chartVisibility.subjects[k], subjectKey: k
                 }));
+                const sortedSubs = [...syllabusStructure.ca, ...syllabusStructure.bba];
+                const getSubIndex = (subName) => sortedSubs.findIndex(s => s.subject === subName);
+                subDatasets.sort((a, b) => getSubIndex(a.subjectKey) - getSubIndex(b.subjectKey));
                 if (window.subjectTrendChart) {
                     window.subjectTrendChart.data.labels = months;
                     window.subjectTrendChart.data.datasets = subDatasets;
@@ -2353,7 +2493,8 @@
         window.updateRevisionLegends = function () {
             const sLeg = document.getElementById('revision-trend-legend');
             if (sLeg) {
-                sLeg.innerHTML = [...syllabusStructure.ca, ...syllabusStructure.bba].map(s => {
+                const sortedSubs = [...syllabusStructure.ca, ...syllabusStructure.bba].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                sLeg.innerHTML = sortedSubs.map(s => {
                     const k = s.subject;
                     const val = window.latestChartStats.revSubjects ? window.latestChartStats.revSubjects[k] : 0;
                     const active = window.chartVisibility.revSubjects[k];
@@ -2373,18 +2514,27 @@
             };
             const pLeg = document.getElementById('prog-legend');
             if (pLeg) {
-                let pIdx = 0; pLeg.innerHTML = Object.keys(window.latestChartStats.prog).map(p => { const html = getLegend('prog', p, dynamicLineColors[pIdx % dynamicLineColors.length], p, p); pIdx++; return html; }).join('');
+                let pIdx = 0;
+                const sortedAllProgs = [...window.customPrograms.ca, ...window.customPrograms.bba];
+                pLeg.innerHTML = sortedAllProgs.map(pObj => {
+                    const p = pObj.name || pObj;
+                    const html = getLegend('prog', p, dynamicLineColors[pIdx % dynamicLineColors.length], p, p);
+                    pIdx++;
+                    return html;
+                }).join('');
             }
 
-            let actHtml = window.customActions.map(a => getLegend('monthly', a.id, twColors[a.color].hex, a.title, a.id)).join('');
+            const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+            let actHtml = sortedActions.map(a => getLegend('monthly', a.id, twColors[a.color].hex, a.title, a.id)).join('');
             const aLeg = document.getElementById('act-legend'); if (aLeg) aLeg.innerHTML = actHtml;
 
-            let yearHtml = window.customActions.map(a => getLegend('yearly', a.id, twColors[a.color].hex, a.title, a.id)).join('');
+            let yearHtml = sortedActions.map(a => getLegend('yearly', a.id, twColors[a.color].hex, a.title, a.id)).join('');
             const yLeg = document.getElementById('yearly-legend'); if (yLeg) yLeg.innerHTML = yearHtml;
 
             const sLeg = document.getElementById('subject-trend-legend');
             if (sLeg) {
-                sLeg.innerHTML = [...syllabusStructure.ca, ...syllabusStructure.bba].map(s => {
+                const sortedSubs = [...syllabusStructure.ca, ...syllabusStructure.bba].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                sLeg.innerHTML = sortedSubs.map(s => {
                     const k = s.subject; const val = window.latestChartStats.subjects ? window.latestChartStats.subjects[k] : 0; const active = window.chartVisibility.subjects[k]; const color = getSubjectColor(k);
                     const label = k.replace('BBA 1st - ', '').replace('BBA 2nd - ', '').substring(0, 12) + (k.length > 12 ? '..' : '');
                     const activeStyle = active ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%);`;
@@ -2422,7 +2572,8 @@
                 return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>`;
             };
 
-            window.customActions.forEach(cfg => {
+            const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
+            sortedActions.forEach(cfg => {
                 const state = todayTask ? todayTask[cfg.id] : false;
                 const cMap = twColors[cfg.color];
 
@@ -2465,7 +2616,8 @@
                 }
                 html += '</div>'; el.innerHTML = html; el.className = "flex flex-col flex-1 min-h-0 pt-2 border-t border-slate-100 dark:border-slate-700/60 mt-2";
             };
-            window.customActions.forEach(a => fill(`dt-log-${a.id}`, a.id));
+            const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+            sortedActions.forEach(a => fill(`dt-log-${a.id}`, a.id));
         };
 
         window.setDailyState = function (type, state) {
@@ -3073,7 +3225,8 @@
             const progSelect = document.getElementById('esm-program');
             progSelect.innerHTML = '';
             window.customPrograms[track].forEach(p => {
-                progSelect.innerHTML += `<option value="${p}">${p}</option>`;
+                const pName = p.name || p;
+                progSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
             });
         };
 
@@ -3395,7 +3548,8 @@
             progSelect.innerHTML = '';
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(p => {
-                    progSelect.innerHTML += `<option value="${p}">${p}</option>`;
+                    const pName = p.name || p;
+                    progSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
                 });
             });
 
@@ -3595,7 +3749,8 @@
             }
 
             htmlAction = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
-            window.customActions.forEach(a => {
+            const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+            sortedActions.forEach(a => {
                 const stat = actionStats[a.id];
                 const actPct = validDaysCount > 0 ? Math.round((stat.count / validDaysCount) * 100) : 0;
                 const cMap = twColors[a.color];
@@ -4294,12 +4449,13 @@
                 html += `<div class="mb-4"><h5 class="text-[10px] font-black uppercase text-slate-400 mb-2">Subjects</h5>`;
                 ['ca', 'bba'].forEach(track => {
                     window.customPrograms[track].forEach(prog => {
-                        const subs = syllabusStructure[track].filter(s => s.program === prog);
+                        const progName = prog.name || prog;
+                        const subs = syllabusStructure[track].filter(s => s.program === progName);
                         if (subs.length > 0) {
-                            html += `<div class="mb-2"><div class="text-[10px] font-black uppercase text-slate-400 mb-1.5 pl-1">${prog}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
+                            html += `<div class="mb-2"><div class="text-[10px] font-black uppercase text-slate-400 mb-1.5 pl-1">${progName}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
                             subs.forEach(s => {
                                 const isChecked = (goal.subjects && goal.subjects.includes(s.subject)) ? 'checked' : '';
-                                let displaySub = s.subject.replace(prog + ' - ', '').replace(prog + ' ', '');
+                                let displaySub = s.subject.replace(progName + ' - ', '').replace(progName + ' ', '');
                                 html += `
                                 <label class="flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all shadow-sm">
                                     <input type="checkbox" value="${s.subject}" class="edit-pace-subject-cb form-checkbox h-4 w-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 accent-orange-500 transition-all" ${isChecked}>
@@ -4344,11 +4500,12 @@
                     const selectedProgs = goal.programs || (goal.type === 'program' ? [goal.target] : []);
                     ['ca', 'bba'].forEach(track => {
                         window.customPrograms[track].forEach(p => {
-                            const isChecked = selectedProgs.includes(p) ? 'checked' : '';
+                            const pName = p.name || p;
+                            const isChecked = selectedProgs.some(sp => (sp.name || sp) === pName) ? 'checked' : '';
                             html += `
                             <label class="flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all shadow-sm">
-                                <input type="checkbox" value="${p}" class="edit-pace-cb form-checkbox h-4 w-4 text-violet-500 rounded border-slate-300 focus:ring-violet-500 accent-violet-500 transition-all" ${isChecked}>
-                                <span class="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300 truncate">${p}</span>
+                                <input type="checkbox" value="${pName}" class="edit-pace-cb form-checkbox h-4 w-4 text-violet-500 rounded border-slate-300 focus:ring-violet-500 accent-violet-500 transition-all" ${isChecked}>
+                                <span class="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300 truncate">${pName}</span>
                             </label>`;
                         });
                     });
@@ -4357,12 +4514,13 @@
                     const selectedSubs = goal.subjects || (goal.type === 'subject' ? [goal.target] : []);
                     ['ca', 'bba'].forEach(track => {
                         window.customPrograms[track].forEach(prog => {
-                            const subs = syllabusStructure[track].filter(s => s.program === prog);
+                            const progName = prog.name || prog;
+                            const subs = syllabusStructure[track].filter(s => s.program === progName);
                             if (subs.length > 0) {
-                                html += `<div class="mb-2"><div class="text-[10px] font-black uppercase text-slate-400 mb-1.5 pl-1">${prog}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
+                                html += `<div class="mb-2"><div class="text-[10px] font-black uppercase text-slate-400 mb-1.5 pl-1">${progName}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
                                 subs.forEach(s => {
                                     const isChecked = selectedSubs.includes(s.subject) ? 'checked' : '';
-                                    let displaySub = s.subject.replace(prog + ' - ', '').replace(prog + ' ', '');
+                                    let displaySub = s.subject.replace(progName + ' - ', '').replace(progName + ' ', '');
                                     html += `
                                     <label class="flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all shadow-sm">
                                         <input type="checkbox" value="${s.subject}" class="edit-pace-cb form-checkbox h-4 w-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 accent-orange-500 transition-all" ${isChecked}>
@@ -4417,7 +4575,7 @@
 
                 const firstItem = selectedItems[0];
                 let isProg = false;
-                ['ca', 'bba'].forEach(t => { if (window.customPrograms[t].includes(firstItem)) isProg = true; });
+                ['ca', 'bba'].forEach(t => { if (window.customPrograms[t].some(p => (p.name || p) === firstItem)) isProg = true; });
 
                 if (isProg) goal.programs = selectedItems;
                 else goal.subjects = selectedItems;
@@ -4454,9 +4612,10 @@
             subjSelect.innerHTML = '<option value="Revision">Revision (Empty Slot)</option>';
 
             window.customPrograms[prog].forEach(p => {
-                const subs = syllabusStructure[prog].filter(s => s.program === p);
+                const pName = p.name || p;
+                const subs = syllabusStructure[prog].filter(s => s.program === pName);
                 if (subs.length > 0) {
-                    let groupHtml = `<optgroup label="${p}">`;
+                    let groupHtml = `<optgroup label="${pName}">`;
                     subs.forEach(s => { groupHtml += `<option value="${s.subject}" ${s.subject === taskObj.subject ? 'selected' : ''}>${s.subject}</option>`; });
                     groupHtml += `</optgroup>`; subjSelect.innerHTML += groupHtml;
                 }
@@ -4540,7 +4699,7 @@
         // --- Configuration & Expansion System Logic ---
 
         window.switchSysTab = function (tab) {
-            ['chapter', 'subject', 'program', 'manage', 'pass'].forEach(t => {
+            ['chapter', 'subject', 'program', 'manage', 'pass', 'priority'].forEach(t => {
                 const btn = document.getElementById(`sys-tab-${t}`);
                 const content = document.getElementById(`sys-content-${t}`);
                 if (!btn || !content) return;
@@ -4557,6 +4716,7 @@
             if (tab === 'subject') updateSubProgDropdown();
             if (tab === 'manage') window.updateManageDropdown();
             if (tab === 'pass') window.renderPassConfig();
+            if (tab === 'priority') window.renderPriorityConfig();
         };
 
         window.updateManageDropdown = function () {
@@ -4569,19 +4729,26 @@
             if (type === 'action') {
                 trackBox.classList.add('hidden');
                 progBox.classList.add('hidden');
-                window.customActions.forEach(a => targetSelect.innerHTML += `<option value="${a.id}">${a.title}</option>`);
+                const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                sortedActions.forEach(a => targetSelect.innerHTML += `<option value="${a.id}">${a.title}</option>`);
             } else if (type === 'program') {
                 trackBox.classList.remove('hidden');
                 progBox.classList.add('hidden');
                 const track = document.getElementById('manage-track').value;
-                window.customPrograms[track].forEach(p => targetSelect.innerHTML += `<option value="${p}">${p}</option>`);
+                window.customPrograms[track].forEach(p => {
+                    const pName = p.name || p;
+                    targetSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
+                });
             } else if (type === 'subject') {
                 trackBox.classList.remove('hidden');
                 progBox.classList.remove('hidden');
                 const track = document.getElementById('manage-track').value;
                 const progSelect = document.getElementById('manage-program');
                 progSelect.innerHTML = '';
-                window.customPrograms[track].forEach(p => progSelect.innerHTML += `<option value="${p}">${p}</option>`);
+                window.customPrograms[track].forEach(p => {
+                    const pName = p.name || p;
+                    progSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
+                });
                 window.updateManageSubjects();
             }
         };
@@ -4592,7 +4759,7 @@
             const targetSelect = document.getElementById('manage-target');
             targetSelect.innerHTML = '';
 
-            const subs = syllabusStructure[track].filter(s => s.program === prog);
+            const subs = syllabusStructure[track].filter(s => s.program === prog).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
             subs.forEach(s => targetSelect.innerHTML += `<option value="${s.subject}">${s.subject}</option>`);
             if (subs.length === 0) targetSelect.innerHTML = '<option value="">No subjects found</option>';
         };
@@ -4608,10 +4775,16 @@
 
             if (type === 'program') {
                 if (oldName.toLowerCase() === newName.toLowerCase()) return showToast("New name must be different.", "error");
-                if (window.customPrograms[track].some(p => p.toLowerCase() === newName.toLowerCase())) return showToast("Program already exists.", "error");
+                if (window.customPrograms[track].some(p => (p.name || p).toLowerCase() === newName.toLowerCase())) return showToast("Program already exists.", "error");
 
-                const pIdx = window.customPrograms[track].indexOf(oldName);
-                if (pIdx > -1) window.customPrograms[track][pIdx] = newName;
+                const pIdx = window.customPrograms[track].findIndex(p => (p.name || p) === oldName);
+                if (pIdx > -1) {
+                    if (typeof window.customPrograms[track][pIdx] === 'object') {
+                        window.customPrograms[track][pIdx].name = newName;
+                    } else {
+                        window.customPrograms[track][pIdx] = newName;
+                    }
+                }
                 syllabusStructure[track].forEach(s => { if (s.program === oldName) s.program = newName; });
                 if (window.chartVisibility.prog[oldName] !== undefined) { window.chartVisibility.prog[newName] = window.chartVisibility.prog[oldName]; delete window.chartVisibility.prog[oldName]; }
 
@@ -4690,7 +4863,7 @@
                 const track = document.getElementById('manage-track').value;
                 if (type === 'program') {
                     const subsToDelete = syllabusStructure[track].filter(s => s.program === targetName).map(s => s.subject);
-                    window.customPrograms[track] = window.customPrograms[track].filter(p => p !== targetName);
+                    window.customPrograms[track] = window.customPrograms[track].filter(p => (p.name || p) !== targetName);
                     syllabusStructure[track] = syllabusStructure[track].filter(s => s.program !== targetName);
                     delete window.chartVisibility.prog[targetName]; subsToDelete.forEach(sub => delete window.chartVisibility.subjects[sub]);
                     for (let i = 0; i < tasks.length; i++) {
@@ -4737,7 +4910,10 @@
             const track = document.getElementById('add-ch-track').value;
             const progSelect = document.getElementById('add-ch-program');
             progSelect.innerHTML = '';
-            window.customPrograms[track].forEach(p => progSelect.innerHTML += `<option value="${p}">${p}</option>`);
+            window.customPrograms[track].forEach(p => {
+                const pName = p.name || p;
+                progSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
+            });
             updateChSubjDropdown();
         };
 
@@ -4746,7 +4922,7 @@
             const prog = document.getElementById('add-ch-program').value;
             const subjSelect = document.getElementById('add-ch-subject');
             subjSelect.innerHTML = '';
-            const subs = syllabusStructure[track].filter(s => s.program === prog);
+            const subs = syllabusStructure[track].filter(s => s.program === prog).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
             subs.forEach(s => subjSelect.innerHTML += `<option value="${s.subject}">${s.subject}</option>`);
             if (subs.length === 0) subjSelect.innerHTML = '<option value="">No subjects found</option>';
         };
@@ -4755,16 +4931,23 @@
             const track = document.getElementById('add-sub-track').value;
             const progSelect = document.getElementById('add-sub-program');
             progSelect.innerHTML = '';
-            window.customPrograms[track].forEach(p => progSelect.innerHTML += `<option value="${p}">${p}</option>`);
+            window.customPrograms[track].forEach(p => {
+                const pName = p.name || p;
+                progSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
+            });
         };
 
         window.appendNewProgram = function () {
             const track = document.getElementById('add-prog-track').value;
             const name = document.getElementById('add-prog-name').value.trim();
             if (!name) return showToast("Program name required.", "error");
-            if (window.customPrograms[track].some(p => p.toLowerCase() === name.toLowerCase())) return showToast("Program already exists.", "error");
+            if (window.customPrograms[track].some(p => (p.name || p).toLowerCase() === name.toLowerCase())) return showToast("Program already exists.", "error");
 
-            window.customPrograms[track].push(name);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            const nextOrder = window.customPrograms[track].length;
+            window.customPrograms[track].push({ id: slug || 'prog-' + Date.now(), name: name, priority: 3, order: nextOrder });
+            window.sortAllCustomData();
+
             document.getElementById('add-prog-name').value = '';
             saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
         };
@@ -4792,7 +4975,9 @@
                 ensureAvailableSlots(chaptersToAssign, track, todayIdx);
             }
 
-            syllabusStructure[track].push({ program: prog, subject: name, chapters: chaptersToAssign });
+            const nextSubOrder = syllabusStructure[track].filter(s => s.program === prog).length;
+            syllabusStructure[track].push({ program: prog, subject: name, chapters: chaptersToAssign, priority: 3, order: nextSubOrder });
+            window.sortAllCustomData();
             getSubjectColor(name);
 
             if (doBulk) {
@@ -4887,7 +5072,9 @@
             if (!title || !desc) return showToast("Please provide a Title and Description.", "error");
             const newId = 'act_' + title.toLowerCase().replace(/[^a-z0-9]/g, '') + Date.now().toString().slice(-4);
 
-            window.customActions.push({ id: newId, title: title, desc: desc, color: color, icon: 'generic' });
+            const nextOrder = window.customActions.length;
+            window.customActions.push({ id: newId, title: title, desc: desc, color: color, icon: 'generic', priority: 3, order: nextOrder });
+            window.sortAllCustomData();
 
             document.getElementById('add-act-title').value = ''; document.getElementById('add-act-desc').value = '';
             saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
@@ -4907,11 +5094,12 @@
                 if (window.customPrograms[track].length > 0) {
                     html += `<div class="mt-2 text-[9px] font-black uppercase text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1">${track === 'ca' ? 'PROFESSIONAL' : 'ACADEMIC'}</div>`;
                     window.customPrograms[track].forEach(p => {
-                        const isChecked = window.passedItems.programs.includes(p) ? 'checked' : '';
+                        const pName = p.name || p;
+                        const isChecked = window.passedItems.programs.includes(pName) ? 'checked' : '';
                         html += `
                         <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800 active:scale-95 transition-all">
-                            <input type="checkbox" onchange="window.togglePassStatus('program', '${p}', this.checked)" class="form-checkbox h-4 w-4 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500 transition-all" ${isChecked}>
-                            <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${p}</span>
+                            <input type="checkbox" onchange="window.togglePassStatus('program', '${pName}', this.checked)" class="form-checkbox h-4 w-4 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500 transition-all" ${isChecked}>
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${pName}</span>
                         </label>`;
                     });
                 }
@@ -4922,13 +5110,14 @@
             html += '<div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800"><h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Individual Subjects</h4><div class="flex flex-col gap-3 max-h-72 overflow-y-auto custom-scrollbar pr-2">';
             ['ca', 'bba'].forEach(track => {
                 window.customPrograms[track].forEach(prog => {
-                    const subs = syllabusStructure[track].filter(s => s.program === prog);
+                    const progName = prog.name || prog;
+                    const subs = syllabusStructure[track].filter(s => s.program === progName);
                     if (subs.length > 0) {
                         html += `
                         <details class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm group">
                             <summary class="cursor-pointer font-black text-[10px] md:text-[11px] uppercase tracking-widest text-slate-700 dark:text-slate-300 p-3 outline-none select-none list-none flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 active:scale-95 rounded-xl transition-all [&::-webkit-details-marker]:hidden">
                                 <div class="flex items-center space-x-2">
-                                    <span>${prog}</span>
+                                    <span>${progName}</span>
                                     <span class="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-md text-[8px]">${subs.length} Subs</span>
                                 </div>
                                 <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -4937,7 +5126,7 @@
                                 <div class="flex flex-col gap-1.5 mt-3">
                         `;
                         subs.forEach(s => {
-                            const isProgPassed = window.passedItems.programs.includes(prog);
+                            const isProgPassed = window.passedItems.programs.includes(progName);
                             const isChecked = window.passedItems.subjects.includes(s.subject) || isProgPassed ? 'checked' : '';
                             let displaySub = s.subject.replace(s.program + ' - ', '').replace(s.program + ' ', '');
                             html += `
@@ -5027,6 +5216,274 @@
             showToast(name + (isChecked ? " frozen & marked passed!" : " unfrozen!"), "success");
         };
 
+        window.moveProgram = function (track, index, direction) {
+            const list = window.customPrograms[track];
+            if (!list) return;
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= list.length) return;
+            
+            // Swap
+            const temp = list[index];
+            list[index] = list[targetIndex];
+            list[targetIndex] = temp;
+            
+            // Re-assign order
+            list.forEach((p, idx) => p.order = idx);
+            
+            window.sortAllCustomData();
+            saveToCloud();
+            renderUI();
+            window.renderPriorityConfig();
+            showToast("Program order updated!", "success");
+        };
+
+        window.moveSubject = function (track, programName, index, direction) {
+            const allSubs = syllabusStructure[track];
+            const progSubs = allSubs.filter(s => s.program === programName);
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= progSubs.length) return;
+            
+            // Swap
+            const temp = progSubs[index];
+            progSubs[index] = progSubs[targetIndex];
+            progSubs[targetIndex] = temp;
+            
+            // Re-assign order for these specific program subjects
+            progSubs.forEach((s, idx) => {
+                s.order = idx;
+            });
+            
+            window.sortAllCustomData();
+            saveToCloud();
+            renderUI();
+            window.renderPriorityConfig();
+            showToast("Subject order updated!", "success");
+        };
+
+        window.moveAction = function (index, direction) {
+            const list = window.customActions;
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= list.length) return;
+            
+            // Swap
+            const temp = list[index];
+            list[index] = list[targetIndex];
+            list[targetIndex] = temp;
+            
+            // Re-assign order
+            list.forEach((a, idx) => a.order = idx);
+            
+            window.sortAllCustomData();
+            saveToCloud();
+            renderUI();
+            window.renderPriorityConfig();
+            showToast("Daily action order updated!", "success");
+        };
+
+        window.renderPriorityConfig = function () {
+            const container = document.getElementById('sys-content-priority');
+            if (!container) return;
+
+            let html = `
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 font-bold">Assign custom priorities (1 = Highest, Lower numbers first) and manually reorder your Programs, Subjects, and Daily Actions. Use ▲ and ▼ to shift elements.</p>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            `;
+
+            // 1. Programs Column
+            html += `
+            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Programs (Tracks)</h4>
+                <div class="flex flex-col gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+            `;
+            ['ca', 'bba'].forEach(track => {
+                const progs = window.customPrograms[track];
+                if (progs.length > 0) {
+                    html += `<div class="text-[9px] font-black uppercase text-slate-400 tracking-wider mt-2">${track === 'ca' ? 'PROFESSIONAL' : 'ACADEMIC'}</div>`;
+                    progs.forEach((p, idx) => {
+                        const pName = p.name || p;
+                        const pVal = p.priority !== undefined ? p.priority : 3;
+                        html += `
+                        <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all hover:border-blue-400">
+                            <div class="flex flex-col min-w-0 pr-2">
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate">${pName}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Order: ${idx + 1}</span>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <input type="number" id="priority-program-${track}-${p.id}" min="1" max="999" value="${pVal}"
+                                    class="w-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
+                                    title="Priority Number">
+                                <div class="flex flex-col space-y-0.5">
+                                    <button onclick="window.moveProgram('${track}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
+                                        class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+                                    </button>
+                                    <button onclick="window.moveProgram('${track}', ${idx}, 1)" ${idx === progs.length - 1 ? 'disabled' : ''} 
+                                        class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                }
+            });
+            html += '</div></div>';
+
+            // 2. Syllabus Subjects Column
+            html += `
+            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Syllabus Subjects</h4>
+                <div class="flex flex-col gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+            `;
+            let hasSubjects = false;
+            ['ca', 'bba'].forEach(track => {
+                window.customPrograms[track].forEach(prog => {
+                    const progName = prog.name || prog;
+                    const subs = syllabusStructure[track].filter(s => s.program === progName);
+                    if (subs.length > 0) {
+                        hasSubjects = true;
+                        html += `
+                        <details open class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm group">
+                            <summary class="cursor-pointer font-black text-[9px] uppercase tracking-widest text-slate-400 p-2.5 border-b border-slate-100 dark:border-slate-800 outline-none select-none flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all rounded-t-xl">
+                                <span>${progName} (${track.toUpperCase()})</span>
+                            </summary>
+                            <div class="p-2 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-800/50">
+                        `;
+                        subs.forEach((s, idx) => {
+                            const val = s.priority !== undefined ? s.priority : 3;
+                            const color = getSubjectColor(s.subject);
+                            const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
+                            html += `
+                            <div class="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 shadow-sm transition-all hover:border-blue-400">
+                                <div class="flex items-center space-x-2 min-w-0 pr-1">
+                                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${color}"></span>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title="${s.subject}">${s.subject}</span>
+                                </div>
+                                <div class="flex items-center space-x-2 shrink-0">
+                                    <input type="number" id="priority-subject-${track}-${safeSubId}" min="1" max="999" value="${val}"
+                                        class="w-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
+                                        title="Priority Number">
+                                    <div class="flex flex-col space-y-0.5">
+                                        <button onclick="window.moveSubject('${track}', '${progName.replace(/'/g, "\\'")}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
+                                            class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+                                        </button>
+                                        <button onclick="window.moveSubject('${track}', '${progName.replace(/'/g, "\\'")}', ${idx}, 1)" ${idx === subs.length - 1 ? 'disabled' : ''} 
+                                            class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>`;
+                        });
+                        html += '</div></details>';
+                    }
+                });
+            });
+            if (!hasSubjects) {
+                html += `<p class="text-xs font-bold text-slate-400">No syllabus subjects found.</p>`;
+            }
+            html += '</div></div>';
+
+            // 3. Daily Action Trackers Column
+            html += `
+            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Daily Action Trackers</h4>
+                <div class="flex flex-col gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+            `;
+            if (window.customActions.length === 0) {
+                html += `<p class="text-xs font-bold text-slate-400">No custom actions created yet.</p>`;
+            } else {
+                window.customActions.forEach((a, idx) => {
+                    const pVal = a.priority !== undefined ? a.priority : 3;
+                    const cMap = twColors[a.color] || twColors.indigo;
+                    html += `
+                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all hover:border-blue-400">
+                        <div class="flex items-center space-x-2 min-w-0 pr-1">
+                            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${cMap.hex}"></span>
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate">${a.title}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase truncate max-w-[120px]">${a.desc}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <select id="priority-action-${a.id}"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500">
+                                <option value="1" ${pVal === 1 ? 'selected' : ''}>Critical</option>
+                                <option value="2" ${pVal === 2 ? 'selected' : ''}>High</option>
+                                <option value="3" ${pVal === 3 ? 'selected' : ''}>Medium</option>
+                                <option value="4" ${pVal === 4 ? 'selected' : ''}>Low</option>
+                            </select>
+                            <div class="flex flex-col space-y-0.5">
+                                <button onclick="window.moveAction(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
+                                    class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+                                </button>
+                                <button onclick="window.moveAction(${idx}, 1)" ${idx === window.customActions.length - 1 ? 'disabled' : ''} 
+                                    class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            }
+            html += '</div></div></div>';
+
+            // Save Priorities Button
+            html += `
+            <div class="mt-8 flex justify-end">
+                <button onclick="window.savePriorities()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest px-8 py-3 rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                    Save & Sync Priorities
+                </button>
+            </div>
+            `;
+
+            container.innerHTML = html;
+        };
+
+        window.savePriorities = function () {
+            // Save Program priorities
+            ['ca', 'bba'].forEach(track => {
+                window.customPrograms[track].forEach(p => {
+                    const input = document.getElementById(`priority-program-${track}-${p.id}`);
+                    if (input) {
+                        const val = parseInt(input.value);
+                        p.priority = isNaN(val) ? 3 : val;
+                    }
+                });
+            });
+
+            // Save Subject priorities
+            ['ca', 'bba'].forEach(track => {
+                syllabusStructure[track].forEach(s => {
+                    const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
+                    const input = document.getElementById(`priority-subject-${track}-${safeSubId}`);
+                    if (input) {
+                        const val = parseInt(input.value);
+                        s.priority = isNaN(val) ? 3 : val;
+                    }
+                });
+            });
+
+            // Save Daily Action priorities
+            window.customActions.forEach(a => {
+                const select = document.getElementById(`priority-action-${a.id}`);
+                if (select) {
+                    const val = parseInt(select.value);
+                    a.priority = isNaN(val) ? 3 : val;
+                }
+            });
+
+            window.sortAllCustomData();
+            saveToCloud();
+            renderUI();
+            window.renderPriorityConfig();
+            showToast("Priorities saved and synced successfully!", "success");
+        };
+
         // --- Pace Management System Logic ---
         window.togglePaceBundleType = function () {
             const bType = document.getElementById('add-pace-bundle-type').value;
@@ -5062,13 +5519,14 @@
             if (bType === 'subjects') {
                 ['ca', 'bba'].forEach(track => {
                     window.customPrograms[track].forEach(prog => {
-                        const subs = syllabusStructure[track].filter(s => s.program === prog);
+                        const progName = prog.name || prog;
+                        const subs = syllabusStructure[track].filter(s => s.program === progName);
                         if (subs.length > 0) {
                             html += `
                             <details class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm group">
                                 <summary class="cursor-pointer font-black text-[10px] md:text-[11px] uppercase tracking-widest text-slate-700 dark:text-slate-300 p-3 outline-none select-none list-none flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 active:scale-95 rounded-xl transition-all [&::-webkit-details-marker]:hidden">
                                     <div class="flex items-center space-x-2">
-                                        <span>${prog}</span>
+                                        <span>${progName}</span>
                                         <span class="bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md text-[8px]">${subs.length} Subjects</span>
                                     </div>
                                     <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -5077,7 +5535,7 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3">
                             `;
                             subs.forEach(s => {
-                                let displaySub = s.subject.replace(prog + ' - ', '').replace(prog + ' ', '');
+                                let displaySub = s.subject.replace(progName + ' - ', '').replace(progName + ' ', '');
                                 html += `
                                         <label class="flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-orange-400 active:scale-95 transition-all shadow-sm group/label">
                                             <input type="checkbox" value="${s.subject}" class="pace-subject-cb form-checkbox h-4 w-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 accent-orange-500 transition-all">
@@ -5096,10 +5554,11 @@
                 ['ca', 'bba'].forEach(track => {
                     if (window.customPrograms[track].length > 0) {
                         window.customPrograms[track].forEach(p => {
+                            const pName = p.name || p;
                             html += `
                             <label class="flex items-center space-x-2 cursor-pointer bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-400 active:scale-95 transition-all shadow-sm">
-                                <input type="checkbox" value="${p}" class="pace-subject-cb form-checkbox h-4 w-4 text-violet-500 rounded border-slate-300 focus:ring-violet-500 accent-violet-500 transition-all">
-                                <span class="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300 truncate">${p}</span>
+                                <input type="checkbox" value="${pName}" class="pace-subject-cb form-checkbox h-4 w-4 text-violet-500 rounded border-slate-300 focus:ring-violet-500 accent-violet-500 transition-all">
+                                <span class="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300 truncate">${pName}</span>
                             </label>`;
                         });
                     }
@@ -5109,13 +5568,14 @@
                 html += `<div class="mb-4"><h5 class="text-[10px] font-black uppercase text-slate-400 mb-2">Subjects</h5>`;
                 ['ca', 'bba'].forEach(track => {
                     window.customPrograms[track].forEach(prog => {
-                        const subs = syllabusStructure[track].filter(s => s.program === prog);
+                        const progName = prog.name || prog;
+                        const subs = syllabusStructure[track].filter(s => s.program === progName);
                         if (subs.length > 0) {
                             html += `
                             <details class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm group mb-2">
                                 <summary class="cursor-pointer font-black text-[10px] md:text-[11px] uppercase tracking-widest text-slate-700 dark:text-slate-300 p-3 outline-none select-none list-none flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 active:scale-95 rounded-xl transition-all [&::-webkit-details-marker]:hidden">
                                     <div class="flex items-center space-x-2">
-                                        <span>${prog}</span>
+                                        <span>${progName}</span>
                                         <span class="bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md text-[8px]">${subs.length} Subjects</span>
                                     </div>
                                     <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -5124,7 +5584,7 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3">
                             `;
                             subs.forEach(s => {
-                                let displaySub = s.subject.replace(prog + ' - ', '').replace(prog + ' ', '');
+                                let displaySub = s.subject.replace(progName + ' - ', '').replace(progName + ' ', '');
                                 html += `
                                         <label class="flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-orange-400 active:scale-95 transition-all shadow-sm group/label">
                                             <input type="checkbox" value="${s.subject}" class="global-subject-cb form-checkbox h-4 w-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 accent-orange-500 transition-all">
@@ -5280,6 +5740,9 @@
                 }
             } catch(e) {}
             
+            window.migrateLegacyData();
+            window.sortAllCustomData();
+
             renderUI();
             initializeFirebase();
         });
@@ -5678,6 +6141,9 @@
                 <button id="sys-tab-pass" onclick="switchSysTab('pass')"
                     class="px-5 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 active:scale-95">Pass
                     / Freeze</button>
+                <button id="sys-tab-priority" onclick="switchSysTab('priority')"
+                    class="px-5 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 active:scale-95">Set
+                    Priority</button>
             </div>
 
             <!-- Tab Contents -->
@@ -5913,6 +6379,7 @@
             </div>
 
             <div id="sys-content-pass" class="hidden transition-all"></div>
+            <div id="sys-content-priority" class="hidden transition-all"></div>
 
             <div id="toast-message" class="hidden mt-4"></div>
         </div>
