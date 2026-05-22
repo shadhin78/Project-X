@@ -130,11 +130,26 @@
 
         function parseDateSafe(dateStr) {
             if (!dateStr) return new Date();
-            if (dateStr.includes('-')) {
-                const [y, m, d] = dateStr.split('-');
-                return new Date(y, m - 1, d);
+            if (dateStr instanceof Date) return new Date(dateStr.getTime());
+            if (typeof dateStr === 'object') {
+                if (typeof dateStr.toDate === 'function') return dateStr.toDate();
+                if (dateStr.seconds !== undefined) return new Date(dateStr.seconds * 1000);
             }
-            return new Date(dateStr);
+            // Try parsing directly first
+            let parsed = new Date(dateStr);
+            if (!isNaN(parsed.getTime())) return parsed;
+
+            // Fallback split logic if direct parsing failed and it has dashes
+            if (typeof dateStr === 'string' && dateStr.includes('-')) {
+                const parts = dateStr.split('T')[0].split('-');
+                if (parts.length === 3) {
+                    const [y, m, d] = parts.map(Number);
+                    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                        return new Date(y, m - 1, d);
+                    }
+                }
+            }
+            return new Date();
         }
 
         function ensureAvailableSlots(slotsNeeded, track, startIndex) {
@@ -640,7 +655,7 @@
             showToast("Dashboard titles updated!", "success");
         };
 
-        function rebuildTaskDates() {
+        function rebuildTaskDates(shouldSave = true) {
             if (!tasks || tasks.length === 0) return;
             const baseDate = new Date(PLAN_START_DATE.getTime());
             tasks.forEach(t => {
@@ -652,7 +667,9 @@
             const newEndDate = new Date(baseDate.getTime());
             newEndDate.setDate(newEndDate.getDate() + (tasks[tasks.length - 1].id - 1));
             PLAN_END_DATE = newEndDate;
-            saveToCloud();
+            if (shouldSave) {
+                saveToCloud();
+            }
         }
 
         function updateGlobalDates() {
@@ -662,17 +679,24 @@
             if (globalGoal) {
                 if (globalGoal.startDate) {
                     const newStart = parseDateSafe(globalGoal.startDate);
-                    newStart.setHours(0, 0, 0, 0);
-                    const currentStart = new Date(PLAN_START_DATE.getTime());
-                    currentStart.setHours(0, 0, 0, 0);
+                    if (!isNaN(newStart.getTime())) {
+                        newStart.setHours(0, 0, 0, 0);
+                        const currentStart = new Date(PLAN_START_DATE.getTime());
+                        currentStart.setHours(0, 0, 0, 0);
 
-                    if (newStart.getTime() !== currentStart.getTime()) {
-                        PLAN_START_DATE = new Date(newStart.getTime());
-                        dateChanged = true;
+                        if (newStart.getTime() !== currentStart.getTime()) {
+                            PLAN_START_DATE = new Date(newStart.getTime());
+                            dateChanged = true;
+                        }
+                        globalStartDate = new Date(newStart.getTime());
                     }
-                    globalStartDate = parseDateSafe(globalGoal.startDate);
                 }
-                if (globalGoal.deadline) globalEndDate = parseDateSafe(globalGoal.deadline);
+                if (globalGoal.deadline) {
+                    const newEnd = parseDateSafe(globalGoal.deadline);
+                    if (!isNaN(newEnd.getTime())) {
+                        globalEndDate = new Date(newEnd.getTime());
+                    }
+                }
             } else {
                 globalStartDate = null;
                 globalEndDate = null;
@@ -682,7 +706,7 @@
             if (globalEndDate) globalEndDate.setHours(23, 59, 59, 999);
 
             if (dateChanged) {
-                rebuildTaskDates();
+                rebuildTaskDates(false); // Update memory but do not write back to cloud automatically on render
             }
         }
 
