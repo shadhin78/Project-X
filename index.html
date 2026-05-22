@@ -733,6 +733,7 @@
                 const tabName = activeSysTab.id.replace('sys-tab-', '');
                 if (tabName === 'chapter') window.updateChProgDropdown();
                 if (tabName === 'subject') window.updateSubProgDropdown();
+                if (tabName === 'priority') window.renderPriorityConfig();
             }
             if (document.getElementById('revision-manage-modal') && !document.getElementById('revision-manage-modal').classList.contains('hidden')) {
                 window.renderRevisionModalContent();
@@ -5344,7 +5345,7 @@
                         hasSubjects = true;
                         html += `
                         <details open class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm group">
-                            <summary class="cursor-pointer font-black text-[9px] uppercase tracking-widest text-slate-400 p-2.5 border-b border-slate-100 dark:border-slate-800 outline-none select-none flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all rounded-t-xl">
+                            <summary class="cursor-pointer font-black text-[9px] uppercase tracking-widest text-slate-400 p-2.5 border-b border-slate-100 dark:border-slate-800 outline-none select-none list-none flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all rounded-t-xl [&::-webkit-details-marker]:hidden">
                                 <span>${progName} (${track.toUpperCase()})</span>
                             </summary>
                             <div class="p-2 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-800/50">
