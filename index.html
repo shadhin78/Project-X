@@ -757,13 +757,13 @@
                 const tabName = activeSysTab.id.replace('sys-tab-', '');
                 if (tabName === 'chapter') window.updateChProgDropdown();
                 if (tabName === 'subject') window.updateSubProgDropdown();
-            }
-
-            // Standalone Priority rendering with focus protection
-            const activeEl = document.activeElement;
-            const isFocusInPriority = activeEl && document.getElementById('sys-content-priority')?.contains(activeEl);
-            if (!isFocusInPriority) {
-                window.renderPriorityConfig();
+                if (tabName === 'priority') {
+                    const activeEl = document.activeElement;
+                    const isFocusInPriority = activeEl && document.getElementById('sys-content-priority')?.contains(activeEl);
+                    if (!isFocusInPriority) {
+                        window.renderPriorityConfig();
+                    }
+                }
             }
             if (document.getElementById('revision-manage-modal') && !document.getElementById('revision-manage-modal').classList.contains('hidden')) {
                 window.renderRevisionModalContent();
@@ -4730,7 +4730,7 @@
         // --- Configuration & Expansion System Logic ---
 
         window.switchSysTab = function (tab) {
-            ['chapter', 'subject', 'program', 'manage', 'pass'].forEach(t => {
+            ['chapter', 'subject', 'program', 'manage', 'pass', 'priority'].forEach(t => {
                 const btn = document.getElementById(`sys-tab-${t}`);
                 const content = document.getElementById(`sys-content-${t}`);
                 if (!btn || !content) return;
@@ -4747,6 +4747,7 @@
             if (tab === 'subject') updateSubProgDropdown();
             if (tab === 'manage') window.updateManageDropdown();
             if (tab === 'pass') window.renderPassConfig();
+            if (tab === 'priority') window.renderPriorityConfig();
         };
 
         window.updateManageDropdown = function () {
@@ -5849,7 +5850,6 @@
         .sticky,
         .backdrop-blur-xl,
         .backdrop-blur-sm,
-        #priority-configuration-section,
         #sys-content-priority div,
         #sys-content-priority div.flex {
             transform: translate3d(0, 0, 0);
@@ -6247,6 +6247,9 @@
                 <button id="sys-tab-pass" onclick="switchSysTab('pass')"
                     class="px-5 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 active:scale-95">Pass
                     / Freeze</button>
+                <button id="sys-tab-priority" onclick="switchSysTab('priority')"
+                    class="px-5 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 active:scale-95">Set
+                    Priority</button>
             </div>
 
             <!-- Tab Contents -->
@@ -6482,6 +6485,7 @@
             </div>
 
             <div id="sys-content-pass" class="hidden transition-all"></div>
+            <div id="sys-content-priority" class="hidden transition-all"></div>
 
             <div id="toast-message" class="hidden mt-4"></div>
         </div>
@@ -6605,21 +6609,6 @@
             </div>
         </div>
 
-        <!-- Priority Configuration Section -->
-        <div id="priority-configuration-section" class="mt-8 md:mt-12 bg-white dark:bg-slate-800 p-5 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col scroll-mt-24 md:scroll-mt-32">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Set Priority</h3>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Assign custom priorities and manually reorder programs, subjects, and daily actions</p>
-                    </div>
-                </div>
-            </div>
-            <div id="sys-content-priority" class="transition-all"></div>
-        </div>
     </div>
 
     <!-- Modals -->
