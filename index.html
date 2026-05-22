@@ -3044,8 +3044,11 @@
             `).join('');
 
             // Data mapping for Trend Chart
-            let chartStart = new Date(PLAN_START_DATE.getTime());
-            let chartEnd = new Date(PLAN_END_DATE.getTime());
+            const sStartDate = globalStartDate || PLAN_START_DATE;
+            const sEndDate = globalEndDate || PLAN_END_DATE;
+
+            let chartStart = new Date(sStartDate.getTime());
+            let chartEnd = new Date(sEndDate.getTime());
             const todayObj = new Date();
             if (todayObj > chartEnd) chartEnd = new Date(todayObj);
 
@@ -3109,48 +3112,50 @@
                 </div>
             `;
 
-            // Render Chart
-            const ctxChart = document.getElementById('globalDatabaseChart');
-            if (ctxChart) {
-                if (window.globalHistoryChartInstance) window.globalHistoryChartInstance.destroy();
+            // Render Chart only when the trend tab is active and visible
+            if (window.currentGhmTab === 'trend') {
+                const ctxChart = document.getElementById('globalDatabaseChart');
+                if (ctxChart) {
+                    if (window.globalHistoryChartInstance) window.globalHistoryChartInstance.destroy();
 
-                Chart.defaults.color = '#94a3b8'; Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui';
-                window.globalHistoryChartInstance = new Chart(ctxChart.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: months,
-                        datasets: [
-                            {
-                                label: 'Study Chapters (Burn-up)',
-                                data: studyData,
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                                tension: 0.4, borderWidth: 3, fill: true,
-                                pointBackgroundColor: '#3b82f6', pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
-                            },
-                            {
-                                label: 'Revision Chapters (Burn-up)',
-                                data: revData,
-                                borderColor: '#8b5cf6',
-                                backgroundColor: 'rgba(139, 92, 246, 0.15)',
-                                tension: 0.4, borderWidth: 3, fill: true,
-                                pointBackgroundColor: '#8b5cf6', pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { weight: 'bold' } } },
-                            tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#fff', bodyColor: '#cbd5e1', cornerRadius: 8, padding: 12, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } }
+                    Chart.defaults.color = '#94a3b8'; Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui';
+                    window.globalHistoryChartInstance = new Chart(ctxChart.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: months,
+                            datasets: [
+                                {
+                                    label: 'Study Chapters (Burn-up)',
+                                    data: studyData,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                    tension: 0.4, borderWidth: 3, fill: true,
+                                    pointBackgroundColor: '#3b82f6', pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
+                                },
+                                {
+                                    label: 'Revision Chapters (Burn-up)',
+                                    data: revData,
+                                    borderColor: '#8b5cf6',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                                    tension: 0.4, borderWidth: 3, fill: true,
+                                    pointBackgroundColor: '#8b5cf6', pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
+                                }
+                            ]
                         },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }, ticks: { font: { weight: 'bold' } } },
-                            x: { grid: { display: false, drawBorder: false }, ticks: { font: { weight: 'bold' } } }
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { weight: 'bold' } } },
+                                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#fff', bodyColor: '#cbd5e1', cornerRadius: 8, padding: 12, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }, ticks: { font: { weight: 'bold' } } },
+                                x: { grid: { display: false, drawBorder: false }, ticks: { font: { weight: 'bold' } } }
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
 
             if (window.currentGhmTab === 'trend' && window.globalHistoryChartInstance) {
@@ -3183,8 +3188,8 @@
                 }
             });
 
-            if (tab === 'trend' && window.globalHistoryChartInstance) {
-                setTimeout(() => window.globalHistoryChartInstance.resize(), 50);
+            if (tab === 'trend') {
+                window.renderGlobalHistoryContent();
             }
         };
 
