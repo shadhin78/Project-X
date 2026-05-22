@@ -757,7 +757,13 @@
                 const tabName = activeSysTab.id.replace('sys-tab-', '');
                 if (tabName === 'chapter') window.updateChProgDropdown();
                 if (tabName === 'subject') window.updateSubProgDropdown();
-                if (tabName === 'priority') window.renderPriorityConfig();
+                if (tabName === 'priority') {
+                    const activeEl = document.activeElement;
+                    const isFocusInPriority = activeEl && document.getElementById('sys-content-priority')?.contains(activeEl);
+                    if (!isFocusInPriority) {
+                        window.renderPriorityConfig();
+                    }
+                }
             }
             if (document.getElementById('revision-manage-modal') && !document.getElementById('revision-manage-modal').classList.contains('hidden')) {
                 window.renderRevisionModalContent();
@@ -5241,18 +5247,72 @@
             showToast(name + (isChecked ? " frozen & marked passed!" : " unfrozen!"), "success");
         };
 
+        window.syncPriorityInputsFromDOM = function () {
+            // Save Program priorities
+            ['ca', 'bba'].forEach(track => {
+                if (window.customPrograms && window.customPrograms[track]) {
+                    window.customPrograms[track].forEach(p => {
+                        const input = document.getElementById(`priority-program-${track}-${p.id}`);
+                        if (input) {
+                            const val = parseInt(input.value);
+                            p.priority = isNaN(val) ? 3 : val;
+                        }
+                    });
+                }
+            });
+
+            // Save Subject priorities
+            ['ca', 'bba'].forEach(track => {
+                if (syllabusStructure && syllabusStructure[track]) {
+                    syllabusStructure[track].forEach(s => {
+                        const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
+                        const input = document.getElementById(`priority-subject-${track}-${safeSubId}`);
+                        if (input) {
+                            const val = parseInt(input.value);
+                            s.priority = isNaN(val) ? 3 : val;
+                        }
+                    });
+                }
+            });
+
+            // Save Daily Action priorities
+            if (window.customActions) {
+                window.customActions.forEach(a => {
+                    const select = document.getElementById(`priority-action-${a.id}`);
+                    if (select) {
+                        const val = parseInt(select.value);
+                        a.priority = isNaN(val) ? 3 : val;
+                    }
+                });
+            }
+        };
+
         window.moveProgram = function (track, index, direction) {
             const list = window.customPrograms[track];
             if (!list) return;
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= list.length) return;
             
-            // Swap
-            const temp = list[index];
-            list[index] = list[targetIndex];
-            list[targetIndex] = temp;
+            // Sync current input values from DOM to state
+            window.syncPriorityInputsFromDOM();
+
+            const itemA = list[index];
+            const itemB = list[targetIndex];
+
+            // Swap priority and order
+            const tempPriority = itemA.priority;
+            itemA.priority = itemB.priority;
+            itemB.priority = tempPriority;
+
+            const tempOrder = itemA.order;
+            itemA.order = itemB.order;
+            itemB.order = tempOrder;
             
-            // Re-assign order
+            // Swap positions in array
+            list[index] = itemB;
+            list[targetIndex] = itemA;
+            
+            // Re-assign order to enforce continuous indices
             list.forEach((p, idx) => p.order = idx);
             
             window.sortAllCustomData();
@@ -5268,10 +5328,24 @@
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= progSubs.length) return;
             
-            // Swap
-            const temp = progSubs[index];
-            progSubs[index] = progSubs[targetIndex];
-            progSubs[targetIndex] = temp;
+            // Sync current input values from DOM to state
+            window.syncPriorityInputsFromDOM();
+
+            const itemA = progSubs[index];
+            const itemB = progSubs[targetIndex];
+
+            // Swap priority and order
+            const tempPriority = itemA.priority;
+            itemA.priority = itemB.priority;
+            itemB.priority = tempPriority;
+
+            const tempOrder = itemA.order;
+            itemA.order = itemB.order;
+            itemB.order = tempOrder;
+            
+            // Swap positions in the filtered array
+            progSubs[index] = itemB;
+            progSubs[targetIndex] = itemA;
             
             // Re-assign order for these specific program subjects
             progSubs.forEach((s, idx) => {
@@ -5290,10 +5364,24 @@
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= list.length) return;
             
-            // Swap
-            const temp = list[index];
-            list[index] = list[targetIndex];
-            list[targetIndex] = temp;
+            // Sync current input values from DOM to state
+            window.syncPriorityInputsFromDOM();
+
+            const itemA = list[index];
+            const itemB = list[targetIndex];
+
+            // Swap priority and order
+            const tempPriority = itemA.priority;
+            itemA.priority = itemB.priority;
+            itemB.priority = tempPriority;
+
+            const tempOrder = itemA.order;
+            itemA.order = itemB.order;
+            itemB.order = tempOrder;
+            
+            // Swap positions in array
+            list[index] = itemB;
+            list[targetIndex] = itemA;
             
             // Re-assign order
             list.forEach((a, idx) => a.order = idx);
@@ -5470,38 +5558,7 @@
         };
 
         window.savePriorities = function () {
-            // Save Program priorities
-            ['ca', 'bba'].forEach(track => {
-                window.customPrograms[track].forEach(p => {
-                    const input = document.getElementById(`priority-program-${track}-${p.id}`);
-                    if (input) {
-                        const val = parseInt(input.value);
-                        p.priority = isNaN(val) ? 3 : val;
-                    }
-                });
-            });
-
-            // Save Subject priorities
-            ['ca', 'bba'].forEach(track => {
-                syllabusStructure[track].forEach(s => {
-                    const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
-                    const input = document.getElementById(`priority-subject-${track}-${safeSubId}`);
-                    if (input) {
-                        const val = parseInt(input.value);
-                        s.priority = isNaN(val) ? 3 : val;
-                    }
-                });
-            });
-
-            // Save Daily Action priorities
-            window.customActions.forEach(a => {
-                const select = document.getElementById(`priority-action-${a.id}`);
-                if (select) {
-                    const val = parseInt(select.value);
-                    a.priority = isNaN(val) ? 3 : val;
-                }
-            });
-
+            window.syncPriorityInputsFromDOM();
             window.sortAllCustomData();
             saveToCloud();
             renderUI();
