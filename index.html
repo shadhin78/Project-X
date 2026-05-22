@@ -5396,6 +5396,17 @@
             const container = document.getElementById('sys-content-priority');
             if (!container) return;
 
+            // Prevent redundant render cycles & flickering by guarding identical data updates
+            const currentDataString = JSON.stringify({
+                programs: window.customPrograms,
+                syllabus: syllabusStructure,
+                actions: window.customActions
+            });
+            if (currentDataString === window.lastPriorityRenderData) {
+                return;
+            }
+            window.lastPriorityRenderData = currentDataString;
+
             let html = `
             <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 font-bold">Assign custom priorities (1 = Highest, Lower numbers first) and manually reorder your Programs, Subjects, and Daily Actions. Use ▲ and ▼ to shift elements.</p>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -5416,15 +5427,15 @@
                         const pVal = p.priority !== undefined ? p.priority : 3;
                         html += `
                         <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all hover:border-blue-400">
-                            <div class="flex flex-col min-w-0 pr-2">
-                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate">${pName}</span>
-                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Order: ${idx + 1}</span>
+                            <div class="flex flex-col min-w-0 pr-2 flex-1">
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 break-words whitespace-normal leading-normal">${pName}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 shrink-0">Order: ${idx + 1}</span>
                             </div>
-                            <div class="flex items-center space-x-2 shrink-0">
+                            <div class="flex items-center space-x-1.5 shrink-0 ml-2">
                                 <input type="number" id="priority-program-${track}-${p.id}" min="1" max="999" value="${pVal}"
                                     class="w-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
                                     title="Priority Number">
-                                <div class="flex flex-col space-y-0.5">
+                                <div class="flex flex-col space-y-0.5 shrink-0">
                                     <button onclick="window.moveProgram('${track}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
                                         class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
@@ -5467,22 +5478,22 @@
                             const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
                             html += `
                             <div class="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 shadow-sm transition-all hover:border-blue-400">
-                                <div class="flex items-center space-x-2 min-w-0 pr-1">
+                                <div class="flex items-center space-x-2 min-w-0 pr-1 flex-1">
                                     <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${color}"></span>
-                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title="${s.subject}">${s.subject}</span>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 break-words whitespace-normal leading-normal" title="${s.subject}">${s.subject}</span>
                                 </div>
-                                <div class="flex items-center space-x-2 shrink-0">
+                                <div class="flex items-center space-x-1.5 shrink-0 ml-2">
                                     <input type="number" id="priority-subject-${track}-${safeSubId}" min="1" max="999" value="${val}"
                                         class="w-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
                                         title="Priority Number">
-                                    <div class="flex flex-col space-y-0.5">
+                                    <div class="flex flex-col space-y-0.5 shrink-0">
                                         <button onclick="window.moveSubject('${track}', '${progName.replace(/'/g, "\\'")}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
                                             class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
                                         </button>
                                         <button onclick="window.moveSubject('${track}', '${progName.replace(/'/g, "\\'")}', ${idx}, 1)" ${idx === subs.length - 1 ? 'disabled' : ''} 
                                             class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                                         </button>
                                     </div>
                                 </div>
@@ -5511,22 +5522,22 @@
                     const cMap = twColors[a.color] || twColors.indigo;
                     html += `
                     <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all hover:border-blue-400">
-                        <div class="flex items-center space-x-2 min-w-0 pr-1">
+                        <div class="flex items-center space-x-2 min-w-0 pr-1 flex-1">
                             <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${cMap.hex}"></span>
                             <div class="flex flex-col min-w-0">
-                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate">${a.title}</span>
-                                <span class="text-[8px] font-bold text-slate-400 uppercase truncate max-w-[120px]">${a.desc}</span>
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 break-words whitespace-normal leading-normal">${a.title}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase break-words whitespace-normal mt-0.5">${a.desc}</span>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-2 shrink-0">
+                        <div class="flex items-center space-x-1.5 shrink-0 ml-2">
                             <select id="priority-action-${a.id}"
-                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500">
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 max-w-[80px]">
                                 <option value="1" ${pVal === 1 ? 'selected' : ''}>Critical</option>
                                 <option value="2" ${pVal === 2 ? 'selected' : ''}>High</option>
                                 <option value="3" ${pVal === 3 ? 'selected' : ''}>Medium</option>
                                 <option value="4" ${pVal === 4 ? 'selected' : ''}>Low</option>
                             </select>
-                            <div class="flex flex-col space-y-0.5">
+                            <div class="flex flex-col space-y-0.5 shrink-0">
                                 <button onclick="window.moveAction(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
                                     class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
@@ -5831,6 +5842,20 @@
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        /* Render layer stabilization to fix Chromium and Safari backdrop-filter scroll glitches */
+        .sticky,
+        .backdrop-blur-xl,
+        .backdrop-blur-sm,
+        #priority-configuration-section,
+        #sys-content-priority div,
+        #sys-content-priority div.flex {
+            transform: translate3d(0, 0, 0);
+            -webkit-transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
         }
 
         .scrollbar-hide::-webkit-scrollbar {
@@ -6206,7 +6231,7 @@
 
             <!-- Tab Headers -->
             <div
-                class="flex space-x-2 md:space-x-4 mb-4 md:mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide pb-2">
+                class="flex flex-wrap gap-2 md:gap-0 md:space-x-4 mb-4 md:mb-6 border-b border-slate-200 dark:border-slate-700 pb-2">
                 <button id="sys-tab-chapter" onclick="switchSysTab('chapter')"
                     class="px-5 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap bg-blue-600 text-white shadow-md active:scale-95">Add
                     Chapter</button>
