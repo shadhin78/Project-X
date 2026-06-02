@@ -23,10 +23,7 @@
             appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
         };
         window.appState = {};
-        window.tracks = [
-            { id: 'ca', name: 'Professional (CA)' },
-            { id: 'bba', name: 'Academic (BBA)' }
-        ];
+        window.tracks = [];
         let db;
         let isSyncing = false;
         let isAppInitialized = false;
@@ -74,14 +71,7 @@
         window.revisionData = { active: [], progress: {} };
         window.currentGhmTab = 'timeline';
 
-        const subjectColors = {
-            "Assurance": "#ef4444", "Management Information": "#f97316", "IT": "#eab308",
-            "Accounting": "#84cc16", "Taxation": "#22c55e", "Business LAW": "#14b8a6", "BTF": "#06b6d4",
-            "BBA 1st - Math": "#3b82f6", "BBA 1st - Intro to Business": "#6366f1",
-            "BBA 2nd - FA": "#8b5cf6", "BBA 2nd - Report Writing": "#a855f7", "BBA 2nd - Statistics": "#d946ef",
-            "BBA 2nd - CCA": "#ec4899", "BBA 2nd - Finance": "#f43f5e", "BBA 2nd - Macro Econ": "#fb7185",
-            "BBA 2nd - Tax": "#fdba74"
-        };
+        const subjectColors = {};
 
         const twColors = {
             indigo: { hex: '#6366f1', border: 'border-indigo-500', btn: 'bg-indigo-500', bgLt: 'bg-indigo-50 dark:bg-indigo-900/20', borderLt: 'border-indigo-100 dark:border-indigo-800/50', text: 'text-indigo-600 dark:text-indigo-400', iconBg: 'bg-indigo-100 dark:bg-indigo-500/10', iconColor: 'text-indigo-500' },
@@ -158,14 +148,10 @@
 
         function ensureAvailableSlots(slotsNeeded, track, startIndex) {
             let availableSlots = 0;
+            const key = track + 'Tasks';
             for (let i = startIndex; i < tasks.length; i++) {
                 if (tasks[i].type !== 'study') continue;
-                if (track === 'ca') {
-                    if (tasks[i].caTask && tasks[i].caTask.subject === 'Revision') availableSlots++;
-                } else {
-                    const key = track + 'Tasks';
-                    if (tasks[i][key] && tasks[i][key].some(b => b.subject === 'Revision')) availableSlots++;
-                }
+                if (tasks[i][key] && tasks[i][key].some(b => b.subject === 'Revision')) availableSlots++;
             }
 
             let slotsToCreate = slotsNeeded - availableSlots;
@@ -187,25 +173,26 @@
                 const dateStr = formatDate(baseDate);
 
                 if (dayName === 'Fri') {
-                    const task = { id: lastTaskId, date: dateStr, day: dayName, type: 'holiday', gym: false, freelance: false };
+                    const task = { id: lastTaskId, date: dateStr, day: dayName, type: 'holiday' };
                     window.tracks.forEach(t => {
                         task[t.id + 'Study'] = false;
                     });
+                    if (Array.isArray(window.customActions)) {
+                        window.customActions.forEach(act => { task[act.id] = false; });
+                    }
                     tasks.push(task);
                 } else {
                     lastStudyDay++;
                     const task = {
-                        id: lastTaskId, date: dateStr, day: dayName, type: 'study', studyDay: lastStudyDay,
-                        gym: false, freelance: false
+                        id: lastTaskId, date: dateStr, day: dayName, type: 'study', studyDay: lastStudyDay
                     };
                     window.tracks.forEach(t => {
                         task[t.id + 'Study'] = false;
-                        if (t.id === 'ca') {
-                            task.caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-                        } else {
-                            task[t.id + 'Tasks'] = [{ subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: `${t.id}-${lastTaskId}` }];
-                        }
+                        task[t.id + 'Tasks'] = [{ subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: `${t.id}-${lastTaskId}` }];
                     });
+                    if (Array.isArray(window.customActions)) {
+                        window.customActions.forEach(act => { task[act.id] = false; });
+                    }
                     tasks.push(task);
                     createdSlots++;
                 }
@@ -220,17 +207,63 @@
 
         let syllabusStructure = {};
 
-        let totalCaChapters = 0, totalBbaChapters = 0, totalStaticChapters = 0;
+        function getDynamicChartLabel(subjName) {
+            let programName = "";
+            for (const trackId in syllabusStructure) {
+                if (Array.isArray(syllabusStructure[trackId])) {
+                    const sObj = syllabusStructure[trackId].find(s => s.subject === subjName);
+                    if (sObj) {
+                        programName = sObj.program;
+                        break;
+                    }
+                }
+            }
+            if (!programName) return subjName;
+            if (subjName.startsWith(programName + ' - ')) {
+                const shortProg = programName.replace(/\s+/g, '');
+                return subjName.replace(programName + ' - ', shortProg + ': ');
+            }
+            if (subjName.startsWith(programName + ' ')) {
+                const shortProg = programName.replace(/\s+/g, '');
+                return subjName.replace(programName + ' ', shortProg + ': ');
+            }
+            return subjName;
+        }
+
+        function getDynamicCleanLabel(subjName, lengthLimit = 12) {
+            let cleanLabel = subjName;
+            let programName = "";
+            for (const trackId in syllabusStructure) {
+                if (Array.isArray(syllabusStructure[trackId])) {
+                    const sObj = syllabusStructure[trackId].find(s => s.subject === subjName);
+                    if (sObj) {
+                        programName = sObj.program;
+                        break;
+                    }
+                }
+            }
+            if (programName) {
+                if (cleanLabel.startsWith(programName + ' - ')) {
+                    cleanLabel = cleanLabel.replace(programName + ' - ', '');
+                } else if (cleanLabel.startsWith(programName + ' ')) {
+                    cleanLabel = cleanLabel.replace(programName + ' ', '');
+                }
+            }
+            if (cleanLabel.length > lengthLimit) {
+                return cleanLabel.substring(0, lengthLimit) + '..';
+            }
+            return cleanLabel;
+        }
+
+
+        let totalStaticChapters = 0;
 
         function recalculateTotals() {
             let total = 0;
             window.tracks.forEach(trackObj => {
                 const track = trackObj.id;
                 if (Array.isArray(syllabusStructure[track])) {
-                    const trackTotal = syllabusStructure[track].reduce((acc, s) => acc + s.chapters, 0);
-                    if (track === 'ca') totalCaChapters = trackTotal;
-                    if (track === 'bba') totalBbaChapters = trackTotal;
-                    total += trackTotal;
+                    total += syllabusStructure[track].reduce((acc, s) => acc + s.chapters, 0);
                 }
             });
             totalStaticChapters = total;
@@ -249,7 +282,7 @@
             window.tracks.map(t => t.id).forEach(track => {
                 window.customPrograms[track].forEach(prog => {
                     const progName = prog.name || prog;
-                    const subs = syllabusStructure[track].filter(s => s.program === progName);
+                    const subs = (syllabusStructure[track] || []).filter(s => s.program === progName);
                     if (subs.length > 0) {
                         html += `<div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800"><h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">${progName}</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
                         subs.forEach(s => {
@@ -338,16 +371,11 @@
 
         window.migrateLegacyData = function () {
             if (!window.tracks) {
-                window.tracks = [
-                    { id: 'ca', name: 'Professional (CA)' },
-                    { id: 'bba', name: 'Academic (BBA)' }
-                ];
+                window.tracks = [];
             }
             if (Array.isArray(window.tracks)) {
                 window.tracks = window.tracks.map(t => {
                     if (typeof t === 'string') {
-                        if (t === 'ca') return { id: 'ca', name: 'Professional (CA)' };
-                        if (t === 'bba') return { id: 'bba', name: 'Academic (BBA)' };
                         return { id: t, name: t.toUpperCase() };
                     }
                     return t;
@@ -394,9 +422,7 @@
                             if (s.priority === undefined) s.priority = 3;
                             if (s.order === undefined) s.order = idx;
                             if (!s.program) {
-                                if (track === 'ca') s.program = "CA CL";
-                                else if (track === 'bba') s.program = s.subject.includes("1st") ? "BBA 1st" : "BBA 2nd";
-                                else s.program = trackObj.name + " Prog";
+                                s.program = trackObj.name + " Prog";
                             }
                         });
                     }
@@ -406,21 +432,25 @@
             // Migrate old data for existing tasks to ensure all tracks are present
             if (Array.isArray(tasks)) {
                 tasks.forEach(task => {
+                    // Legacy migration: convert caTask (single object) to caTasks (one-element array)
+                    if (task.caTask) {
+                        if (!task.caTasks) {
+                            task.caTasks = [{
+                                ...task.caTask,
+                                id: task.caTask.id || `ca-${task.id}`
+                            }];
+                        }
+                        delete task.caTask;
+                    }
                     window.tracks.forEach(trackObj => {
                         const trackId = trackObj.id;
                         if (task.type === 'study') {
                             if (task[trackId + 'Study'] === undefined) {
                                 task[trackId + 'Study'] = false;
                             }
-                            if (trackId === 'ca') {
-                                if (!task.caTask) {
-                                    task.caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-                                }
-                            } else {
-                                const key = trackId + 'Tasks';
-                                if (!task[key]) {
-                                    task[key] = [{ subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: `${trackId}-${task.id}` }];
-                                }
+                            const key = trackId + 'Tasks';
+                            if (!task[key]) {
+                                task[key] = [{ subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: `${trackId}-${task.id}` }];
                             }
                         } else if (task.type === 'holiday') {
                             if (task[trackId + 'Study'] === undefined) {
@@ -481,7 +511,7 @@
         };
 
         window.sortAllCustomData = function () {
-            const tracks = window.tracks ? window.tracks.map(t => t.id) : ['ca', 'bba'];
+            const tracks = window.tracks ? window.tracks.map(t => t.id) : [];
             // 1. Sort customPrograms
             tracks.forEach(track => {
                 if (Array.isArray(window.customPrograms[track])) {
@@ -569,26 +599,27 @@
                 const dateStr = formatDate(current);
 
                 if (dayName === 'Fri') {
-                    const task = { id: dayId, date: dateStr, day: dayName, type: 'holiday', gym: false, freelance: false };
+                    const task = { id: dayId, date: dateStr, day: dayName, type: 'holiday' };
                     window.tracks.forEach(t => {
                         task[t.id + 'Study'] = false;
                     });
+                    if (Array.isArray(window.customActions)) {
+                        window.customActions.forEach(act => { task[act.id] = false; });
+                    }
                     generated.push(task);
                 } else {
                     const task = {
-                        id: dayId, date: dateStr, day: dayName, type: 'study', studyDay: studyIdx,
-                        gym: false, freelance: false
+                        id: dayId, date: dateStr, day: dayName, type: 'study', studyDay: studyIdx
                     };
                     window.tracks.forEach(t => {
                         const trackId = t.id;
                         task[trackId + 'Study'] = false;
                         const queueItem = queues[trackId].shift() || { subject: "Revision", chapter: "Rev", title: "Practice" };
-                        if (trackId === 'ca') {
-                            task.caTask = { ...queueItem, completed: false };
-                        } else {
-                            task[trackId + 'Tasks'] = [{ ...queueItem, id: `${trackId}-${dayId}`, completed: false }];
-                        }
+                        task[trackId + 'Tasks'] = [{ ...queueItem, id: `${trackId}-${dayId}`, completed: false }];
                     });
+                    if (Array.isArray(window.customActions)) {
+                        window.customActions.forEach(act => { task[act.id] = false; });
+                    }
                     generated.push(task);
                     studyIdx++;
                 }
@@ -641,9 +672,7 @@
                             if (syllabusStructure[track]) {
                                 syllabusStructure[track].forEach(s => {
                                     if (!s.program) {
-                                        if (track === 'ca') s.program = "CA CL";
-                                        else if (track === 'bba') s.program = s.subject.includes("1st") ? "BBA 1st" : "BBA 2nd";
-                                        else s.program = trackObj.name + " Prog";
+                                        s.program = trackObj.name + " Prog";
                                     }
                                 });
                             }
@@ -1013,7 +1042,7 @@
                 if (window.customPrograms[track]) {
                     window.customPrograms[track].forEach(prog => {
                         const progName = prog.name || prog;
-                        const subs = syllabusStructure[track].filter(s => s.program === progName).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                        const subs = (syllabusStructure[track] || []).filter(s => s.program === progName).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
                         if (subs.length > 0) {
                             html += `
                             <div class="mb-3 p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm w-full">
@@ -1099,19 +1128,13 @@
                 if (t.type === 'study') {
                     window.tracks.forEach(trackObj => {
                         const trackId = trackObj.id;
-                        if (trackId === 'ca') {
-                            if (t.caTask && grouped[t.caTask.subject]) {
-                                grouped[t.caTask.subject].tasks.push({ dayObj: t, taskObj: t.caTask, type: 'ca' });
-                            }
-                        } else {
-                            const key = trackId + 'Tasks';
-                            if (t[key]) {
-                                t[key].forEach(b => {
-                                    if (grouped[b.subject]) {
-                                        grouped[b.subject].tasks.push({ dayObj: t, taskObj: b, type: trackId });
-                                    }
-                                });
-                            }
+                        const key = trackId + 'Tasks';
+                        if (t[key]) {
+                            t[key].forEach(b => {
+                                if (grouped[b.subject]) {
+                                    grouped[b.subject].tasks.push({ dayObj: t, taskObj: b, type: trackId });
+                                }
+                            });
                         }
                     });
                 }
@@ -1122,7 +1145,7 @@
 
             subjectsToRender.forEach(sub => {
                 const group = grouped[sub];
-                if (group.tasks.length === 0) return;
+                if (!group || group.tasks.length === 0) return;
 
                 const trackIdx = window.tracks.findIndex(t => t.id === group.type);
                 const colorMap = ['indigo', 'emerald', 'violet', 'rose', 'amber', 'cyan'];
@@ -1457,14 +1480,14 @@
             }
 
             return `
-                <div id="single-task-${taskObj.id || 'ca'}-${dayObj.studyDay}" class="relative bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 dark:border-slate-700 flex flex-col justify-between min-h-[110px] overflow-hidden group ${taskObj.completed ? 'ring-1 ring-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10 !border-emerald-200 dark:!border-emerald-800' : ''}">
+                <div id="single-task-${taskObj.id}-${dayObj.studyDay}" class="relative bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 dark:border-slate-700 flex flex-col justify-between min-h-[110px] overflow-hidden group ${taskObj.completed ? 'ring-1 ring-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10 !border-emerald-200 dark:!border-emerald-800' : ''}">
                     
                     <!-- Color Accent Bar -->
                     <div class="absolute top-0 left-0 w-full h-1 ${taskObj.completed ? 'bg-emerald-500' : colorBg} transition-colors"></div>
                     
                     <div class="flex justify-between items-start mb-3 mt-1">
                         <span class="text-[9px] px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 rounded-md font-black tracking-widest uppercase">DAY ${dayObj.studyDay}</span>
-                        <button onclick="openEditModal(${dayObj.id}, '${type}', ${type !== 'ca' ? `'${taskObj.id}'` : 'null'})" class="text-slate-400 hover:text-blue-500 active:scale-90 transition-all opacity-0 group-hover:opacity-100 p-1.5 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700" title="Edit/Delete Task">
+                        <button onclick="openEditModal(${dayObj.id}, '${type}', '${taskObj.id}')" class="text-slate-400 hover:text-blue-500 active:scale-90 transition-all opacity-0 group-hover:opacity-100 p-1.5 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700" title="Edit/Delete Task">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
                     </div>
@@ -1476,7 +1499,7 @@
                         </div>
                         <div class="shrink-0 mb-0.5">
                             <div class="relative flex items-center justify-center">
-                                <input type="checkbox" data-stud-id="${dayObj.studyDay}" ${type !== 'ca' ? `data-bba-id="${taskObj.id}"` : ''} data-type="${type}" class="task-checkbox peer relative appearance-none w-6 h-6 border-2 border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-800 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none cursor-pointer transition-all shadow-sm hover:border-emerald-400" ${taskObj.completed ? 'checked' : ''}>
+                                <input type="checkbox" data-stud-id="${dayObj.studyDay}" data-subtask-id="${taskObj.id}" data-type="${type}" class="task-checkbox peer relative appearance-none w-6 h-6 border-2 border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-800 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none cursor-pointer transition-all shadow-sm hover:border-emerald-400" ${taskObj.completed ? 'checked' : ''}>
                                 <svg class="absolute w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
                             </div>
                         </div>
@@ -1487,7 +1510,7 @@
         function handleTaskToggle(e) {
             const studyDayId = parseInt(e.target.dataset.studId);
             const type = e.target.dataset.type;
-            const bbaId = e.target.dataset.bbaId;
+            const subTaskId = e.target.dataset.subtaskId;
             const taskIndex = tasks.findIndex(t => t.studyDay === studyDayId && t.type === 'study');
             if (taskIndex === -1) return;
 
@@ -1495,21 +1518,16 @@
             const nowIso = new Date().toISOString();
             let taskObj;
 
-            if (type === 'ca') {
-                tasks[taskIndex].caTask.completed = isCompleted;
-                if (isCompleted) tasks[taskIndex].caTask.completedAt = nowIso;
-                else delete tasks[taskIndex].caTask.completedAt;
-                taskObj = tasks[taskIndex].caTask;
-            } else {
-                const key = type + 'Tasks';
-                if (tasks[taskIndex][key]) {
-                    tasks[taskIndex][key] = tasks[taskIndex][key].map(b => b.id === bbaId ? { ...b, completed: isCompleted, completedAt: isCompleted ? nowIso : null } : b);
-                    taskObj = tasks[taskIndex][key].find(b => b.id === bbaId);
-                }
+            const key = type + 'Tasks';
+            if (tasks[taskIndex][key]) {
+                tasks[taskIndex][key] = tasks[taskIndex][key].map(b => b.id === subTaskId ? { ...b, completed: isCompleted, completedAt: isCompleted ? nowIso : null } : b);
+                taskObj = tasks[taskIndex][key].find(b => b.id === subTaskId);
             }
 
+            if (!taskObj) return;
+
             // 1. Optimistic UI update: Immediate Card State styling (zero-lag)
-            const cardEl = document.getElementById(`single-task-${taskObj.id || 'ca'}-${studyDayId}`);
+            const cardEl = document.getElementById(`single-task-${taskObj.id}-${studyDayId}`);
             if (cardEl) {
                 const titleEl = cardEl.querySelector('.tracking-tight');
                 const descEl = cardEl.querySelector('.line-clamp-2');
@@ -1529,7 +1547,12 @@
                     cardEl.classList.remove('ring-1', 'ring-emerald-500', 'bg-emerald-50/30', 'dark:bg-emerald-900/10', '!border-emerald-200', 'dark:!border-emerald-800');
                     cardEl.classList.add('bg-white', 'dark:bg-slate-800');
                     if (accentBar) {
-                        let colorBg = type === 'ca' ? 'bg-indigo-500' : (type === 'bba' ? (taskObj.subject.includes('1st') ? 'bg-emerald-400' : 'bg-violet-500') : 'bg-blue-500');
+                        let colorBg = 'bg-blue-500';
+                        const trackIdx = window.tracks.findIndex(t => t.id === type);
+                        const classes = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500'];
+                        if (trackIdx !== -1) {
+                            colorBg = classes[trackIdx % classes.length];
+                        }
                         accentBar.className = `absolute top-0 left-0 w-full h-1 ${colorBg} transition-colors`;
                     }
                 }
@@ -1538,7 +1561,7 @@
             // 2. Optimistic UI update: Specific Subject Progress Bar (Prevents full DOM recreation)
             const safeSubId = taskObj.subject.replace(/[^a-zA-Z0-9]/g, '-');
             const subName = taskObj.subject;
-            const groupTasks = tasks.flatMap(t => t.type === 'study' ? (type === 'ca' ? (t.caTask ? [t.caTask] : []) : (t[type + 'Tasks'] || [])) : []).filter(x => x.subject === subName);
+            const groupTasks = tasks.flatMap(t => t.type === 'study' ? (t[key] || []) : []).filter(x => x.subject === subName);
             const completedCount = groupTasks.filter(x => x.completed).length;
 
             const sObj = syllabusStructure[type] ? syllabusStructure[type].find(s => s.subject === subName) : null;
@@ -1555,7 +1578,7 @@
             if (barEl) barEl.style.width = `${progressPct}%`;
 
             // 3. Optimistic UI update: Recalculate and update the 4 specific analytics cards inside the subject view
-            const allSubTasks = tasks.filter(t => t.type === 'study' && (type === 'ca' ? (t.caTask && t.caTask.subject === subName) : (t[type + 'Tasks'] && t[type + 'Tasks'].some(b => b.subject === subName))));
+            const allSubTasks = tasks.filter(t => t.type === 'study' && t[key] && t[key].some(b => b.subject === subName));
 
             let targetDate = null;
             let startDate = null;
@@ -1578,9 +1601,9 @@
             }
 
             if (!hasTimeGoal) {
-                let firstCompletedDay = allSubTasks.find(t => type === 'ca' ? (t.caTask && t.caTask.completed) : (t[type + 'Tasks'] && t[type + 'Tasks'].some(b => b.subject === subName && b.completed)));
+                let firstCompletedDay = allSubTasks.find(t => t[key] && t[key].some(b => b.subject === subName && b.completed));
                 if (firstCompletedDay) {
-                    let taskO = type === 'ca' ? firstCompletedDay.caTask : firstCompletedDay[type + 'Tasks'].find(b => b.subject === subName && b.completed);
+                    let taskO = firstCompletedDay[key].find(b => b.subject === subName && b.completed);
                     if (taskO.completedAt) {
                         startDate = new Date(taskO.completedAt);
                     } else {
@@ -1600,9 +1623,9 @@
             let reqPaceRaw = 0;
 
             let actualStartDateForPace = null;
-            let firstCompletedDayForPace = allSubTasks.find(t => type === 'ca' ? (t.caTask && t.caTask.completed) : (t[type + 'Tasks'] && t[type + 'Tasks'].some(b => b.subject === subName && b.completed)));
+            let firstCompletedDayForPace = allSubTasks.find(t => t[key] && t[key].some(b => b.subject === subName && b.completed));
             if (firstCompletedDayForPace) {
-                let taskO = type === 'ca' ? firstCompletedDayForPace.caTask : firstCompletedDayForPace[type + 'Tasks'].find(b => b.subject === subName && b.completed);
+                let taskO = firstCompletedDayForPace[key].find(b => b.subject === subName && b.completed);
                 actualStartDateForPace = taskO.completedAt ? new Date(taskO.completedAt) : getTaskDate(firstCompletedDayForPace);
                 actualStartDateForPace.setHours(0, 0, 0, 0);
             }
@@ -1693,21 +1716,14 @@
 
             tasks.filter(t => t.type === 'study').forEach(task => {
                 window.tracks.forEach(track => {
-                    if (track.id === 'ca') {
-                        if (task.caTask && subjectStats[task.caTask.subject]) {
-                            subjectStats[task.caTask.subject].tasksAssigned++;
-                            if (task.caTask.completed) subjectStats[task.caTask.subject].tasksCompleted++;
-                        }
-                    } else {
-                        const key = track.id + 'Tasks';
-                        if (Array.isArray(task[key])) {
-                            task[key].forEach(subTask => {
-                                if (subjectStats[subTask.subject]) {
-                                    subjectStats[subTask.subject].tasksAssigned++;
-                                    if (subTask.completed) subjectStats[subTask.subject].tasksCompleted++;
-                                }
-                            });
-                        }
+                    const key = track.id + 'Tasks';
+                    if (Array.isArray(task[key])) {
+                        task[key].forEach(subTask => {
+                            if (subjectStats[subTask.subject]) {
+                                subjectStats[subTask.subject].tasksAssigned++;
+                                if (subTask.completed) subjectStats[subTask.subject].tasksCompleted++;
+                            }
+                        });
                     }
                 });
             });
@@ -1759,21 +1775,14 @@
                 tasks.forEach(t => {
                     if (t.type === 'study') {
                         window.tracks.forEach(track => {
-                            if (track.id === 'ca') {
-                                if (t.caTask && t.caTask.completed) {
-                                    let d = t.caTask.completedAt ? new Date(t.caTask.completedAt) : getTaskDate(t);
-                                    if (!earliestDate || d < earliestDate) earliestDate = d;
-                                }
-                            } else {
-                                const key = track.id + 'Tasks';
-                                if (Array.isArray(t[key])) {
-                                    t[key].forEach(b => {
-                                        if (b.completed) {
-                                            let d = b.completedAt ? new Date(b.completedAt) : getTaskDate(t);
-                                            if (!earliestDate || d < earliestDate) earliestDate = d;
-                                        }
-                                    });
-                                }
+                            const key = track.id + 'Tasks';
+                            if (Array.isArray(t[key])) {
+                                t[key].forEach(b => {
+                                    if (b.completed) {
+                                        let d = b.completedAt ? new Date(b.completedAt) : getTaskDate(t);
+                                        if (!earliestDate || d < earliestDate) earliestDate = d;
+                                    }
+                                });
                             }
                         });
                     }
@@ -2502,27 +2511,18 @@
                     if (t.type === 'study') {
                         let mIdxStudy = rawMidx < 0 ? 0 : rawMidx;
                         window.tracks.forEach(track => {
-                            if (track.id === 'ca') {
-                                if (t.caTask && t.caTask.completed) {
-                                    const sObj = syllabusStructure.ca.find(s => s.subject === t.caTask.subject);
-                                    if (sObj && sObj.program && progCum[sObj.program]) progCum[sObj.program][mIdxStudy]++;
-                                    if (subData[t.caTask.subject]) subData[t.caTask.subject][mIdxStudy]++;
-                                    latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
-                                }
-                            } else {
-                                const key = track.id + 'Tasks';
-                                if (Array.isArray(t[key])) {
-                                    t[key].forEach(b => {
-                                        if (b.completed) {
-                                            if (syllabusStructure[track.id]) {
-                                                const sObj = syllabusStructure[track.id].find(s => s.subject === b.subject);
-                                                if (sObj && sObj.program && progCum[sObj.program]) progCum[sObj.program][mIdxStudy]++;
-                                            }
-                                            if (subData[b.subject]) subData[b.subject][mIdxStudy]++;
-                                            latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
+                            const key = track.id + 'Tasks';
+                            if (Array.isArray(t[key])) {
+                                t[key].forEach(b => {
+                                    if (b.completed) {
+                                        if (syllabusStructure[track.id]) {
+                                            const sObj = syllabusStructure[track.id].find(s => s.subject === b.subject);
+                                            if (sObj && sObj.program && progCum[sObj.program]) progCum[sObj.program][mIdxStudy]++;
                                         }
-                                    });
-                                }
+                                        if (subData[b.subject]) subData[b.subject][mIdxStudy]++;
+                                        latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
+                                    }
+                                });
                             }
                         });
                     }
@@ -2673,7 +2673,7 @@
 
             if (ctxSub) {
                 const subDatasets = Object.keys(subData).map(k => ({
-                    label: k.replace('BBA 1st - ', 'BBA1: ').replace('BBA 2nd - ', 'BBA2: '), data: subData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: !window.chartVisibility.subjects[k], subjectKey: k
+                    label: getDynamicChartLabel(k), data: subData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: !window.chartVisibility.subjects[k], subjectKey: k
                 }));
                 const sortedSubs = window.getAllSubjects();
                 const getSubIndex = (subName) => sortedSubs.findIndex(s => s.subject === subName);
@@ -2713,19 +2713,13 @@
         function reorderSubjectChapters(prog, subj) {
             if (subj === 'Revision') return;
             let subjectSlots = []; let chapters = [];
+            const key = prog + 'Tasks';
             for (let i = 0; i < tasks.length; i++) {
                 if (tasks[i].type !== 'study') continue;
-                if (prog === 'ca') {
-                    if (tasks[i].caTask && tasks[i].caTask.subject === subj) {
-                        if (!tasks[i].caTask.completed) { subjectSlots.push(i); chapters.push({ ...tasks[i].caTask }); }
-                    }
-                } else {
-                    const key = prog + 'Tasks';
-                    if (Array.isArray(tasks[i][key])) {
-                        for (let j = 0; j < tasks[i][key].length; j++) {
-                            if (tasks[i][key][j].subject === subj && !tasks[i][key][j].completed) {
-                                subjectSlots.push({ tIdx: i, bIdx: j }); chapters.push({ ...tasks[i][key][j] });
-                            }
+                if (Array.isArray(tasks[i][key])) {
+                    for (let j = 0; j < tasks[i][key].length; j++) {
+                        if (tasks[i][key][j].subject === subj && !tasks[i][key][j].completed) {
+                            subjectSlots.push({ tIdx: i, bIdx: j }); chapters.push({ ...tasks[i][key][j] });
                         }
                     }
                 }
@@ -2739,11 +2733,7 @@
             });
             for (let k = 0; k < subjectSlots.length; k++) {
                 const slot = subjectSlots[k]; const chObj = chapters[k];
-                if (prog === 'ca') tasks[slot].caTask = { ...chObj };
-                else {
-                    const key = prog + 'Tasks';
-                    tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: tasks[slot.tIdx][key][slot.bIdx].id };
-                }
+                tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: tasks[slot.tIdx][key][slot.bIdx].id };
             }
         }
 
@@ -2786,7 +2776,7 @@
                     const val = window.latestChartStats.revSubjects ? window.latestChartStats.revSubjects[k] : 0;
                     const active = window.chartVisibility.revSubjects[k];
                     const color = getSubjectColor(k);
-                    const label = k.replace('BBA 1st - ', '').replace('BBA 2nd - ', '').substring(0, 12) + (k.length > 12 ? '..' : '');
+                    const label = getDynamicCleanLabel(k, 12);
                     const activeStyle = active ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%);`;
                     return `<div onclick="toggleRevSubDataset('${k}')" class="cursor-pointer flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
                 }).join('');
@@ -2823,7 +2813,7 @@
                 const sortedSubs = window.getAllSubjects().sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
                 sLeg.innerHTML = sortedSubs.map(s => {
                     const k = s.subject; const val = window.latestChartStats.subjects ? window.latestChartStats.subjects[k] : 0; const active = window.chartVisibility.subjects[k]; const color = getSubjectColor(k);
-                    const label = k.replace('BBA 1st - ', '').replace('BBA 2nd - ', '').substring(0, 12) + (k.length > 12 ? '..' : '');
+                    const label = getDynamicCleanLabel(k, 12);
                     const activeStyle = active ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%);`;
                     return `<div onclick="toggleSubDataset('${k}')" class="cursor-pointer flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
                 }).join('');
@@ -2851,11 +2841,20 @@
             if (!gridContainer) return;
             gridContainer.innerHTML = '';
 
-            const getSVG = (id) => {
-                if (id === 'ca') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>`;
-                if (id === 'bba') return `<path d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0v6M12 20a11.95 11.95 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479M12 20a11.95 11.95 0 006.824-2.998 12.083 12.083 0 00-.665-6.479"></path>`;
-                if (id === 'gym') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path>`;
-                if (id === 'fl') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>`;
+            const getSVG = (idOrIcon, title = "") => {
+                const term = (idOrIcon || title || "").toLowerCase();
+                if (term.includes('professional') || term.includes('briefcase') || term.includes('job')) {
+                    return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>`;
+                }
+                if (term.includes('academic') || term.includes('study') || term.includes('book') || term.includes('education') || term.includes('grad') || term.includes('school') || term.includes('class')) {
+                    return `<path d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0v6M12 20a11.95 11.95 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479M12 20a11.95 11.95 0 006.824-2.998 12.083 12.083 0 00-.665-6.479"></path>`;
+                }
+                if (term.includes('gym') || term.includes('health') || term.includes('workout') || term.includes('fitness') || term.includes('sport') || term.includes('run')) {
+                    return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path>`;
+                }
+                if (term.includes('freelance') || term.includes('work') || term.includes('code') || term.includes('dev') || term.includes('write')) {
+                    return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>`;
+                }
                 return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>`;
             };
 
@@ -2869,7 +2868,7 @@
                     <div class="flex justify-between items-start mb-3 sm:mb-4">
                         <div class="flex items-center space-x-2 sm:space-x-3">
                             <div class="p-2 md:p-3 rounded-lg sm:rounded-xl md:rounded-2xl border ${cMap.iconBg} ${cMap.text} ${cMap.borderLt}">
-                                <svg class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon)}</svg>
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
                             </div>
                             <div>
                                 <h3 class="font-black text-xs sm:text-sm md:text-base tracking-tight">${cfg.title}</h3>
@@ -3178,29 +3177,18 @@
                 if (t.type === 'study') {
                     const fallbackDate = getTaskDate(t);
                     window.tracks.forEach(track => {
-                        if (track.id === 'ca') {
-                            if (t.caTask && t.caTask.completed && subjectLogs[t.caTask.subject]) {
-                                let actualDate = t.caTask.completedAt ? new Date(t.caTask.completedAt) : fallbackDate;
-                                if (isNaN(actualDate.getTime())) actualDate = fallbackDate;
-                                let displayDate = actualDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                let ts = actualDate.getTime();
-                                subjectLogs[t.caTask.subject].chapters.push({ ch: t.caTask.chapter, date: displayDate, ts: ts });
-                                allEvents.push({ type: 'Chapter', subject: t.caTask.subject, item: t.caTask.chapter, date: displayDate, ts: ts });
-                            }
-                        } else {
-                            const key = track.id + 'Tasks';
-                            if (Array.isArray(t[key])) {
-                                t[key].forEach(b => {
-                                    if (b.completed && subjectLogs[b.subject]) {
-                                        let actualDate = b.completedAt ? new Date(b.completedAt) : fallbackDate;
-                                        if (isNaN(actualDate.getTime())) actualDate = fallbackDate;
-                                        let displayDate = actualDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                        let ts = actualDate.getTime();
-                                        subjectLogs[b.subject].chapters.push({ ch: b.chapter, date: displayDate, ts: ts });
-                                        allEvents.push({ type: 'Chapter', subject: b.subject, item: b.chapter, date: displayDate, ts: ts });
-                                    }
-                                });
-                            }
+                        const key = track.id + 'Tasks';
+                        if (Array.isArray(t[key])) {
+                            t[key].forEach(b => {
+                                if (b.completed && subjectLogs[b.subject]) {
+                                    let actualDate = b.completedAt ? new Date(b.completedAt) : fallbackDate;
+                                    if (isNaN(actualDate.getTime())) actualDate = fallbackDate;
+                                    let displayDate = actualDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    let ts = actualDate.getTime();
+                                    subjectLogs[b.subject].chapters.push({ ch: b.chapter, date: displayDate, ts: ts });
+                                    allEvents.push({ type: 'Chapter', subject: b.subject, item: b.chapter, date: displayDate, ts: ts });
+                                }
+                            });
                         }
                     });
                 }
@@ -3583,46 +3571,16 @@
                 for (let i = 0; i < tasks.length; i++) {
                     if (tasks[i].type !== 'study') continue;
 
-                    if (oldTrack === 'ca') {
-                        // Single-to-Plural
-                        if (tasks[i].caTask && tasks[i].caTask.subject === oldName) {
-                            const taskToMove = { ...tasks[i].caTask, subject: newName, id: `${newTrack}-${tasks[i].id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
-                            tasks[i][newTrack + 'Tasks'] = tasks[i][newTrack + 'Tasks'] || [];
-                            tasks[i][newTrack + 'Tasks'].push(taskToMove);
-                            tasks[i].caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-                        }
-                    } else if (newTrack === 'ca') {
-                        // Plural-to-Single
-                        const oldKey = oldTrack + 'Tasks';
-                        if (Array.isArray(tasks[i][oldKey])) {
-                            const bIdx = tasks[i][oldKey].findIndex(b => b.subject === oldName);
-                            if (bIdx > -1) {
-                                const taskToMove = { ...tasks[i][oldKey][bIdx], subject: newName };
-                                delete taskToMove.id;
-                                tasks[i][oldKey].splice(bIdx, 1);
-
-                                // Slot collision handler: If CA slot is taken, push the old CA task down into old plural track tasks to make space
-                                if (tasks[i].caTask && tasks[i].caTask.subject !== 'Revision') {
-                                    tasks[i][oldKey].push({
-                                        ...tasks[i].caTask,
-                                        id: `${oldTrack}-${tasks[i].id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-                                    });
-                                }
-                                tasks[i].caTask = taskToMove;
-                            }
-                        }
-                    } else {
-                        // Plural-to-Plural
-                        const oldKey = oldTrack + 'Tasks';
-                        const newKey = newTrack + 'Tasks';
-                        if (Array.isArray(tasks[i][oldKey])) {
-                            const bIdx = tasks[i][oldKey].findIndex(b => b.subject === oldName);
-                            if (bIdx > -1) {
-                                const taskToMove = { ...tasks[i][oldKey][bIdx], subject: newName, id: `${newTrack}-${tasks[i].id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
-                                tasks[i][oldKey].splice(bIdx, 1);
-                                tasks[i][newKey] = tasks[i][newKey] || [];
-                                tasks[i][newKey].push(taskToMove);
-                            }
+                    // Unified program-track movement (always plural-to-plural)
+                    const oldKey = oldTrack + 'Tasks';
+                    const newKey = newTrack + 'Tasks';
+                    if (Array.isArray(tasks[i][oldKey])) {
+                        const bIdx = tasks[i][oldKey].findIndex(b => b.subject === oldName);
+                        if (bIdx > -1) {
+                            const taskToMove = { ...tasks[i][oldKey][bIdx], subject: newName, id: `${newTrack}-${tasks[i].id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
+                            tasks[i][oldKey].splice(bIdx, 1);
+                            tasks[i][newKey] = tasks[i][newKey] || [];
+                            tasks[i][newKey].push(taskToMove);
                         }
                     }
                 }
@@ -3640,13 +3598,9 @@
                     sObj.subject = newName;
                     for (let i = 0; i < tasks.length; i++) {
                         if (tasks[i].type !== 'study') continue;
-                        if (newTrack === 'ca') {
-                            if (tasks[i].caTask && tasks[i].caTask.subject === oldName) tasks[i].caTask.subject = newName;
-                        } else {
-                            const key = newTrack + 'Tasks';
-                            if (Array.isArray(tasks[i][key])) {
-                                tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
-                            }
+                        const key = newTrack + 'Tasks';
+                        if (Array.isArray(tasks[i][key])) {
+                            tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
                         }
                     }
                     changed = true;
@@ -3718,15 +3672,9 @@
 
             for (let i = 0; i < tasks.length; i++) {
                 if (tasks[i].type !== 'study') continue;
-                if (track === 'ca') {
-                    if (tasks[i].caTask && tasks[i].caTask.subject === targetName) {
-                        tasks[i].caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-                    }
-                } else {
-                    const key = track + 'Tasks';
-                    if (Array.isArray(tasks[i][key])) {
-                        tasks[i][key] = tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
-                    }
+                const key = track + 'Tasks';
+                if (Array.isArray(tasks[i][key])) {
+                    tasks[i][key] = tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
                 }
             }
             if (currentFilter === targetName) currentFilter = 'All';
@@ -4468,13 +4416,9 @@
                 if (t.type === 'study') {
                     let count = 0;
                     window.tracks.forEach(track => {
-                        if (track.id === 'ca') {
-                            if (t.caTask && t.caTask.completed && subjects.includes(t.caTask.subject)) count++;
-                        } else {
-                            const key = track.id + 'Tasks';
-                            if (Array.isArray(t[key])) {
-                                t[key].forEach(b => { if (b.completed && subjects.includes(b.subject)) count++; });
-                            }
+                        const key = track.id + 'Tasks';
+                        if (Array.isArray(t[key])) {
+                            t[key].forEach(b => { if (b.completed && subjects.includes(b.subject)) count++; });
                         }
                     });
                     completedPerDate[t.date] = (completedPerDate[t.date] || 0) + count;
@@ -4761,7 +4705,7 @@
             const chartOptions = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', bodyColor: '#cbd5e1', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 12, cornerRadius: 8, usePointStyle: true, boxPadding: 6, callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y + '%' } } }, scales: { y: { min: 0, max: 100, ticks: { font: { size: 9, weight: 'bold' }, callback: v => v + '%' }, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false } }, x: { ticks: { font: { size: 9, weight: 'bold' } }, grid: { display: false, drawBorder: false } } } };
 
             const subDatasets = Object.keys(revSubData).map(k => ({
-                label: k.replace('BBA 1st - ', 'BBA1: ').replace('BBA 2nd - ', 'BBA2: '), data: revSubData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: !window.chartVisibility.revSubjects[k], subjectKey: k
+                label: getDynamicChartLabel(k), data: revSubData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: !window.chartVisibility.revSubjects[k], subjectKey: k
             }));
 
             if (window.revisionTrendChartInstance) {
@@ -4955,14 +4899,15 @@
             }
         };
 
-        window.openEditModal = function (taskId, type, bbaId = null) {
+        window.openEditModal = function (taskId, type, subTaskId = null) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
             const dayTask = tasks[taskIndex];
-            let taskObj = type === 'ca' ? dayTask.caTask : (dayTask[type + 'Tasks'] || []).find(b => b.id === bbaId);
+            const key = type + 'Tasks';
+            let taskObj = (dayTask[key] || []).find(b => b.id === subTaskId);
             if (!taskObj) return;
 
-            window.editingTask = { taskId, type, bbaId, oldSubject: taskObj.subject };
+            window.editingTask = { taskId, type, subTaskId, oldSubject: taskObj.subject };
             const prog = type;
             const subjSelect = document.getElementById('edit-task-subject');
             subjSelect.innerHTML = '<option value="Revision">Revision (Empty Slot)</option>';
@@ -4987,7 +4932,7 @@
 
         window.saveTaskEdit = function () {
             if (!window.editingTask) return;
-            const { taskId, type, bbaId, oldSubject } = window.editingTask;
+            const { taskId, type, subTaskId, oldSubject } = window.editingTask;
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
@@ -5001,22 +4946,15 @@
             newNum = newNum ? `Ch. ${newNum}` : 'Ch. ?';
             newTitle = newTitle || 'Topic';
 
+            const key = type + 'Tasks';
             if (oldSubject === newSubject) {
-                if (type === 'ca') tasks[taskIndex].caTask = { ...tasks[taskIndex].caTask, chapter: newNum, title: newTitle };
-                else {
-                    const key = type + 'Tasks';
-                    const bIdx = (tasks[taskIndex][key] || []).findIndex(b => b.id === bbaId);
-                    if (bIdx > -1) tasks[taskIndex][key][bIdx] = { ...tasks[taskIndex][key][bIdx], chapter: newNum, title: newTitle };
-                }
+                const bIdx = (tasks[taskIndex][key] || []).findIndex(b => b.id === subTaskId);
+                if (bIdx > -1) tasks[taskIndex][key][bIdx] = { ...tasks[taskIndex][key][bIdx], chapter: newNum, title: newTitle };
                 reorderSubjectChapters(prog, newSubject);
             } else {
                 if (oldSubject !== 'Revision') { const oldS = (syllabusStructure[prog] || []).find(s => s.subject === oldSubject); if (oldS && oldS.chapters > 0) oldS.chapters--; }
-                if (type === 'ca') tasks[taskIndex].caTask = { subject: newSubject, chapter: newNum, title: newTitle, completed: false };
-                else {
-                    const key = type + 'Tasks';
-                    const bIdx = (tasks[taskIndex][key] || []).findIndex(b => b.id === bbaId);
-                    if (bIdx > -1) tasks[taskIndex][key][bIdx] = { subject: newSubject, chapter: newNum, title: newTitle, completed: false, id: bbaId };
-                }
+                const bIdx = (tasks[taskIndex][key] || []).findIndex(b => b.id === subTaskId);
+                if (bIdx > -1) tasks[taskIndex][key][bIdx] = { subject: newSubject, chapter: newNum, title: newTitle, completed: false, id: subTaskId };
                 const newS = (syllabusStructure[prog] || []).find(s => s.subject === newSubject); if (newS) newS.chapters++;
                 reorderSubjectChapters(prog, oldSubject); reorderSubjectChapters(prog, newSubject);
             }
@@ -5029,39 +4967,28 @@
 
         window.deleteTask = function () {
             if (!window.editingTask) return;
-            const { taskId, type, bbaId, oldSubject } = window.editingTask;
+            const { taskId, type, subTaskId, oldSubject } = window.editingTask;
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
             const prog = type;
+            const key = type + 'Tasks';
 
             if (oldSubject !== 'Revision') { const oldS = (syllabusStructure[prog] || []).find(s => s.subject === oldSubject); if (oldS && oldS.chapters > 0) oldS.chapters--; }
-            if (type === 'ca') tasks[taskIndex].caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-            else {
-                const key = type + 'Tasks';
-                if (Array.isArray(tasks[taskIndex][key])) {
-                    tasks[taskIndex][key] = tasks[taskIndex][key].map(b => b.id === bbaId ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
-                }
+            if (Array.isArray(tasks[taskIndex][key])) {
+                tasks[taskIndex][key] = tasks[taskIndex][key].map(b => b.id === subTaskId ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
             }
 
             if (oldSubject !== 'Revision') {
                 let targetSlots = []; let gatheredTasks = [];
                 for (let i = 0; i < tasks.length; i++) {
                     if (tasks[i].type !== 'study') continue;
-                    if (prog === 'ca') {
-                        if (tasks[i].caTask && !tasks[i].caTask.completed && (tasks[i].caTask.subject === oldSubject || i === taskIndex)) {
-                            targetSlots.push(i);
-                            gatheredTasks.push({ ...tasks[i].caTask });
-                        }
-                    } else {
-                        const key = prog + 'Tasks';
-                        if (Array.isArray(tasks[i][key])) {
-                            for (let j = 0; j < tasks[i][key].length; j++) {
-                                const bTask = tasks[i][key][j];
-                                if (!bTask.completed && (bTask.subject === oldSubject || (i === taskIndex && bTask.id === bbaId))) {
-                                    targetSlots.push({ tIdx: i, bIdx: j });
-                                    gatheredTasks.push({ ...bTask });
-                                }
+                    if (Array.isArray(tasks[i][key])) {
+                        for (let j = 0; j < tasks[i][key].length; j++) {
+                            const bTask = tasks[i][key][j];
+                            if (!bTask.completed && (bTask.subject === oldSubject || (i === taskIndex && bTask.id === subTaskId))) {
+                                targetSlots.push({ tIdx: i, bIdx: j });
+                                gatheredTasks.push({ ...bTask });
                             }
                         }
                     }
@@ -5070,11 +4997,7 @@
                 gatheredTasks.sort((a, b) => { if (a.subject === 'Revision') return 1; if (b.subject === 'Revision') return -1; return extractNum(a.chapter) - extractNum(b.chapter); });
                 for (let k = 0; k < targetSlots.length; k++) {
                     const slot = targetSlots[k]; const chObj = gatheredTasks[k];
-                    if (prog === 'ca') tasks[slot].caTask = { ...chObj };
-                    else {
-                        const key = prog + 'Tasks';
-                        tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: tasks[slot.tIdx][key][slot.bIdx].id };
-                    }
+                    tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: tasks[slot.tIdx][key][slot.bIdx].id };
                 }
             }
             recalculateTotals(); saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
@@ -5204,13 +5127,9 @@
                 if (subjectColors[oldName]) subjectColors[newName] = subjectColors[oldName];
                 for (let i = 0; i < tasks.length; i++) {
                     if (tasks[i].type !== 'study') continue;
-                    if (track === 'ca') {
-                        if (tasks[i].caTask && tasks[i].caTask.subject === oldName) tasks[i].caTask.subject = newName;
-                    } else {
-                        const key = track + 'Tasks';
-                        if (Array.isArray(tasks[i][key])) {
-                            tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
-                        }
+                    const key = track + 'Tasks';
+                    if (Array.isArray(tasks[i][key])) {
+                        tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
                     }
                 }
 
@@ -5267,15 +5186,9 @@
                     delete window.chartVisibility.prog[targetName]; subsToDelete.forEach(sub => delete window.chartVisibility.subjects[sub]);
                     for (let i = 0; i < tasks.length; i++) {
                         if (tasks[i].type !== 'study') continue;
-                        if (track === 'ca') {
-                            if (tasks[i].caTask && subsToDelete.includes(tasks[i].caTask.subject)) {
-                                tasks[i].caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-                            }
-                        } else {
-                            const key = track + 'Tasks';
-                            if (Array.isArray(tasks[i][key])) {
-                                tasks[i][key] = tasks[i][key].map(b => subsToDelete.includes(b.subject) ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
-                            }
+                        const key = track + 'Tasks';
+                        if (Array.isArray(tasks[i][key])) {
+                            tasks[i][key] = tasks[i][key].map(b => subsToDelete.includes(b.subject) ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
                         }
                     }
                     if (currentFilter !== 'All') currentFilter = 'All';
@@ -5297,15 +5210,9 @@
                     delete window.chartVisibility.subjects[targetName];
                     for (let i = 0; i < tasks.length; i++) {
                         if (tasks[i].type !== 'study') continue;
-                        if (track === 'ca') {
-                            if (tasks[i].caTask && tasks[i].caTask.subject === targetName) {
-                                tasks[i].caTask = { subject: "Revision", chapter: "Rev", title: "Practice", completed: false };
-                            }
-                        } else {
-                            const key = track + 'Tasks';
-                            if (Array.isArray(tasks[i][key])) {
-                                tasks[i][key] = tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
-                            }
+                        const key = track + 'Tasks';
+                        if (Array.isArray(tasks[i][key])) {
+                            tasks[i][key] = tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
                         }
                     }
                     if (currentFilter === targetName) currentFilter = 'All';
@@ -5322,6 +5229,49 @@
 
             recalculateTotals(); saveToCloud(); renderUI(); updateManageDropdown();
         };
+
+        window.resetToCleanSlate = function () {
+            window.openConfirmModal(
+                "Reset Dashboard",
+                "Are you sure you want to completely clear all data? This will delete all tracks, programs, subjects, tasks, and history. This action cannot be undone.",
+                () => {
+                    window.tracks = [];
+                    window.customPrograms = {};
+                    syllabusStructure = {};
+                    window.passedItems = { programs: [], subjects: [] };
+                    window.revisionData = { active: [], progress: {} };
+                    window.subjectTimeLinks = {};
+                    window.successResults = [];
+                    window.customActions = [];
+                    window.paceGoals = [];
+                    
+                    window.dashboardConfig = {
+                        topTag: "",
+                        mainTitle: "Study Dashboard",
+                        subTitle: ""
+                    };
+                    
+                    PLAN_START_DATE = new Date();
+                    PLAN_START_DATE.setHours(0, 0, 0, 0);
+                    PLAN_END_DATE = new Date();
+                    PLAN_END_DATE.setMonth(PLAN_END_DATE.getMonth() + 10);
+                    PLAN_END_DATE.setHours(23, 59, 59, 999);
+                    
+                    tasks = generateStudyPlan();
+                    recalculateTotals();
+                    
+                    saveToCloud(true);
+                    renderUI();
+                    
+                    window.populateTrackDropdowns();
+                    window.updateManageDropdown();
+                    if (window.renderTrackList) window.renderTrackList();
+                    
+                    showToast("Dashboard reset successfully to a clean slate!", "success");
+                }
+            );
+        };
+
 
         window.updateChProgDropdown = function () {
             const track = document.getElementById('add-ch-track').value;
@@ -5405,21 +5355,14 @@
 
             if (doBulk) {
                 let currentChapter = 1;
+                const key = track + 'Tasks';
                 for (let i = todayIdx; i < tasks.length && currentChapter <= chaptersToAssign; i++) {
                     if (tasks[i].type !== 'study') continue;
-                    if (track === 'ca') {
-                        if (tasks[i].caTask && tasks[i].caTask.subject === 'Revision') {
-                            tasks[i].caTask = { subject: name, chapter: `Ch. ${currentChapter}`, title: `Topic ${currentChapter}`, completed: false };
+                    if (Array.isArray(tasks[i][key])) {
+                        const bIdx = tasks[i][key].findIndex(b => b.subject === 'Revision');
+                        if (bIdx > -1) {
+                            tasks[i][key][bIdx] = { subject: name, chapter: `Ch. ${currentChapter}`, title: `Topic ${currentChapter}`, completed: false, id: tasks[i][key][bIdx].id };
                             currentChapter++;
-                        }
-                    } else {
-                        const key = track + 'Tasks';
-                        if (Array.isArray(tasks[i][key])) {
-                            const bIdx = tasks[i][key].findIndex(b => b.subject === 'Revision');
-                            if (bIdx > -1) {
-                                tasks[i][key][bIdx] = { subject: name, chapter: `Ch. ${currentChapter}`, title: `Topic ${currentChapter}`, completed: false, id: tasks[i][key][bIdx].id };
-                                currentChapter++;
-                            }
                         }
                     }
                 }
@@ -5452,14 +5395,10 @@
             if (!subj || !num || !title) return showToast("Please fill all fields.", "error");
 
             let isDuplicate = false;
+            const key = track + 'Tasks';
             for (let i = 0; i < tasks.length; i++) {
                 if (tasks[i].type !== 'study') continue;
-                if (track === 'ca') {
-                    if (tasks[i].caTask && tasks[i].caTask.subject === subj && tasks[i].caTask.chapter === formattedCh) { isDuplicate = true; break; }
-                } else {
-                    const key = track + 'Tasks';
-                    if (Array.isArray(tasks[i][key]) && tasks[i][key].some(b => b.subject === subj && b.chapter === formattedCh)) { isDuplicate = true; break; }
-                }
+                if (Array.isArray(tasks[i][key]) && tasks[i][key].some(b => b.subject === subj && b.chapter === formattedCh)) { isDuplicate = true; break; }
             }
             if (isDuplicate) return showToast(`Chapter ${num} already exists for ${subj}!`, "error");
 
@@ -5471,17 +5410,10 @@
 
             for (let i = todayIdx; i < tasks.length; i++) {
                 if (tasks[i].type !== 'study') continue;
-                if (track === 'ca') {
-                    if (tasks[i].caTask && tasks[i].caTask.subject === 'Revision') {
-                        tasks[i].caTask = { subject: subj, chapter: formattedCh, title: title, completed: false }; slotted = true; break;
-                    }
-                } else {
-                    const key = track + 'Tasks';
-                    if (Array.isArray(tasks[i][key])) {
-                        const bIdx = tasks[i][key].findIndex(b => b.subject === 'Revision');
-                        if (bIdx > -1) {
-                            tasks[i][key][bIdx] = { subject: subj, chapter: formattedCh, title: title, completed: false, id: tasks[i][key][bIdx].id }; slotted = true; break;
-                        }
+                if (Array.isArray(tasks[i][key])) {
+                    const bIdx = tasks[i][key].findIndex(b => b.subject === 'Revision');
+                    if (bIdx > -1) {
+                        tasks[i][key][bIdx] = { subject: subj, chapter: formattedCh, title: title, completed: false, id: tasks[i][key][bIdx].id }; slotted = true; break;
                     }
                 }
             }
@@ -5501,12 +5433,13 @@
             const title = document.getElementById('add-act-title').value.trim();
             const desc = document.getElementById('add-act-desc').value.trim();
             const color = document.getElementById('add-act-color').value;
+            const icon = document.getElementById('add-act-icon').value;
 
             if (!title || !desc) return showToast("Please provide a Title and Description.", "error");
             const newId = 'act_' + title.toLowerCase().replace(/[^a-z0-9]/g, '') + Date.now().toString().slice(-4);
 
             const nextOrder = window.customActions.length;
-            window.customActions.push({ id: newId, title: title, desc: desc, color: color, icon: 'generic', priority: 3, order: nextOrder });
+            window.customActions.push({ id: newId, title: title, desc: desc, color: color, icon: icon, priority: 3, order: nextOrder });
             window.sortAllCustomData();
 
             document.getElementById('add-act-title').value = ''; document.getElementById('add-act-desc').value = '';
@@ -5658,7 +5591,7 @@
         };
 
         window.syncPriorityInputsFromDOM = function () {
-            const trackIds = window.tracks ? window.tracks.map(t => t.id) : ['ca', 'bba'];
+            const trackIds = window.tracks ? window.tracks.map(t => t.id) : [];
             // Save Program priorities
             trackIds.forEach(track => {
                 if (window.customPrograms && window.customPrograms[track]) {
@@ -5815,7 +5748,6 @@
             <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 font-bold">Assign custom priorities (1 = Highest, Lower numbers first) and manually reorder your Subjects and Daily Actions. Use ▲ and ▼ to shift elements.</p>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             `;
-            const tracksList = window.tracks || [{ id: 'ca', name: 'Professional (CA)' }, { id: 'bba', name: 'Academic (BBA)' }];
 
 
             // 2. Syllabus Subjects Column
@@ -6320,10 +6252,6 @@
             const track = window.tracks.find(t => t.id === id);
             if (!track) return;
 
-            if (window.tracks.length <= 1) {
-                return showToast("Cannot delete the last remaining track.", "error");
-            }
-
             window.openConfirmModal(
                 "Delete Track",
                 `Are you sure you want to completely delete the track "${track.name}"? This will delete all its programs, subjects, and daily task data. This action cannot be undone.`,
@@ -6349,7 +6277,7 @@
             if (syllabusStructure[id]) delete syllabusStructure[id];
 
             // Remove from tasks properties
-            const keyTasks = id === 'ca' ? 'caTask' : id + 'Tasks';
+            const keyTasks = id + 'Tasks';
             const keyStudy = id + 'Study';
             if (Array.isArray(tasks)) {
                 tasks.forEach(task => {
@@ -6552,7 +6480,7 @@
                     2026 Study Master</h1>
                 <p id="dash-sub-title"
                     class="text-slate-500 dark:text-slate-400 font-bold text-[10px] sm:text-xs md:text-sm tracking-wide">
-                    Dual Track Execution: Professional & Academic</p>
+                    Dynamic Multi-Track Execution & Tracking Dashboard</p>
             </div>
             <div
                 class="flex flex-row items-center bg-white dark:bg-slate-800 p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 w-full md:w-auto justify-center flex-wrap gap-y-3">
@@ -6897,8 +6825,6 @@
                         <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track</label>
                         <select id="add-ch-track" onchange="updateChProgDropdown()"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
-                            <option value="ca">Professional (CA)</option>
-                            <option value="bba">Academic (BBA)</option>
                         </select>
                     </div>
                     <div class="flex flex-col gap-1.5 lg:col-span-1">
@@ -6938,8 +6864,6 @@
                         <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track</label>
                         <select id="add-sub-track" onchange="updateSubProgDropdown()"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
-                            <option value="ca">Professional (CA)</option>
-                            <option value="bba">Academic (BBA)</option>
                         </select>
                     </div>
                     <div class="flex flex-col gap-1.5 lg:col-span-1">
@@ -6976,14 +6900,12 @@
             <div id="sys-content-program" class="hidden transition-all">
                 <div class="mb-8">
                     <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 font-bold">Add a completely new Program
-                        bracket to either the CA or BBA track.</p>
+                        bracket to any track.</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track</label>
                             <select id="add-prog-track"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
-                                <option value="ca">Professional (CA)</option>
-                                <option value="bba">Academic (BBA)</option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1.5">
@@ -6991,7 +6913,7 @@
                                 Name</label>
                             <input type="text" id="add-prog-name"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
-                                placeholder="e.g. CA PL, BBA 3rd">
+                                placeholder="e.g. Honours, Year 1">
                         </div>
                         <button onclick="window.appendNewProgram()"
                             class="w-full bg-violet-600 hover:bg-violet-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest py-3 rounded-xl transition-all active:scale-95 shadow-md">Create
@@ -7002,7 +6924,7 @@
                 <div class="border-t border-slate-100 dark:border-slate-700/60 pt-6">
                     <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 font-bold">Create a new habit or action to
                         track daily alongside studying.</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Action
                                 Title</label>
@@ -7028,6 +6950,17 @@
                                 <option value="purple">Purple</option>
                                 <option value="rose">Rose</option>
                                 <option value="cyan">Cyan</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Icon</label>
+                            <select id="add-act-icon"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
+                                <option value="generic">List / Default</option>
+                                <option value="book">Graduation Cap / Academic</option>
+                                <option value="briefcase">Briefcase / Professional</option>
+                                <option value="gym">Heart / Gym & Health</option>
+                                <option value="freelance">Lightning / Work & Code</option>
                             </select>
                         </div>
                         <button onclick="window.appendNewAction()"
@@ -7056,8 +6989,6 @@
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track</label>
                             <select id="manage-track" onchange="window.updateManageDropdown()"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
-                                <option value="ca">Professional (CA)</option>
-                                <option value="bba">Academic (BBA)</option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1.5 lg:col-span-1" id="manage-program-box">
@@ -7117,7 +7048,16 @@
                             class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest py-3 rounded-xl transition-all active:scale-95 shadow-md">Update
                             Headers</button>
                     </div>
+                    <div class="mt-6 pt-6 border-t border-red-100 dark:border-red-900/30">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-red-500 mb-2">Danger Zone</p>
+                        <button onclick="window.resetToCleanSlate()"
+                            class="w-full bg-red-500 hover:bg-red-600 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest py-3 rounded-xl transition-all active:scale-95 shadow-md flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Reset to Empty Dashboard (Clear All Data)
+                        </button>
+                    </div>
                 </div>
+
             </div>
 
             <div id="sys-content-pass" class="hidden transition-all"></div>
@@ -7442,8 +7382,6 @@
                         <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track</label>
                         <select id="esm-track" onchange="window.updateEsmProgramDropdown()"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="ca">Professional (CA)</option>
-                            <option value="bba">Academic (BBA)</option>
                         </select>
                     </div>
                     <div class="flex flex-col gap-1.5">
