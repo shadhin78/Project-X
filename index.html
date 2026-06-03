@@ -3756,7 +3756,8 @@
                         <h4 class="font-black text-sm md:text-base text-slate-800 dark:text-slate-100 leading-tight mb-2 pr-12">${displayTitle}</h4>
                     </div>
                     <div class="mt-2 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center items-center h-full min-h-[60px]">
-                        <span class="text-xl md:text-2xl font-black text-${colorClass}-600 dark:text-${colorClass}-400 break-words text-center w-full leading-none">${res.value}</span>
+                        <span class="text-xl md:text-2xl font-black text-${colorClass}-600 dark:text-${colorClass}-400 break-words text-center w-full leading-none">${res.value || 'N/A'}</span>
+                        ${res.grade ? `<span class="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Grade: ${res.grade}</span>` : ''}
                     </div>
                 </div>`;
             });
@@ -3866,24 +3867,41 @@
             }
         };
 
-        window.updateResultSubjectDropdown = function () {
+        window.updateResultSubjectsGrid = function () {
             const progSelect = document.getElementById('res-prog-select');
-            const subSelect = document.getElementById('res-sub-select');
-            if (!progSelect || !subSelect) return;
+            const listContainer = document.getElementById('res-subjects-list');
+            if (!progSelect || !listContainer) return;
 
             const selectedProg = progSelect.value;
-            subSelect.innerHTML = '<option value="">Full Program (Overall CGPA)</option>';
+            listContainer.innerHTML = '';
+
+            // Clean inputs for overall
+            document.getElementById('res-overall-grade').value = '';
+            document.getElementById('res-overall-cgpa').value = '';
 
             if (selectedProg) {
+                let html = '';
                 window.tracks.forEach(track => {
                     if (syllabusStructure[track.id]) {
                         syllabusStructure[track.id].forEach(s => {
                             if (s.program === selectedProg) {
-                                subSelect.innerHTML += `<option value="${s.subject}">${s.subject}</option>`;
+                                html += `
+                                <div class="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-700/60 last:border-0">
+                                    <span class="text-xs font-black text-slate-700 dark:text-slate-200 flex-1 truncate">${s.subject}</span>
+                                    <div class="flex gap-2 shrink-0">
+                                        <input type="text" data-subject="${s.subject}" data-field="grade" class="res-sub-grade-input w-16 sm:w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Grade">
+                                        <input type="text" data-subject="${s.subject}" data-field="cgpa" class="res-sub-cgpa-input w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="CGPA">
+                                    </div>
+                                </div>`;
                             }
                         });
                     }
                 });
+                if (!html) {
+                    listContainer.innerHTML = '<p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center py-4">No subjects found in this program</p>';
+                } else {
+                    listContainer.innerHTML = html;
+                }
             }
         };
 
@@ -3903,32 +3921,34 @@
                 }
             });
 
-            // Trigger dynamic subject dropdown population
-            window.updateResultSubjectDropdown();
-
-            const subSelect = document.getElementById('res-sub-select');
+            const typeSelector = document.getElementById('res-type');
 
             if (id) {
+                // EDIT MODE
                 const res = window.successResults.find(r => r.id === id);
                 if (res) {
-                    document.getElementById('res-type').value = res.type;
-                    if (res.type === 'cgpa') {
-                        progSelect.value = res.title;
-                        window.updateResultSubjectDropdown();
-                        subSelect.value = res.subject || '';
-                    } else {
-                        document.getElementById('res-title-input').value = res.title;
-                    }
-                    document.getElementById('res-value').value = res.value;
+                    typeSelector.value = res.type;
+                    typeSelector.disabled = true; // Disable type switching during edits
+
+                    const titleText = res.subject ? `${res.title} - ${res.subject}` : res.title;
+                    document.getElementById('res-single-title-display').textContent = titleText;
+                    document.getElementById('res-value').value = res.value || '';
+                    document.getElementById('res-grade').value = res.grade || '';
                     document.getElementById('res-date').value = res.date;
                 }
             } else {
-                document.getElementById('res-type').value = 'cgpa';
+                // ADD MODE
+                typeSelector.value = 'cgpa';
+                typeSelector.disabled = false;
                 document.getElementById('res-title-input').value = '';
                 document.getElementById('res-value').value = '';
+                document.getElementById('res-grade').value = '';
+
                 const d = new Date();
                 const pad = (n) => n < 10 ? '0' + n : n;
                 document.getElementById('res-date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+                window.updateResultSubjectsGrid();
             }
 
             window.toggleResultType();
@@ -3937,49 +3957,128 @@
 
         window.toggleResultType = function () {
             const type = document.getElementById('res-type').value;
-            if (type === 'cgpa') {
-                document.getElementById('res-prog-container').classList.remove('hidden');
-                document.getElementById('res-sub-container').classList.remove('hidden');
-                document.getElementById('res-title-container').classList.add('hidden');
-            } else {
+            const isEdit = !!window.editingResultId;
+
+            if (isEdit) {
                 document.getElementById('res-prog-container').classList.add('hidden');
-                document.getElementById('res-sub-container').classList.add('hidden');
-                document.getElementById('res-title-container').classList.remove('hidden');
+                document.getElementById('res-subjects-grid-container').classList.add('hidden');
+                document.getElementById('res-title-container').classList.add('hidden');
+                document.getElementById('res-single-title-container').classList.remove('hidden');
+                document.getElementById('res-single-value-container').classList.remove('hidden');
+            } else {
+                document.getElementById('res-single-title-container').classList.add('hidden');
+                if (type === 'cgpa') {
+                    document.getElementById('res-prog-container').classList.remove('hidden');
+                    document.getElementById('res-subjects-grid-container').classList.remove('hidden');
+                    document.getElementById('res-title-container').classList.add('hidden');
+                    document.getElementById('res-single-value-container').classList.add('hidden');
+                } else {
+                    document.getElementById('res-prog-container').classList.add('hidden');
+                    document.getElementById('res-subjects-grid-container').classList.add('hidden');
+                    document.getElementById('res-title-container').classList.remove('hidden');
+                    document.getElementById('res-single-value-container').classList.remove('hidden');
+                }
             }
         };
 
         window.saveResult = function () {
             const type = document.getElementById('res-type').value;
-            let title = '';
-            let subject = '';
-
-            if (type === 'cgpa') {
-                title = document.getElementById('res-prog-select').value;
-                subject = document.getElementById('res-sub-select').value;
-                if (!title) return showToast("Target program is required", "error");
-            } else {
-                title = document.getElementById('res-title-input').value.trim();
-                if (!title) return showToast("Achievement title is required", "error");
-            }
-
-            const value = document.getElementById('res-value').value.trim();
             const date = document.getElementById('res-date').value;
-
-            if (!value) return showToast("Result/Value is required", "error");
             if (!date) return showToast("Date is required", "error");
 
-            const payload = { id: window.editingResultId || 'res_' + Date.now(), type, title, value, date };
-            if (type === 'cgpa') {
-                payload.subject = subject || '';
-            }
-
             if (window.editingResultId) {
-                const idx = window.successResults.findIndex(r => r.id === window.editingResultId);
-                if (idx > -1) {
-                    window.successResults[idx] = payload;
-                }
+                // EDIT MODE: Update single result
+                const res = window.successResults.find(r => r.id === window.editingResultId);
+                if (!res) return showToast("Result not found", "error");
+
+                const value = document.getElementById('res-value').value.trim();
+                const grade = document.getElementById('res-grade').value.trim();
+                if (!value) return showToast("Result/Value is required", "error");
+
+                res.value = value;
+                res.grade = grade;
+                res.date = date;
+
             } else {
-                window.successResults.push(payload);
+                // ADD MODE: Pushing new result(s)
+                if (type === 'cgpa') {
+                    const program = document.getElementById('res-prog-select').value;
+                    if (!program) return showToast("Target program is required", "error");
+
+                    let loggedCount = 0;
+
+                    // 1. Process Overall Program CGPA
+                    const overallCgpa = document.getElementById('res-overall-cgpa').value.trim();
+                    const overallGrade = document.getElementById('res-overall-grade').value.trim();
+                    if (overallCgpa || overallGrade) {
+                        window.successResults.push({
+                            id: 'res_' + Date.now() + '_overall',
+                            type: 'cgpa',
+                            title: program,
+                            subject: '',
+                            value: overallCgpa,
+                            grade: overallGrade,
+                            date: date
+                        });
+                        loggedCount++;
+                    }
+
+                    // 2. Process Subject CGPA inputs
+                    const gradeInputs = document.querySelectorAll('.res-sub-grade-input');
+                    const cgpaInputs = document.querySelectorAll('.res-sub-cgpa-input');
+
+                    const subjectsData = {};
+                    gradeInputs.forEach(input => {
+                        const sub = input.getAttribute('data-subject');
+                        if (!subjectsData[sub]) subjectsData[sub] = {};
+                        subjectsData[sub].grade = input.value.trim();
+                    });
+                    cgpaInputs.forEach(input => {
+                        const sub = input.getAttribute('data-subject');
+                        if (!subjectsData[sub]) subjectsData[sub] = {};
+                        subjectsData[sub].cgpa = input.value.trim();
+                    });
+
+                    // Loop over gathered subjects and save those with inputs
+                    let timeOffset = 1;
+                    for (const [subName, subScores] of Object.entries(subjectsData)) {
+                        if (subScores.cgpa || subScores.grade) {
+                            window.successResults.push({
+                                id: 'res_' + (Date.now() + timeOffset),
+                                type: 'cgpa',
+                                title: program,
+                                subject: subName,
+                                value: subScores.cgpa,
+                                grade: subScores.grade,
+                                date: date
+                            });
+                            timeOffset++;
+                            loggedCount++;
+                        }
+                    }
+
+                    if (loggedCount === 0) {
+                        return showToast("Please enter at least one score (Overall or Subject) to save.", "error");
+                    }
+
+                } else {
+                    // Achievement
+                    const title = document.getElementById('res-title-input').value.trim();
+                    const value = document.getElementById('res-value').value.trim();
+                    const grade = document.getElementById('res-grade').value.trim();
+
+                    if (!title) return showToast("Achievement title is required", "error");
+                    if (!value) return showToast("Result/Value is required", "error");
+
+                    window.successResults.push({
+                        id: 'res_' + Date.now(),
+                        type: 'achievement',
+                        title: title,
+                        value: value,
+                        grade: grade,
+                        date: date
+                    });
+                }
             }
 
             saveToCloud();
@@ -4355,8 +4454,9 @@
                             <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">${dateStr}</span>
                         </div>
                     </div>
-                    <div class="shrink-0 bg-white dark:bg-slate-800 px-3 sm:px-4 py-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 text-center min-w-[3.5rem]">
-                        <span class="text-sm sm:text-base font-black text-${colorClass}-600 dark:text-${colorClass}-400">${res.value}</span>
+                    <div class="shrink-0 bg-white dark:bg-slate-800 px-3 sm:px-4 py-1.5 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 text-center min-w-[3.5rem] flex flex-col justify-center items-center">
+                        <span class="text-sm sm:text-base font-black text-${colorClass}-600 dark:text-${colorClass}-400 leading-none">${res.value || 'N/A'}</span>
+                        ${res.grade ? `<span class="text-[8px] font-bold text-slate-400 mt-0.5">${res.grade}</span>` : ''}
                     </div>
                 </div>`;
             });
@@ -8116,7 +8216,7 @@
             class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
             onclick="closeModal('result-modal')"></div>
         <div id="resm-content"
-            class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-sm border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+            class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md md:max-w-xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col transition-all duration-300">
             <div
                 class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
                 <div class="flex items-center space-x-3">
@@ -8152,18 +8252,30 @@
                     </select>
                 </div>
 
+                <div id="res-single-title-container" class="flex flex-col gap-1.5 hidden">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Editing Item</span>
+                    <span id="res-single-title-display" class="text-sm font-black text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700"></span>
+                </div>
+
                 <div id="res-prog-container" class="flex flex-col gap-1.5">
                     <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target
                         Program</label>
-                    <select id="res-prog-select" onchange="window.updateResultSubjectDropdown()"
+                    <select id="res-prog-select" onchange="window.updateResultSubjectsGrid()"
                         class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"></select>
                 </div>
 
-                <div id="res-sub-container" class="flex flex-col gap-1.5 hidden">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target
-                        Subject</label>
-                    <select id="res-sub-select"
-                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"></select>
+                <div id="res-subjects-grid-container" class="flex flex-col gap-3 hidden">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                        <span class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall Program CGPA</span>
+                        <div class="flex gap-2 shrink-0">
+                            <input type="text" id="res-overall-grade" class="w-16 sm:w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Grade">
+                            <input type="text" id="res-overall-cgpa" class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="CGPA">
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Subject Grades & scores</span>
+                    <div id="res-subjects-list" class="max-h-52 overflow-y-auto pr-1 flex flex-col gap-2.5 custom-scrollbar">
+                        <!-- Dynamically populated -->
+                    </div>
                 </div>
 
                 <div id="res-title-container" class="flex flex-col gap-1.5 hidden">
@@ -8174,19 +8286,25 @@
                         placeholder="e.g. Big 4 Firm Offer">
                 </div>
 
-                <div class="flex gap-3">
+                <div id="res-single-value-container" class="flex gap-3 hidden">
                     <div class="flex flex-col gap-1.5 flex-1">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Result /
-                            Value</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Grade</label>
+                        <input type="text" id="res-grade"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"
+                            placeholder="e.g. A+">
+                    </div>
+                    <div class="flex flex-col gap-1.5 flex-1">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Result / Score</label>
                         <input type="text" id="res-value"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"
-                            placeholder="e.g. 3.85 or Secured">
+                            placeholder="e.g. 3.85">
                     </div>
-                    <div class="flex flex-col gap-1.5 flex-1">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</label>
-                        <input type="date" id="res-date"
-                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none">
-                    </div>
+                </div>
+
+                <div id="res-date-container" class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</label>
+                    <input type="date" id="res-date"
+                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none">
                 </div>
             </div>
 
