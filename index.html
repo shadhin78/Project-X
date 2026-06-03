@@ -147,22 +147,62 @@
             return new Date();
         }
 
+        // Grade-based: A=4, B=3, C=2, D=1, E=0, F=0
         window.mapGradeToNumeric = function (grade) {
-            if (!grade) return 0;
+            if (!grade) return 0.0;
             const g = grade.toUpperCase().trim();
             switch (g) {
-                case 'A+': return 4.0;
                 case 'A': return 4.0;
-                case 'A-': return 3.7;
-                case 'B+': return 3.3;
                 case 'B': return 3.0;
-                case 'B-': return 2.7;
-                case 'C+': return 2.3;
                 case 'C': return 2.0;
                 case 'D': return 1.0;
+                case 'E': return 0.0;
                 case 'F': return 0.0;
                 default: return 0.0;
             }
+        };
+
+        // CGPA-based: estimate grade with +/- from numeric CGPA (4.0 scale)
+        window.mapCgpaToGrade = function (cgpa) {
+            const v = parseFloat(cgpa);
+            if (isNaN(v)) return '';
+            if (v >= 4.0) return 'A+';
+            if (v >= 3.75) return 'A';
+            if (v >= 3.5) return 'A-';
+            if (v >= 3.25) return 'B+';
+            if (v >= 3.0) return 'B';
+            if (v >= 2.75) return 'B-';
+            if (v >= 2.5) return 'C+';
+            if (v >= 2.25) return 'C';
+            if (v >= 2.0) return 'C-';
+            if (v >= 1.75) return 'D+';
+            if (v >= 1.0) return 'D';
+            return 'F';
+        };
+
+        // Called when a CGPA input changes → update sibling auto-grade badge
+        window.onCgpaInput = function (inputEl) {
+            const badge = inputEl.parentElement.querySelector('.auto-grade-badge');
+            if (badge) {
+                const g = window.mapCgpaToGrade(inputEl.value);
+                badge.textContent = g || '—';
+                badge.classList.toggle('opacity-40', !g);
+            }
+        };
+
+        // Helper to update auto-cgpa badge based on grade selection
+        window.updateCgpaBadge = function (gradeVal, badge) {
+            if (badge) {
+                const c = window.mapGradeToNumeric(gradeVal);
+                badge.textContent = gradeVal ? c.toFixed(2) : '—';
+                badge.classList.toggle('opacity-40', !gradeVal);
+            }
+        };
+
+        // Called when a grade select changes → update sibling auto-cgpa badge
+        window.onGradeSelect = function (selectEl) {
+            const badge = selectEl.parentElement.querySelector('.auto-cgpa-badge');
+            window.updateCgpaBadge(selectEl.value, badge);
         };
 
         function ensureAvailableSlots(slotsNeeded, track, startIndex) {
@@ -3772,17 +3812,7 @@
             let cgpaResults = window.successResults
                 .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName);
 
-            const startDateEl = document.getElementById('trend-start-date');
-            const startDateVal = startDateEl ? startDateEl.value : '';
-            if (startDateVal) {
-                const startFilterDate = parseDateSafe(startDateVal);
-                startFilterDate.setHours(0, 0, 0, 0);
-                cgpaResults = cgpaResults.filter(r => {
-                    const rDate = parseDateSafe(r.date);
-                    rDate.setHours(0, 0, 0, 0);
-                    return rDate >= startFilterDate;
-                });
-            }
+
 
             cgpaResults.sort((a, b) => parseDateSafe(a.date) - parseDateSafe(b.date));
 
@@ -4071,9 +4101,6 @@
 
             const selectedProgFilter = filterSelect ? filterSelect.value : 'ALL';
 
-            const startDateEl = document.getElementById('trend-start-date');
-            const startDateVal = startDateEl ? startDateEl.value : '';
-
             // Filter CGPAs for the Progression Trend Chart (Overall Program CGPAs only, no subject CGPAs)
             let cgpaResults = window.successResults
                 .filter(r => r.type === 'cgpa' && !r.subject)
@@ -4081,16 +4108,6 @@
 
             if (selectedProgFilter !== 'ALL') {
                 cgpaResults = cgpaResults.filter(r => r.title === selectedProgFilter);
-            }
-
-            if (startDateVal) {
-                const startFilterDate = parseDateSafe(startDateVal);
-                startFilterDate.setHours(0, 0, 0, 0);
-                cgpaResults = cgpaResults.filter(r => {
-                    const rDate = parseDateSafe(r.date);
-                    rDate.setHours(0, 0, 0, 0);
-                    return rDate >= startFilterDate;
-                });
             }
 
             // Calculate & render stats indicators
@@ -4306,21 +4323,29 @@
                                 html += `
                                 <div class="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-700/60 last:border-0">
                                     <span class="text-xs font-black text-slate-700 dark:text-slate-200 flex-1 truncate">${s.subject}</span>
-                                    <div class="flex gap-2 shrink-0">
-                                        <select data-subject="${s.subject}" data-field="grade" class="res-sub-grade-input w-24 sm:w-28 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none ${isGrade ? '' : 'hidden'}">
-                                            <option value="">Grade</option>
-                                            <option value="A+">A+</option>
-                                            <option value="A">A</option>
-                                            <option value="A-">A-</option>
-                                            <option value="B+">B+</option>
-                                            <option value="B">B</option>
-                                            <option value="B-">B-</option>
-                                            <option value="C+">C+</option>
-                                            <option value="C">C</option>
-                                            <option value="D">D</option>
-                                            <option value="F">F</option>
-                                        </select>
-                                        <input type="text" data-subject="${s.subject}" data-field="cgpa" class="res-sub-cgpa-input w-24 sm:w-28 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none ${isGrade ? 'hidden' : ''}" placeholder="CGPA">
+                                    <div class="flex gap-2 shrink-0 items-center">
+                                        <!-- Grade mode: select A-F + auto CGPA badge -->
+                                        <div class="${isGrade ? 'flex' : 'hidden'} items-center gap-1.5">
+                                            <select data-subject="${s.subject}" data-field="grade"
+                                                class="res-sub-grade-input w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
+                                                onchange="window.onGradeSelect(this)">
+                                                <option value="">Grade</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                                <option value="E">E</option>
+                                                <option value="F">F</option>
+                                            </select>
+                                            <span class="auto-cgpa-badge text-[10px] font-black text-cyan-500 bg-cyan-50 dark:bg-cyan-900/30 px-1.5 py-0.5 rounded-lg border border-cyan-200 dark:border-cyan-800 min-w-[36px] text-center opacity-40">—</span>
+                                        </div>
+                                        <!-- CGPA mode: text input + auto grade badge -->
+                                        <div class="${isGrade ? 'hidden' : 'flex'} items-center gap-1">
+                                            <input type="text" data-subject="${s.subject}" data-field="cgpa"
+                                                class="res-sub-cgpa-input w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
+                                                placeholder="CGPA" oninput="window.onCgpaInput(this)">
+                                            <span class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
+                                        </div>
                                     </div>
                                 </div>`;
                             }
@@ -4390,18 +4415,29 @@
                         if (evalType === 'grade') {
                             document.getElementById('res-overall-grade').value = r.grade || '';
                             document.getElementById('res-overall-target-grade').value = r.targetGrade || '';
+                            
+                            window.updateCgpaBadge(r.grade || '', document.getElementById('res-overall-grade').parentElement.querySelector('.auto-cgpa-badge'));
+                            window.updateCgpaBadge(r.targetGrade || '', document.getElementById('res-overall-target-grade').parentElement.querySelector('.auto-cgpa-badge'));
                         } else {
                             document.getElementById('res-overall-cgpa').value = r.value || '';
                             document.getElementById('res-overall-target-cgpa').value = r.targetCGPA || '';
+                            window.onCgpaInput(document.getElementById('res-overall-cgpa'));
+                            window.onCgpaInput(document.getElementById('res-overall-target-cgpa'));
                         }
                     } else {
                         // Subject-level score
                         if (evalType === 'grade') {
-                            const gradeInput = document.querySelector(`.res-sub-grade-input[data-subject="${r.subject}"]`);
-                            if (gradeInput) gradeInput.value = r.grade || '';
+                            const gradeInput = Array.from(document.querySelectorAll('.res-sub-grade-input')).find(input => input.getAttribute('data-subject') === r.subject);
+                            if (gradeInput) {
+                                gradeInput.value = r.grade || '';
+                                window.updateCgpaBadge(r.grade || '', gradeInput.parentElement.querySelector('.auto-cgpa-badge'));
+                            }
                         } else {
-                            const cgpaInput = document.querySelector(`.res-sub-cgpa-input[data-subject="${r.subject}"]`);
-                            if (cgpaInput) cgpaInput.value = r.value || '';
+                            const cgpaInput = Array.from(document.querySelectorAll('.res-sub-cgpa-input')).find(input => input.getAttribute('data-subject') === r.subject);
+                            if (cgpaInput) {
+                                cgpaInput.value = r.value || '';
+                                window.onCgpaInput(cgpaInput);
+                            }
                         }
                     }
                 });
@@ -4438,6 +4474,12 @@
                 document.getElementById('res-overall-cgpa').value = '';
                 document.getElementById('res-overall-target-cgpa').value = '';
 
+                // Reset all auto-badges
+                document.querySelectorAll('#resm-content .auto-grade-badge, #resm-content .auto-cgpa-badge').forEach(b => {
+                    b.textContent = '—';
+                    b.classList.add('opacity-40');
+                });
+
                 const d = new Date();
                 const pad = (n) => n < 10 ? '0' + n : n;
                 document.getElementById('res-date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -4451,16 +4493,26 @@
 
         window.toggleResultEvaluationType = function () {
             const evalType = document.getElementById('res-evaluation-type').value;
-            const cgpaFields = document.querySelectorAll('.res-cgpa-field');
-            const gradeFields = document.querySelectorAll('.res-grade-field');
+            const cgpaFields = document.querySelectorAll('#res-subjects-grid-container .res-cgpa-field, #resm-content .res-cgpa-field');
+            const gradeFields = document.querySelectorAll('#res-subjects-grid-container .res-grade-field, #resm-content .res-grade-field');
 
             if (evalType === 'grade') {
-                cgpaFields.forEach(f => f.classList.add('hidden'));
-                gradeFields.forEach(f => f.classList.remove('hidden'));
+                cgpaFields.forEach(f => { f.classList.add('hidden'); f.classList.remove('flex'); });
+                gradeFields.forEach(f => { f.classList.remove('hidden'); f.classList.add('flex'); });
             } else {
-                cgpaFields.forEach(f => f.classList.remove('hidden'));
-                gradeFields.forEach(f => f.classList.add('hidden'));
+                cgpaFields.forEach(f => { f.classList.remove('hidden'); f.classList.add('flex'); });
+                gradeFields.forEach(f => { f.classList.add('hidden'); f.classList.remove('flex'); });
             }
+
+            // Reset all auto-badges
+            document.querySelectorAll('#resm-content .auto-grade-badge, #resm-content .auto-cgpa-badge').forEach(b => {
+                b.textContent = '—';
+                b.classList.add('opacity-40');
+            });
+
+            // Update overall label
+            const overallLabel = document.getElementById('res-overall-label');
+            if (overallLabel) overallLabel.textContent = evalType === 'grade' ? 'Overall Program Grade' : 'Overall Program CGPA';
 
             window.updateResultSubjectsGrid(false);
         };
@@ -4532,6 +4584,9 @@
                 } else {
                     overallVal = document.getElementById('res-overall-cgpa').value.trim();
                     overallTargetCgpaVal = document.getElementById('res-overall-target-cgpa').value.trim();
+                    // Automatically calculate and save estimated grade from CGPA
+                    overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal) : '';
+                    overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal) : '';
                 }
 
                 if (overallVal || overallGradeVal) {
@@ -4576,7 +4631,8 @@
                         const cVal = input.value.trim();
                         if (cVal) {
                             subjectsData[sub] = {
-                                grade: '',
+                                // Automatically calculate and save estimated grade from CGPA
+                                grade: window.mapCgpaToGrade(cVal),
                                 cgpa: cVal
                             };
                         }
@@ -4634,6 +4690,9 @@
                     } else {
                         overallVal = document.getElementById('res-overall-cgpa').value.trim();
                         overallTargetCgpaVal = document.getElementById('res-overall-target-cgpa').value.trim();
+                        // Automatically calculate and save estimated grade from CGPA
+                        overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal) : '';
+                        overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal) : '';
                     }
 
                     if (overallVal || overallGradeVal) {
@@ -4679,7 +4738,8 @@
                             const cVal = input.value.trim();
                             if (cVal) {
                                 subjectsData[sub] = {
-                                    grade: '',
+                                    // Automatically calculate and save estimated grade from CGPA
+                                    grade: window.mapCgpaToGrade(cVal),
                                     cgpa: cVal
                                 };
                             }
@@ -8133,11 +8193,6 @@
                     <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
                         Results & Performance Trend</h3>
                     <div class="flex items-center gap-2 flex-wrap">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-[8px] sm:text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Start:</span>
-                            <input type="date" id="trend-start-date" onchange="window.renderResults()"
-                                class="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase text-slate-600 dark:text-slate-200 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer">
-                        </div>
                         <select id="trend-program-filter" onchange="window.renderResults()"
                             class="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1 text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-200 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer">
                             <option value="ALL">All Programs</option>
@@ -9078,35 +9133,49 @@
                     <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
                         <span id="res-overall-label" class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall Program CGPA</span>
                         <div class="flex gap-2 shrink-0 flex-wrap justify-end">
-                            <input type="text" id="res-overall-cgpa" class="res-cgpa-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="CGPA">
-                            <input type="text" id="res-overall-target-cgpa" class="res-cgpa-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Target CGPA">
-                            
-                            <select id="res-overall-grade" class="res-grade-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none hidden">
+                        <!-- CGPA mode: CGPA input + auto grade badge -->
+                        <div class="res-cgpa-field flex items-center gap-1.5">
+                            <input type="text" id="res-overall-cgpa"
+                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
+                                placeholder="CGPA" oninput="window.onCgpaInput(this)">
+                            <span class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
+                        </div>
+                        <div class="res-cgpa-field flex items-center gap-1.5">
+                            <input type="text" id="res-overall-target-cgpa"
+                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
+                                placeholder="Target CGPA" oninput="window.onCgpaInput(this)">
+                            <span class="auto-grade-badge text-[10px] font-black text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800 min-w-[28px] text-center opacity-40">—</span>
+                        </div>
+
+                        <!-- Grade mode: Grade select (A–F) + auto CGPA badge -->
+                        <div class="res-grade-field hidden flex items-center gap-1.5">
+                            <select id="res-overall-grade"
+                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
+                                onchange="window.onGradeSelect(this)">
                                 <option value="">Grade</option>
-                                <option value="A+">A+</option>
                                 <option value="A">A</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
                                 <option value="B">B</option>
-                                <option value="B-">B-</option>
-                                <option value="C+">C+</option>
                                 <option value="C">C</option>
                                 <option value="D">D</option>
+                                <option value="E">E</option>
                                 <option value="F">F</option>
                             </select>
-                            <select id="res-overall-target-grade" class="res-grade-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none hidden">
+                            <span class="auto-cgpa-badge text-[10px] font-black text-cyan-500 bg-cyan-50 dark:bg-cyan-900/30 px-1.5 py-0.5 rounded-lg border border-cyan-200 dark:border-cyan-800 min-w-[36px] text-center opacity-40">—</span>
+                        </div>
+                        <div class="res-grade-field hidden flex items-center gap-1.5">
+                            <select id="res-overall-target-grade"
+                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
+                                onchange="window.onGradeSelect(this)">
                                 <option value="">Target</option>
-                                <option value="A+">A+</option>
                                 <option value="A">A</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
                                 <option value="B">B</option>
-                                <option value="B-">B-</option>
-                                <option value="C+">C+</option>
                                 <option value="C">C</option>
                                 <option value="D">D</option>
+                                <option value="E">E</option>
                                 <option value="F">F</option>
                             </select>
+                            <span class="auto-cgpa-badge text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 min-w-[36px] text-center opacity-40">—</span>
+                        </div>
                         </div>
                     </div>
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Subject Grades & scores</span>
