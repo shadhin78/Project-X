@@ -59,7 +59,7 @@
         window.hasShownCongrats = false;
         window.successResults = [];
         window.editingResultId = null;
-        window.trendDatasetVisibility = { program: true, subject: true };
+        window.trendDatasetVisibility = { actual: true, target: true };
 
         window.dashboardConfig = {
             topTag: "",
@@ -146,6 +146,24 @@
             }
             return new Date();
         }
+
+        window.mapGradeToNumeric = function (grade) {
+            if (!grade) return 0;
+            const g = grade.toUpperCase().trim();
+            switch (g) {
+                case 'A+': return 4.0;
+                case 'A': return 4.0;
+                case 'A-': return 3.7;
+                case 'B+': return 3.3;
+                case 'B': return 3.0;
+                case 'B-': return 2.7;
+                case 'C+': return 2.3;
+                case 'C': return 2.0;
+                case 'D': return 1.0;
+                case 'F': return 0.0;
+                default: return 0.0;
+            }
+        };
 
         function ensureAvailableSlots(slotsNeeded, track, startIndex) {
             let availableSlots = 0;
@@ -492,10 +510,19 @@
             let all = [];
             window.tracks.forEach(t => {
                 if (window.customPrograms[t.id]) {
-                    all = all.concat(window.customPrograms[t.id]);
+                    window.customPrograms[t.id].forEach(p => {
+                        all.push({ ...p, _trackId: t.id, _trackName: t.name });
+                    });
                 }
             });
-            return all;
+            return all.sort((a, b) => {
+                const pA = a.priority !== undefined ? a.priority : 999;
+                const pB = b.priority !== undefined ? b.priority : 999;
+                if (pA !== pB) return pA - pB;
+                const oA = a.order !== undefined ? a.order : 999;
+                const oB = b.order !== undefined ? b.order : 999;
+                return oA - oB;
+            });
         };
 
         window.populateTrackDropdowns = function () {
@@ -3716,6 +3743,191 @@
             window.renderResults();
         };
 
+        window.programTrendChartInstance = null;
+        window.programTrendDatasetVisibility = { actual: true, target: true };
+
+        window.toggleProgramTrendDataset = function (type) {
+            window.programTrendDatasetVisibility[type] = !window.programTrendDatasetVisibility[type];
+            if (window.currentAnalyticsProgram) {
+                window.renderProgramTrendModal(window.currentAnalyticsProgram);
+            }
+        };
+
+        window.showProgramAnalytics = function (progName) {
+            window.currentAnalyticsProgram = progName;
+            const titleEl = document.getElementById('ptm-results-title');
+            if (titleEl) {
+                titleEl.textContent = `${progName} Progression`;
+            }
+            window.renderProgramTrendModal(progName);
+            openModal('program-trend-modal');
+        };
+
+        window.renderProgramTrendModal = function (progName) {
+            const canvas = document.getElementById('programTrendCanvas');
+            const legendEl = document.getElementById('program-trend-legend');
+            if (!canvas) return;
+
+            // Filter CGPAs for this specific program (overall only, no subjects)
+            let cgpaResults = window.successResults
+                .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName);
+
+            const startDateEl = document.getElementById('trend-start-date');
+            const startDateVal = startDateEl ? startDateEl.value : '';
+            if (startDateVal) {
+                const startFilterDate = parseDateSafe(startDateVal);
+                startFilterDate.setHours(0, 0, 0, 0);
+                cgpaResults = cgpaResults.filter(r => {
+                    const rDate = parseDateSafe(r.date);
+                    rDate.setHours(0, 0, 0, 0);
+                    return rDate >= startFilterDate;
+                });
+            }
+
+            cgpaResults.sort((a, b) => parseDateSafe(a.date) - parseDateSafe(b.date));
+
+            // Calculate overall stats for legend
+            let latestActual = '0.00';
+            let latestTarget = '0.00';
+            if (cgpaResults.length > 0) {
+                latestActual = (parseFloat(cgpaResults[cgpaResults.length - 1].value) || 0).toFixed(2);
+                latestTarget = (parseFloat(cgpaResults[cgpaResults.length - 1].targetCGPA) || 0).toFixed(2);
+            }
+
+            // Legend rendering
+            if (legendEl) {
+                const getLegendHtml = (idxKey, color, label, val) => {
+                    const active = window.programTrendDatasetVisibility[idxKey];
+                    return `<div onclick="window.toggleProgramTrendDataset('${idxKey}')" class="cursor-pointer flex items-center space-x-1.5 md:space-x-2 px-2.5 md:px-3 py-1.5 md:px-3.5 md:py-2 bg-slate-900 rounded-lg md:rounded-xl border border-slate-700 hover:bg-slate-800 active:scale-95 transition-all ${active ? 'opacity-100 scale-100 shadow-md' : 'opacity-40 grayscale scale-95 line-through'}"><div class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">${label}: ${val}</span></div>`;
+                };
+                legendEl.innerHTML = 
+                    getLegendHtml('actual', '#06b6d4', 'Actual CGPA', latestActual) +
+                    getLegendHtml('target', '#f59e0b', 'Target CGPA', latestTarget);
+            }
+
+            if (cgpaResults.length === 0) {
+                if (window.programTrendChartInstance) window.programTrendChartInstance.destroy();
+                return;
+            }
+
+            const labels = cgpaResults.map(r => {
+                const d = parseDateSafe(r.date);
+                const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                return `${r.title} (${dateStr})`;
+            });
+            const actualData = cgpaResults.map(r => parseFloat(r.value) || null);
+            const targetData = cgpaResults.map(r => parseFloat(r.targetCGPA) || null);
+
+            const allNumericValues = [];
+            cgpaResults.forEach(r => {
+                const act = parseFloat(r.value);
+                const tgt = parseFloat(r.targetCGPA);
+                if (!isNaN(act)) allNumericValues.push(act);
+                if (!isNaN(tgt)) allNumericValues.push(tgt);
+            });
+            const yMin = 0;
+            const maxVal = allNumericValues.length > 0 ? Math.max(...allNumericValues) : 4.0;
+            const yMax = maxVal > 4.0 ? 5.0 : 4.0;
+
+            if (window.programTrendChartInstance) window.programTrendChartInstance.destroy();
+
+            const canvasCtx = canvas.getContext('2d');
+            
+            const gradientActual = canvasCtx.createLinearGradient(0, 0, 0, 200);
+            gradientActual.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
+            gradientActual.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            
+            const gradientTarget = canvasCtx.createLinearGradient(0, 0, 0, 200);
+            gradientTarget.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+            gradientTarget.addColorStop(1, 'rgba(245, 158, 11, 0)');
+
+            window.programTrendChartInstance = new Chart(canvasCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Actual CGPA',
+                            data: actualData,
+                            backgroundColor: '#06b6d4',
+                            borderColor: '#06b6d4',
+                            borderWidth: 0,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            hidden: !window.programTrendDatasetVisibility.actual
+                        },
+                        {
+                            label: 'Target CGPA',
+                            data: targetData,
+                            backgroundColor: '#f59e0b',
+                            borderColor: '#f59e0b',
+                            borderWidth: 0,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            hidden: !window.programTrendDatasetVisibility.target
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            usePointStyle: true,
+                            boxPadding: 6,
+                            callbacks: {
+                                title: (tooltipItems) => {
+                                    const item = cgpaResults[tooltipItems[0].dataIndex];
+                                    return `${item.title} (Overall Program)`;
+                                },
+                                label: (tooltipItem) => {
+                                    const item = cgpaResults[tooltipItem.dataIndex];
+                                    const isGrade = item.evaluationType === 'grade';
+                                    const actVal = item.value ? parseFloat(item.value).toFixed(2) : 'N/A';
+                                    const tgtVal = item.targetCGPA ? parseFloat(item.targetCGPA).toFixed(2) : 'N/A';
+                                    if (tooltipItem.datasetIndex === 0) {
+                                        const labelPrefix = isGrade ? 'Actual Grade: ' + (item.grade || 'N/A') : 'Actual CGPA: ' + actVal;
+                                        const labelSuffix = isGrade ? ` (Numeric: ${actVal})` : (item.grade ? ` [Grade: ${item.grade}]` : '');
+                                        return ` ${labelPrefix}${labelSuffix}`;
+                                    } else {
+                                        const labelPrefix = isGrade ? 'Target Grade: ' + (item.targetGrade || 'N/A') : 'Target CGPA: ' + tgtVal;
+                                        const labelSuffix = isGrade ? ` (Numeric: ${tgtVal})` : '';
+                                        return ` ${labelPrefix}${labelSuffix}`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: yMin,
+                            max: yMax,
+                            ticks: { font: { size: 9, weight: 'bold' } },
+                            grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }
+                        },
+                        x: {
+                            ticks: { font: { size: 9, weight: 'bold' } },
+                            grid: { display: false, drawBorder: false }
+                        }
+                    }
+                }
+            });
+        };
+
+        window.renderSuccessResults = function () {
+            window.renderResults();
+        };
+
         window.renderResults = function () {
             const container = document.getElementById('results-container');
             const trendContainer = document.getElementById('results-trend-container');
@@ -3742,7 +3954,7 @@
                             date: res.date
                         };
                     }
-                    if (new Date(res.date) > new Date(programGroups[progName].date)) {
+                    if (parseDateSafe(res.date) > parseDateSafe(programGroups[progName].date)) {
                         programGroups[progName].date = res.date;
                     }
                     if (!res.subject) {
@@ -3758,7 +3970,7 @@
             const mergedList = [
                 ...Object.values(programGroups),
                 ...achievements
-            ].sort((a, b) => new Date(b.date) - new Date(a.date));
+            ].sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
 
             let html = '';
             mergedList.forEach(item => {
@@ -3772,8 +3984,9 @@
                     html += `
                     <div class="bg-white dark:bg-slate-800 p-5 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-sm relative group hover:shadow-md hover:-translate-y-1 transition-all flex flex-col justify-between">
                         <div class="absolute top-3.5 right-3.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="window.openResultModal(null, '${progName}')" class="text-slate-300 hover:text-blue-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                            <button onclick="window.deleteProgramGroup('${progName}')" class="text-slate-300 hover:text-red-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                            <button onclick="window.showProgramAnalytics('${progName.replace(/'/g, "\\'")}')" class="text-slate-300 hover:text-cyan-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Progression Trend"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg></button>
+                            <button onclick="window.openResultModal(null, '${progName}')" class="text-slate-300 hover:text-blue-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Edit Program Card"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                            <button onclick="window.deleteProgramGroup('${progName}')" class="text-slate-300 hover:text-red-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Delete Program Card"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                         </div>
                         <div>
                             <div class="flex items-center space-x-1.5 mb-2.5">
@@ -3785,10 +3998,10 @@
                             <!-- Overall Program Score Banner -->
                             ${overall ? `
                             <div class="mb-4 bg-blue-50/50 dark:bg-blue-950/20 px-3.5 py-2 rounded-xl border border-blue-100/50 dark:border-blue-900/30 flex justify-between items-center">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-blue-500">Overall CGPA</span>
+                                <span class="text-[10px] font-black uppercase tracking-widest text-blue-500">${overall.evaluationType === 'grade' ? 'Overall Grade' : 'Overall CGPA'}</span>
                                 <div class="text-right">
-                                    <span class="text-base font-black text-blue-600 dark:text-blue-400">${overall.value || 'N/A'}</span>
-                                    ${overall.grade ? `<span class="text-[9px] font-bold text-slate-400 ml-1">(${overall.grade})</span>` : ''}
+                                    <span class="text-base font-black text-blue-600 dark:text-blue-400">${overall.evaluationType === 'grade' ? (overall.grade || 'N/A') : (overall.value || 'N/A')}</span>
+                                    ${overall.evaluationType === 'grade' ? `<span class="text-[9px] font-bold text-slate-400 ml-1">(CGPA: ${overall.value})</span>` : (overall.grade ? `<span class="text-[9px] font-bold text-slate-400 ml-1">(${overall.grade})</span>` : '')}
                                 </div>
                             </div>
                             ` : ''}
@@ -3802,7 +4015,8 @@
                                     <div class="flex justify-between items-center text-xs">
                                         <span class="font-bold text-slate-600 dark:text-slate-300 truncate mr-2">${s.subject}</span>
                                         <span class="font-black text-emerald-600 dark:text-emerald-400 shrink-0">
-                                            ${s.value || 'N/A'} ${s.grade ? `<span class="text-[10px] font-bold text-slate-400/80 ml-0.5">(${s.grade})</span>` : ''}
+                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (s.value || 'N/A')}
+                                            ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400/80 ml-0.5">(${s.value})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400/80 ml-0.5">(${s.grade})</span>` : '')}
                                         </span>
                                     </div>
                                     `).join('')}
@@ -3835,23 +4049,7 @@
             });
             container.innerHTML = html;
 
-            // Update filter buttons style states
-            const btnProg = document.getElementById('trend-btn-program');
-            const btnSub = document.getElementById('trend-btn-subject');
-            if (btnProg) {
-                if (window.trendDatasetVisibility.program) {
-                    btnProg.className = `px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/30 text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-[0_0_15px_-3px_rgba(6,182,212,0.3)]`;
-                } else {
-                    btnProg.className = `px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95`;
-                }
-            }
-            if (btnSub) {
-                if (window.trendDatasetVisibility.subject) {
-                    btnSub.className = `px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)]`;
-                } else {
-                    btnSub.className = `px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-500 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95`;
-                }
-            }
+            // Legend visibility toggles rendering is handled dynamically below
 
             // Populate trend filter dynamically
             const uniquePrograms = [];
@@ -3873,22 +4071,38 @@
 
             const selectedProgFilter = filterSelect ? filterSelect.value : 'ALL';
 
-            // Filter CGPAs for the Progression Trend Chart
+            const startDateEl = document.getElementById('trend-start-date');
+            const startDateVal = startDateEl ? startDateEl.value : '';
+
+            // Filter CGPAs for the Progression Trend Chart (Overall Program CGPAs only, no subject CGPAs)
             let cgpaResults = window.successResults
-                .filter(r => r.type === 'cgpa')
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
+                .filter(r => r.type === 'cgpa' && !r.subject)
+                .sort((a, b) => parseDateSafe(a.date) - parseDateSafe(b.date));
 
             if (selectedProgFilter !== 'ALL') {
                 cgpaResults = cgpaResults.filter(r => r.title === selectedProgFilter);
             }
 
+            if (startDateVal) {
+                const startFilterDate = parseDateSafe(startDateVal);
+                startFilterDate.setHours(0, 0, 0, 0);
+                cgpaResults = cgpaResults.filter(r => {
+                    const rDate = parseDateSafe(r.date);
+                    rDate.setHours(0, 0, 0, 0);
+                    return rDate >= startFilterDate;
+                });
+            }
+
             // Calculate & render stats indicators
             let latestProgramCgpa = '0.00';
+            let overallTargetCgpaVal = '0.00';
             const programResults = window.successResults
                 .filter(r => r.type === 'cgpa' && !r.subject)
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
+                .filter(r => selectedProgFilter === 'ALL' || r.title === selectedProgFilter)
+                .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
             if (programResults.length > 0) {
                 latestProgramCgpa = (parseFloat(programResults[0].value) || 0).toFixed(2);
+                overallTargetCgpaVal = (parseFloat(programResults[0].targetCGPA) || 0).toFixed(2);
             }
 
             let subjectCgpaAvg = '0.00';
@@ -3916,9 +4130,21 @@
             const statTotal = document.getElementById('trend-stat-total');
 
             if (statLatest) statLatest.textContent = latestProgramCgpa;
-            if (statAvg) statAvg.textContent = subjectCgpaAvg;
+            if (statAvg) statAvg.textContent = overallTargetCgpaVal; // Show selected target CGPA instead of subject CGPA average
             if (statHighest) statHighest.textContent = highestGpa;
             if (statTotal) statTotal.textContent = totalAchievements;
+
+            // Render interactive results legend
+            const rLeg = document.getElementById('results-legend');
+            if (rLeg) {
+                const getResultsLegend = (idxKey, color, label, val) => {
+                    const active = window.trendDatasetVisibility[idxKey];
+                    return `<div onclick="window.toggleTrendDataset('${idxKey}')" class="cursor-pointer flex items-center space-x-1.5 md:space-x-2 px-2.5 md:px-3 py-1.5 md:px-3.5 md:py-2 bg-slate-900 rounded-lg md:rounded-xl border border-slate-700 hover:bg-slate-800 active:scale-95 transition-all ${active ? 'opacity-100 scale-100 shadow-md' : 'opacity-40 grayscale scale-95 line-through'}"><div class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">${label}: ${val}</span></div>`;
+                };
+                rLeg.innerHTML = 
+                    getResultsLegend('actual', '#06b6d4', 'Actual CGPA', latestProgramCgpa) +
+                    getResultsLegend('target', '#f59e0b', 'Target CGPA', overallTargetCgpaVal);
+            }
 
             // Trend Chart Rendering
             if (cgpaResults.length > 0 && trendContainer) {
@@ -3927,65 +4153,62 @@
                 if (ctx) {
                     const labels = cgpaResults.map(r => {
                         const d = parseDateSafe(r.date);
-                        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                        return `${r.title} (${dateStr})`;
                     });
-                    const programData = cgpaResults.map(r => !r.subject ? (parseFloat(r.value) || null) : null);
-                    const subjectData = cgpaResults.map(r => r.subject ? (parseFloat(r.value) || null) : null);
+                    const actualData = cgpaResults.map(r => parseFloat(r.value) || null);
+                    const targetData = cgpaResults.map(r => parseFloat(r.targetCGPA) || null);
 
-                    const allNumericValues = cgpaResults.map(r => parseFloat(r.value)).filter(v => !isNaN(v));
-                    const yMin = allNumericValues.length > 0 ? Math.max(0, Math.floor(Math.min(...allNumericValues)) - 0.5) : 0;
-                    const yMax = allNumericValues.length > 0 ? Math.ceil(Math.max(...allNumericValues)) + 0.5 : 5;
+                    const allNumericValues = [];
+                    cgpaResults.forEach(r => {
+                        const act = parseFloat(r.value);
+                        const tgt = parseFloat(r.targetCGPA);
+                        if (!isNaN(act)) allNumericValues.push(act);
+                        if (!isNaN(tgt)) allNumericValues.push(tgt);
+                    });
+                    const yMin = 0;
+                    const maxVal = allNumericValues.length > 0 ? Math.max(...allNumericValues) : 4.0;
+                    const yMax = maxVal > 4.0 ? 5.0 : 4.0;
 
                     if (window.resultsTrendChartInstance) window.resultsTrendChartInstance.destroy();
 
                     const canvasCtx = ctx.getContext('2d');
                     
                     // Create beautiful area glow gradients
-                    const gradientProg = canvasCtx.createLinearGradient(0, 0, 0, 200);
-                    gradientProg.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
-                    gradientProg.addColorStop(1, 'rgba(6, 182, 212, 0)');
+                    const gradientActual = canvasCtx.createLinearGradient(0, 0, 0, 200);
+                    gradientActual.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
+                    gradientActual.addColorStop(1, 'rgba(6, 182, 212, 0)');
                     
-                    const gradientSub = canvasCtx.createLinearGradient(0, 0, 0, 200);
-                    gradientSub.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
-                    gradientSub.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                    const gradientTarget = canvasCtx.createLinearGradient(0, 0, 0, 200);
+                    gradientTarget.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+                    gradientTarget.addColorStop(1, 'rgba(245, 158, 11, 0)');
 
-                    Chart.defaults.color = '#64748b';
+                    Chart.defaults.color = '#94a3b8';
+                    Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui';
                     window.resultsTrendChartInstance = new Chart(canvasCtx, {
-                        type: 'line',
+                        type: 'bar',
                         data: {
                             labels: labels,
                             datasets: [
                                 {
-                                    label: 'Program CGPA',
-                                    data: programData,
+                                    label: 'Actual CGPA',
+                                    data: actualData,
+                                    backgroundColor: '#06b6d4',
                                     borderColor: '#06b6d4',
-                                    backgroundColor: gradientProg,
-                                    borderWidth: 3.5,
-                                    pointBackgroundColor: '#06b6d4',
-                                    pointBorderColor: '#0f172a',
-                                    pointBorderWidth: 2,
-                                    pointRadius: 6,
-                                    pointHoverRadius: 9,
-                                    fill: true,
-                                    tension: 0.3,
-                                    spanGaps: true,
-                                    hidden: !window.trendDatasetVisibility.program
+                                    borderWidth: 0,
+                                    borderRadius: 6,
+                                    borderSkipped: false,
+                                    hidden: !window.trendDatasetVisibility.actual
                                 },
                                 {
-                                    label: 'Subject CGPA',
-                                    data: subjectData,
-                                    borderColor: '#10b981',
-                                    backgroundColor: gradientSub,
-                                    borderWidth: 3.5,
-                                    pointBackgroundColor: '#10b981',
-                                    pointBorderColor: '#0f172a',
-                                    pointBorderWidth: 2,
-                                    pointRadius: 6,
-                                    pointHoverRadius: 9,
-                                    fill: true,
-                                    tension: 0.3,
-                                    spanGaps: true,
-                                    hidden: !window.trendDatasetVisibility.subject
+                                    label: 'Target CGPA',
+                                    data: targetData,
+                                    backgroundColor: '#f59e0b',
+                                    borderColor: '#f59e0b',
+                                    borderWidth: 0,
+                                    borderRadius: 6,
+                                    borderSkipped: false,
+                                    hidden: !window.trendDatasetVisibility.target
                                 }
                             ]
                         },
@@ -3994,27 +4217,37 @@
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: {
-                                    display: false // Hide default legend as we have customized toggles
+                                    display: false
                                 },
                                 tooltip: {
-                                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
                                     titleColor: '#fff',
-                                    titleFont: { weight: 'bold' },
                                     bodyColor: '#cbd5e1',
-                                    padding: 12,
-                                    cornerRadius: 12,
-                                    borderColor: 'rgba(6, 182, 212, 0.2)',
+                                    borderColor: 'rgba(255,255,255,0.1)',
                                     borderWidth: 1,
+                                    padding: 12,
+                                    cornerRadius: 8,
+                                    usePointStyle: true,
+                                    boxPadding: 6,
                                     callbacks: {
                                         title: (tooltipItems) => {
                                             const item = cgpaResults[tooltipItems[0].dataIndex];
-                                            return item.subject ? `${item.title} - ${item.subject}` : `${item.title} (Overall Program)`;
+                                            return `${item.title} (Overall Program)`;
                                         },
                                         label: (tooltipItem) => {
                                             const item = cgpaResults[tooltipItem.dataIndex];
-                                            const prefix = item.subject ? 'Subject CGPA' : 'Program CGPA';
-                                            const gradeSuffix = item.grade ? ` [Grade: ${item.grade}]` : '';
-                                            return ` ${prefix}: ${item.value}${gradeSuffix}`;
+                                            const isGrade = item.evaluationType === 'grade';
+                                            const actVal = item.value ? parseFloat(item.value).toFixed(2) : 'N/A';
+                                            const tgtVal = item.targetCGPA ? parseFloat(item.targetCGPA).toFixed(2) : 'N/A';
+                                            if (tooltipItem.datasetIndex === 0) {
+                                                const labelPrefix = isGrade ? 'Actual Grade: ' + (item.grade || 'N/A') : 'Actual CGPA: ' + actVal;
+                                                const labelSuffix = isGrade ? ` (Numeric: ${actVal})` : (item.grade ? ` [Grade: ${item.grade}]` : '');
+                                                return ` ${labelPrefix}${labelSuffix}`;
+                                            } else {
+                                                const labelPrefix = isGrade ? 'Target Grade: ' + (item.targetGrade || 'N/A') : 'Target CGPA: ' + tgtVal;
+                                                const labelSuffix = isGrade ? ` (Numeric: ${tgtVal})` : '';
+                                                return ` ${labelPrefix}${labelSuffix}`;
+                                            }
                                         }
                                     }
                                 }
@@ -4023,12 +4256,12 @@
                                 y: {
                                     min: yMin,
                                     max: yMax,
-                                    grid: { color: 'rgba(51, 65, 85, 0.1)', drawBorder: false },
-                                    ticks: { font: { weight: 'bold' } }
+                                    ticks: { font: { size: 9, weight: 'bold' } },
+                                    grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }
                                 },
                                 x: {
-                                    grid: { display: false, drawBorder: false },
-                                    ticks: { font: { weight: 'bold' } }
+                                    ticks: { font: { size: 9, weight: 'bold' } },
+                                    grid: { display: false, drawBorder: false }
                                 }
                             }
                         }
@@ -4039,7 +4272,7 @@
             }
         };
 
-        window.updateResultSubjectsGrid = function () {
+        window.updateResultSubjectsGrid = function (clearOverall = false) {
             const progSelect = document.getElementById('res-prog-select');
             const listContainer = document.getElementById('res-subjects-list');
             if (!progSelect || !listContainer) return;
@@ -4047,9 +4280,22 @@
             const selectedProg = progSelect.value;
             listContainer.innerHTML = '';
 
-            // Clean inputs for overall
-            document.getElementById('res-overall-grade').value = '';
-            document.getElementById('res-overall-cgpa').value = '';
+            if (clearOverall) {
+                // Clean inputs for overall
+                if (document.getElementById('res-overall-grade')) document.getElementById('res-overall-grade').value = '';
+                if (document.getElementById('res-overall-target-grade')) document.getElementById('res-overall-target-grade').value = '';
+                document.getElementById('res-overall-cgpa').value = '';
+                document.getElementById('res-overall-target-cgpa').value = '';
+            }
+
+            const evalType = document.getElementById('res-evaluation-type').value;
+            const isGrade = evalType === 'grade';
+
+            // Update Overall label text
+            const overallLabel = document.getElementById('res-overall-label');
+            if (overallLabel) {
+                overallLabel.textContent = isGrade ? "Overall Program Grade" : "Overall Program CGPA";
+            }
 
             if (selectedProg) {
                 let html = '';
@@ -4061,8 +4307,20 @@
                                 <div class="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-700/60 last:border-0">
                                     <span class="text-xs font-black text-slate-700 dark:text-slate-200 flex-1 truncate">${s.subject}</span>
                                     <div class="flex gap-2 shrink-0">
-                                        <input type="text" data-subject="${s.subject}" data-field="grade" class="res-sub-grade-input w-16 sm:w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Grade">
-                                        <input type="text" data-subject="${s.subject}" data-field="cgpa" class="res-sub-cgpa-input w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="CGPA">
+                                        <select data-subject="${s.subject}" data-field="grade" class="res-sub-grade-input w-24 sm:w-28 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none ${isGrade ? '' : 'hidden'}">
+                                            <option value="">Grade</option>
+                                            <option value="A+">A+</option>
+                                            <option value="A">A</option>
+                                            <option value="A-">A-</option>
+                                            <option value="B+">B+</option>
+                                            <option value="B">B</option>
+                                            <option value="B-">B-</option>
+                                            <option value="C+">C+</option>
+                                            <option value="C">C</option>
+                                            <option value="D">D</option>
+                                            <option value="F">F</option>
+                                        </select>
+                                        <input type="text" data-subject="${s.subject}" data-field="cgpa" class="res-sub-cgpa-input w-24 sm:w-28 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none ${isGrade ? 'hidden' : ''}" placeholder="CGPA">
                                     </div>
                                 </div>`;
                             }
@@ -4099,6 +4357,7 @@
             });
 
             const typeSelector = document.getElementById('res-type');
+            const evalSelector = document.getElementById('res-evaluation-type');
 
             if (editProgramName) {
                 // BULK PROGRAM EDIT MODE
@@ -4107,24 +4366,43 @@
                 progSelect.value = editProgramName;
                 progSelect.disabled = true;
 
-                window.updateResultSubjectsGrid();
+                // Prefill evaluation option
+                const progRecords = window.successResults.filter(r => r.type === 'cgpa' && r.title === editProgramName);
+                let evalType = 'cgpa';
+                const firstRecordWithEval = progRecords.find(r => r.evaluationType);
+                if (firstRecordWithEval) {
+                    evalType = firstRecordWithEval.evaluationType;
+                } else if (progRecords.some(r => r.grade && !r.value)) {
+                    evalType = 'grade';
+                }
+                evalSelector.value = evalType;
+                evalSelector.disabled = true;
+
+                window.updateResultSubjectsGrid(false);
 
                 // Prefill the grid inputs from the database
-                const progRecords = window.successResults.filter(r => r.type === 'cgpa' && r.title === editProgramName);
                 let recordDate = '';
 
                 progRecords.forEach(r => {
                     if (r.date) recordDate = r.date;
                     if (!r.subject) {
                         // Overall program score
-                        document.getElementById('res-overall-cgpa').value = r.value || '';
-                        document.getElementById('res-overall-grade').value = r.grade || '';
+                        if (evalType === 'grade') {
+                            document.getElementById('res-overall-grade').value = r.grade || '';
+                            document.getElementById('res-overall-target-grade').value = r.targetGrade || '';
+                        } else {
+                            document.getElementById('res-overall-cgpa').value = r.value || '';
+                            document.getElementById('res-overall-target-cgpa').value = r.targetCGPA || '';
+                        }
                     } else {
                         // Subject-level score
-                        const gradeInput = document.querySelector(`.res-sub-grade-input[data-subject="${r.subject}"]`);
-                        const cgpaInput = document.querySelector(`.res-sub-cgpa-input[data-subject="${r.subject}"]`);
-                        if (gradeInput) gradeInput.value = r.grade || '';
-                        if (cgpaInput) cgpaInput.value = r.value || '';
+                        if (evalType === 'grade') {
+                            const gradeInput = document.querySelector(`.res-sub-grade-input[data-subject="${r.subject}"]`);
+                            if (gradeInput) gradeInput.value = r.grade || '';
+                        } else {
+                            const cgpaInput = document.querySelector(`.res-sub-cgpa-input[data-subject="${r.subject}"]`);
+                            if (cgpaInput) cgpaInput.value = r.value || '';
+                        }
                     }
                 });
 
@@ -4138,6 +4416,7 @@
                     typeSelector.value = res.type;
                     typeSelector.disabled = true;
                     progSelect.disabled = true;
+                    evalSelector.disabled = true;
 
                     document.getElementById('res-single-title-display').textContent = res.title;
                     document.getElementById('res-value').value = res.value || '';
@@ -4149,19 +4428,41 @@
                 typeSelector.value = 'cgpa';
                 typeSelector.disabled = false;
                 progSelect.disabled = false;
+                evalSelector.disabled = false;
+                evalSelector.value = 'cgpa';
                 document.getElementById('res-title-input').value = '';
                 document.getElementById('res-value').value = '';
                 document.getElementById('res-grade').value = '';
+                document.getElementById('res-overall-grade').value = '';
+                document.getElementById('res-overall-target-grade').value = '';
+                document.getElementById('res-overall-cgpa').value = '';
+                document.getElementById('res-overall-target-cgpa').value = '';
 
                 const d = new Date();
                 const pad = (n) => n < 10 ? '0' + n : n;
                 document.getElementById('res-date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-                window.updateResultSubjectsGrid();
+                window.updateResultSubjectsGrid(false);
             }
 
             window.toggleResultType();
             openModal('result-modal');
+        };
+
+        window.toggleResultEvaluationType = function () {
+            const evalType = document.getElementById('res-evaluation-type').value;
+            const cgpaFields = document.querySelectorAll('.res-cgpa-field');
+            const gradeFields = document.querySelectorAll('.res-grade-field');
+
+            if (evalType === 'grade') {
+                cgpaFields.forEach(f => f.classList.add('hidden'));
+                gradeFields.forEach(f => f.classList.remove('hidden'));
+            } else {
+                cgpaFields.forEach(f => f.classList.remove('hidden'));
+                gradeFields.forEach(f => f.classList.add('hidden'));
+            }
+
+            window.updateResultSubjectsGrid(false);
         };
 
         window.toggleResultType = function () {
@@ -4169,12 +4470,21 @@
             const isEdit = !!window.editingResultId;
             const isBulkEdit = !!window.editingProgramName;
 
+            const evalTypeContainer = document.getElementById('res-evaluation-type-container');
+            if (type === 'cgpa') {
+                evalTypeContainer.classList.remove('hidden');
+                document.getElementById('res-evaluation-type').disabled = isBulkEdit;
+            } else {
+                evalTypeContainer.classList.add('hidden');
+            }
+
             if (isBulkEdit) {
                 document.getElementById('res-prog-container').classList.remove('hidden');
                 document.getElementById('res-subjects-grid-container').classList.remove('hidden');
                 document.getElementById('res-title-container').classList.add('hidden');
                 document.getElementById('res-single-title-container').classList.add('hidden');
                 document.getElementById('res-single-value-container').classList.add('hidden');
+                window.toggleResultEvaluationType();
             } else if (isEdit) {
                 document.getElementById('res-prog-container').classList.add('hidden');
                 document.getElementById('res-subjects-grid-container').classList.add('hidden');
@@ -4188,6 +4498,7 @@
                     document.getElementById('res-subjects-grid-container').classList.remove('hidden');
                     document.getElementById('res-title-container').classList.add('hidden');
                     document.getElementById('res-single-value-container').classList.add('hidden');
+                    window.toggleResultEvaluationType();
                 } else {
                     document.getElementById('res-prog-container').classList.add('hidden');
                     document.getElementById('res-subjects-grid-container').classList.add('hidden');
@@ -4204,54 +4515,87 @@
 
             if (window.editingProgramName) {
                 // 1. BULK PROGRAM EDIT MODE
-                // Purge existing records for this program
                 window.successResults = window.successResults.filter(r => !(r.type === 'cgpa' && r.title === window.editingProgramName));
 
-                // Save new overall program CGPA
-                const overallCgpa = document.getElementById('res-overall-cgpa').value.trim();
-                const overallGrade = document.getElementById('res-overall-grade').value.trim();
-                if (overallCgpa || overallGrade) {
+                const evalType = document.getElementById('res-evaluation-type').value;
+
+                let overallVal = '';
+                let overallGradeVal = '';
+                let overallTargetCgpaVal = '';
+                let overallTargetGradeVal = '';
+
+                if (evalType === 'grade') {
+                    overallGradeVal = document.getElementById('res-overall-grade').value.trim();
+                    overallTargetGradeVal = document.getElementById('res-overall-target-grade').value.trim();
+                    overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal).toFixed(2) : '';
+                    overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal).toFixed(2) : '';
+                } else {
+                    overallVal = document.getElementById('res-overall-cgpa').value.trim();
+                    overallTargetCgpaVal = document.getElementById('res-overall-target-cgpa').value.trim();
+                }
+
+                if (overallVal || overallGradeVal) {
                     window.successResults.push({
                         id: 'res_' + Date.now() + '_overall',
                         type: 'cgpa',
+                        evaluationType: evalType,
                         title: window.editingProgramName,
                         subject: '',
-                        value: overallCgpa,
-                        grade: overallGrade,
+                        value: overallVal,
+                        grade: overallGradeVal,
+                        targetGrade: overallTargetGradeVal,
+                        targetCGPA: overallTargetCgpaVal,
                         date: date
                     });
                 }
 
-                // Save new subject CGPAs
-                const gradeInputs = document.querySelectorAll('.res-sub-grade-input');
-                const cgpaInputs = document.querySelectorAll('.res-sub-cgpa-input');
+                // Save new subject scores
+                let gradeInputs = [];
+                let cgpaInputs = [];
+                if (evalType === 'grade') {
+                    gradeInputs = document.querySelectorAll('.res-sub-grade-input');
+                } else {
+                    cgpaInputs = document.querySelectorAll('.res-sub-cgpa-input');
+                }
 
                 const subjectsData = {};
-                gradeInputs.forEach(input => {
-                    const sub = input.getAttribute('data-subject');
-                    if (!subjectsData[sub]) subjectsData[sub] = {};
-                    subjectsData[sub].grade = input.value.trim();
-                });
-                cgpaInputs.forEach(input => {
-                    const sub = input.getAttribute('data-subject');
-                    if (!subjectsData[sub]) subjectsData[sub] = {};
-                    subjectsData[sub].cgpa = input.value.trim();
-                });
+                if (evalType === 'grade') {
+                    gradeInputs.forEach(input => {
+                        const sub = input.getAttribute('data-subject');
+                        const gVal = input.value.trim();
+                        if (gVal) {
+                            subjectsData[sub] = {
+                                grade: gVal,
+                                cgpa: window.mapGradeToNumeric(gVal).toFixed(2)
+                            };
+                        }
+                    });
+                } else {
+                    cgpaInputs.forEach(input => {
+                        const sub = input.getAttribute('data-subject');
+                        const cVal = input.value.trim();
+                        if (cVal) {
+                            subjectsData[sub] = {
+                                grade: '',
+                                cgpa: cVal
+                            };
+                        }
+                    });
+                }
 
                 let timeOffset = 1;
                 for (const [subName, subScores] of Object.entries(subjectsData)) {
-                    if (subScores.cgpa || subScores.grade) {
-                        window.successResults.push({
-                            id: 'res_' + (Date.now() + timeOffset),
-                            type: 'cgpa',
-                            title: window.editingProgramName,
-                            subject: subName,
-                            value: subScores.cgpa,
-                            grade: subScores.grade,
-                            date: date
-                        });
-                        timeOffset++;
-                    }
+                    window.successResults.push({
+                        id: 'res_' + (Date.now() + timeOffset),
+                        type: 'cgpa',
+                        evaluationType: evalType,
+                        title: window.editingProgramName,
+                        subject: subName,
+                        value: subScores.cgpa,
+                        grade: subScores.grade,
+                        date: date
+                    });
+                    timeOffset++;
                 }
 
             } else if (window.editingResultId) {
@@ -4274,54 +4618,88 @@
                     if (!program) return showToast("Target program is required", "error");
 
                     let loggedCount = 0;
+                    const evalType = document.getElementById('res-evaluation-type').value;
 
                     // Overall program score
-                    const overallCgpa = document.getElementById('res-overall-cgpa').value.trim();
-                    const overallGrade = document.getElementById('res-overall-grade').value.trim();
-                    if (overallCgpa || overallGrade) {
+                    let overallVal = '';
+                    let overallGradeVal = '';
+                    let overallTargetCgpaVal = '';
+                    let overallTargetGradeVal = '';
+
+                    if (evalType === 'grade') {
+                        overallGradeVal = document.getElementById('res-overall-grade').value.trim();
+                        overallTargetGradeVal = document.getElementById('res-overall-target-grade').value.trim();
+                        overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal).toFixed(2) : '';
+                        overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal).toFixed(2) : '';
+                    } else {
+                        overallVal = document.getElementById('res-overall-cgpa').value.trim();
+                        overallTargetCgpaVal = document.getElementById('res-overall-target-cgpa').value.trim();
+                    }
+
+                    if (overallVal || overallGradeVal) {
                         window.successResults.push({
                             id: 'res_' + Date.now() + '_overall',
                             type: 'cgpa',
+                            evaluationType: evalType,
                             title: program,
                             subject: '',
-                            value: overallCgpa,
-                            grade: overallGrade,
+                            value: overallVal,
+                            grade: overallGradeVal,
+                            targetGrade: overallTargetGradeVal,
+                            targetCGPA: overallTargetCgpaVal,
                             date: date
                         });
                         loggedCount++;
                     }
 
                     // Subjects
-                    const gradeInputs = document.querySelectorAll('.res-sub-grade-input');
-                    const cgpaInputs = document.querySelectorAll('.res-sub-cgpa-input');
+                    let gradeInputs = [];
+                    let cgpaInputs = [];
+                    if (evalType === 'grade') {
+                        gradeInputs = document.querySelectorAll('.res-sub-grade-input');
+                    } else {
+                        cgpaInputs = document.querySelectorAll('.res-sub-cgpa-input');
+                    }
 
                     const subjectsData = {};
-                    gradeInputs.forEach(input => {
-                        const sub = input.getAttribute('data-subject');
-                        if (!subjectsData[sub]) subjectsData[sub] = {};
-                        subjectsData[sub].grade = input.value.trim();
-                    });
-                    cgpaInputs.forEach(input => {
-                        const sub = input.getAttribute('data-subject');
-                        if (!subjectsData[sub]) subjectsData[sub] = {};
-                        subjectsData[sub].cgpa = input.value.trim();
-                    });
+                    if (evalType === 'grade') {
+                        gradeInputs.forEach(input => {
+                            const sub = input.getAttribute('data-subject');
+                            const gVal = input.value.trim();
+                            if (gVal) {
+                                subjectsData[sub] = {
+                                    grade: gVal,
+                                    cgpa: window.mapGradeToNumeric(gVal).toFixed(2)
+                                };
+                            }
+                        });
+                    } else {
+                        cgpaInputs.forEach(input => {
+                            const sub = input.getAttribute('data-subject');
+                            const cVal = input.value.trim();
+                            if (cVal) {
+                                subjectsData[sub] = {
+                                    grade: '',
+                                    cgpa: cVal
+                                };
+                            }
+                        });
+                    }
 
                     let timeOffset = 1;
                     for (const [subName, subScores] of Object.entries(subjectsData)) {
-                        if (subScores.cgpa || subScores.grade) {
-                            window.successResults.push({
-                                id: 'res_' + (Date.now() + timeOffset),
-                                type: 'cgpa',
-                                title: program,
-                                subject: subName,
-                                value: subScores.cgpa,
-                                grade: subScores.grade,
-                                date: date
-                            });
-                            timeOffset++;
-                            loggedCount++;
-                        }
+                        window.successResults.push({
+                            id: 'res_' + (Date.now() + timeOffset),
+                            type: 'cgpa',
+                            evaluationType: evalType,
+                            title: program,
+                            subject: subName,
+                            value: subScores.cgpa,
+                            grade: subScores.grade,
+                            date: date
+                        });
+                        timeOffset++;
+                        loggedCount++;
                     }
 
                     if (loggedCount === 0) {
@@ -4579,8 +4957,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -4603,12 +4981,13 @@
                 if (modalId === 'analytics-modal' && masterLineChart) masterLineChart.resize();
                 if (modalId === 'global-history-modal' && window.globalHistoryChartInstance) window.globalHistoryChartInstance.resize();
                 if (modalId === 'daily-actions-db-modal' && window.dadbTrendChartInstance) window.dadbTrendChartInstance.resize();
+                if (modalId === 'program-trend-modal' && window.programTrendChartInstance) window.programTrendChartInstance.resize();
             }, 320);
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -4696,7 +5075,7 @@
                 return;
             }
 
-            const sorted = [...window.successResults].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = [...window.successResults].sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
             let html = '';
             sorted.forEach(res => {
                 const isCgpa = res.type === 'cgpa';
@@ -5793,7 +6172,6 @@
         window.appendNewProgram = function () {
             const track = document.getElementById('add-prog-track').value;
             const name = document.getElementById('add-prog-name').value.trim();
-            const targetCgpaVal = document.getElementById('add-prog-target-cgpa').value.trim();
             if (!name) return showToast("Program name required.", "error");
             window.customPrograms[track] = window.customPrograms[track] || [];
             if (window.customPrograms[track].some(p => (p.name || p).toLowerCase() === name.toLowerCase())) return showToast("Program already exists.", "error");
@@ -5805,12 +6183,11 @@
                 name: name, 
                 priority: 3, 
                 order: nextOrder,
-                targetCGPA: targetCgpaVal || ''
+                targetCGPA: ''
             });
             window.sortAllCustomData();
 
             document.getElementById('add-prog-name').value = '';
-            document.getElementById('add-prog-target-cgpa').value = '';
             saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
         };
 
@@ -6081,32 +6458,25 @@
         };
 
         window.syncPriorityInputsFromDOM = function () {
-            const trackIds = window.tracks ? window.tracks.map(t => t.id) : [];
-            // Save Program priorities
-            trackIds.forEach(track => {
-                if (window.customPrograms && window.customPrograms[track]) {
-                    window.customPrograms[track].forEach(p => {
-                        const input = document.getElementById(`priority-program-${track}-${p.id}`);
-                        if (input) {
-                            const val = parseInt(input.value);
-                            p.priority = isNaN(val) ? 3 : val;
-                        }
-                    });
+            // Programs: re-derive GLOBAL priority from the flat sorted list
+            const flatProgs = window.getAllPrograms();
+            flatProgs.forEach((p, idx) => {
+                // p is a copy with _trackId, update the original in customPrograms
+                const orig = (window.customPrograms[p._trackId] || []).find(x => x.id === p.id);
+                if (orig) {
+                    orig.priority = idx + 1;
+                    orig.order = idx;
                 }
             });
 
-            // Save Subject priorities (global)
-            const allSubs = window.getAllSubjects();
-            allSubs.forEach(s => {
-                const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
-                const input = document.getElementById(`priority-subject-global-${safeSubId}`);
-                if (input) {
-                    const val = parseInt(input.value);
-                    s.priority = isNaN(val) ? 3 : val;
-                }
+            // Subjects: re-derive GLOBAL priority from the flat sorted list
+            const flatSubs = window.getAllSubjects();
+            flatSubs.forEach((s, idx) => {
+                s.priority = idx + 1;
+                s.order = idx;
             });
 
-            // Save Daily Action priorities
+            // Daily Action priorities — still use select dropdown
             if (window.customActions) {
                 window.customActions.forEach(a => {
                     const select = document.getElementById(`priority-action-${a.id}`);
@@ -6118,35 +6488,57 @@
             }
         };
 
-        window.moveProgram = function (track, index, direction) {
-            const list = window.customPrograms[track];
+        window.moveTrack = function (index, direction) {
+            const list = window.tracks;
             if (!list) return;
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= list.length) return;
-            
-            // Sync current input values from DOM to state
-            window.syncPriorityInputsFromDOM();
 
-            const itemA = list[index];
-            const itemB = list[targetIndex];
+            const temp = list[index];
+            list[index] = list[targetIndex];
+            list[targetIndex] = temp;
 
-            // Swap priority and order
-            const tempPriority = itemA.priority;
-            itemA.priority = itemB.priority;
-            itemB.priority = tempPriority;
+            saveToCloud();
+            renderUI();
+            window.renderPriorityConfig();
+            showToast("Track order updated!", "success");
+        };
 
-            const tempOrder = itemA.order;
-            itemA.order = itemB.order;
-            itemB.order = tempOrder;
-            
-            // Swap positions in array
-            list[index] = itemB;
-            list[targetIndex] = itemA;
-            
-            // Re-assign order to enforce continuous indices
-            list.forEach((p, idx) => p.order = idx);
-            
-            window.sortAllCustomData();
+        window.moveProgramGlobal = function (flatIndex, direction) {
+            // Build a globally-sorted flat list of all programs across all tracks
+            const flat = [];
+            window.tracks.forEach(t => {
+                (window.customPrograms[t.id] || []).forEach(p => {
+                    flat.push({ trackId: t.id, prog: p });
+                });
+            });
+            flat.sort((a, b) => {
+                const pA = a.prog.priority !== undefined ? a.prog.priority : 999;
+                const pB = b.prog.priority !== undefined ? b.prog.priority : 999;
+                if (pA !== pB) return pA - pB;
+                return (a.prog.order ?? 999) - (b.prog.order ?? 999);
+            });
+
+            const targetIndex = flatIndex + direction;
+            if (targetIndex < 0 || targetIndex >= flat.length) return;
+
+            // Swap the two items in the flat list
+            const temp = flat[flatIndex];
+            flat[flatIndex] = flat[targetIndex];
+            flat[targetIndex] = temp;
+
+            // Re-assign sequential global priorities based on new positions
+            flat.forEach((item, idx) => {
+                item.prog.priority = idx + 1;
+                item.prog.order = idx;
+            });
+
+            // Re-sort each track's local array by the updated priorities (for internal consistency)
+            window.tracks.forEach(t => {
+                if (window.customPrograms[t.id]) {
+                    window.customPrograms[t.id].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                }
+            });
             saveToCloud();
             renderUI();
             window.renderPriorityConfig();
@@ -6225,6 +6617,7 @@
 
             // Prevent redundant render cycles & flickering by guarding identical data updates
             const currentDataString = JSON.stringify({
+                tracks: window.tracks,
                 programs: window.customPrograms,
                 syllabus: syllabusStructure,
                 actions: window.customActions
@@ -6234,74 +6627,150 @@
             }
             window.lastPriorityRenderData = currentDataString;
 
-            let html = `
-            <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 font-bold">Assign custom priorities (1 = Highest, Lower numbers first) and manually reorder your Subjects and Daily Actions. Use ▲ and ▼ to shift elements.</p>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            `;
+            const arrowUpBtn = (onclick, disabled) => `
+                <button onclick="${onclick}" ${disabled ? 'disabled' : ''}
+                    class="flex items-center justify-center w-6 h-6 rounded bg-slate-100 hover:bg-indigo-100 dark:bg-slate-700 dark:hover:bg-indigo-900/50 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-90 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+                </button>`;
+            const arrowDownBtn = (onclick, disabled) => `
+                <button onclick="${onclick}" ${disabled ? 'disabled' : ''}
+                    class="flex items-center justify-center w-6 h-6 rounded bg-slate-100 hover:bg-indigo-100 dark:bg-slate-700 dark:hover:bg-indigo-900/50 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-90 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                </button>`;
+            const rankBadge = (n, color) => `
+                <span class="inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md text-[10px] font-black tracking-tight" style="background:${color}22;color:${color};border:1px solid ${color}55">#${n}</span>`;
 
+            let html = `<p class="text-xs text-slate-500 dark:text-slate-400 mb-5 font-bold">Use ↑ ↓ arrows to reorder. Rank numbers update automatically. Track order affects Program Completion cards and Subject Progress.</p>`;
 
-            // 2. Syllabus Subjects Column
+            // ── Section: Tracks (affects program completion rate + subject progress display order) ──
+            html += `
+            <div class="mb-6 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-indigo-500 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"></path></svg>
+                    Tracks Priority Order
+                    <span class="ml-auto text-[8px] font-bold text-slate-400 normal-case tracking-normal">(Affects Completion Rate &amp; Subject Progress)</span>
+                </h4>
+                <div class="flex flex-col gap-2">`;
+            if (!window.tracks || window.tracks.length === 0) {
+                html += `<p class="text-xs font-bold text-slate-400">No tracks found.</p>`;
+            } else {
+                window.tracks.forEach((t, idx) => {
+                    const trackColors = ['#6366f1','#8b5cf6','#10b981','#f59e0b','#f43f5e','#06b6d4','#a855f7','#f97316'];
+                    const tc = trackColors[idx % trackColors.length];
+                    html += `
+                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:border-indigo-400 transition-all">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            ${rankBadge(idx + 1, tc)}
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200">${t.name || t.id}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Track &middot; Controls program card &amp; subject order</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-0.5 shrink-0 ml-2">
+                            ${arrowUpBtn(`window.moveTrack(${idx}, -1)`, idx === 0)}
+                            ${arrowDownBtn(`window.moveTrack(${idx}, 1)`, idx === window.tracks.length - 1)}
+                        </div>
+                    </div>`;
+                });
+            }
+            html += `</div></div>`;
+
+            // ── Section: Programs (flat global list, independent from subjects) ──
+            html += `
+            <div class="mb-6 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-violet-500 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Programs Priority Order
+                    <span class="ml-auto text-[8px] font-bold text-slate-400 normal-case tracking-normal">(Independent from Subjects)</span>
+                </h4>
+                <div class="flex flex-col gap-2">`;
+            // Build flat sorted list of all programs across all tracks
+            const flatProgList = [];
+            window.tracks.forEach(trackObj => {
+                (window.customPrograms[trackObj.id] || []).forEach(p => {
+                    flatProgList.push({ trackId: trackObj.id, trackName: trackObj.name || trackObj.id, prog: p });
+                });
+            });
+            flatProgList.sort((a, b) => {
+                const pA = a.prog.priority !== undefined ? a.prog.priority : 999;
+                const pB = b.prog.priority !== undefined ? b.prog.priority : 999;
+                if (pA !== pB) return pA - pB;
+                return (a.prog.order ?? 999) - (b.prog.order ?? 999);
+            });
+            if (flatProgList.length === 0) {
+                html += `<p class="text-xs font-bold text-slate-400">No programs found.</p>`;
+            } else {
+                const progColors = ['#7c3aed','#6366f1','#0891b2','#059669','#d97706','#dc2626','#db2777','#0284c7'];
+                flatProgList.forEach((item, flatIdx) => {
+                    const pc = progColors[flatIdx % progColors.length];
+                    html += `
+                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:border-violet-400 transition-all">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            ${rankBadge(flatIdx + 1, pc)}
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate" title="${item.prog.name || item.prog.id}">${item.prog.name || item.prog.id}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">${item.trackName}</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-0.5 shrink-0 ml-2">
+                            ${arrowUpBtn(`window.moveProgramGlobal(${flatIdx}, -1)`, flatIdx === 0)}
+                            ${arrowDownBtn(`window.moveProgramGlobal(${flatIdx}, 1)`, flatIdx === flatProgList.length - 1)}
+                        </div>
+                    </div>`;
+                });
+            }
+            html += `</div></div>`;
+
+            // ── Section: Syllabus Subjects + Daily Actions (2 columns) ──
+            html += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">`;
+
+            // Syllabus Subjects
             html += `
             <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Syllabus Subjects</h4>
-                <div class="flex flex-col gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-            `;
-            let hasSubjects = false;
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-emerald-500 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    Syllabus Subjects
+                </h4>
+                <div class="flex flex-col gap-2 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">`;
             const allSubs = window.getAllSubjects();
             if (allSubs.length > 0) {
-                hasSubjects = true;
                 allSubs.forEach((s, idx) => {
-                    const val = s.priority !== undefined ? s.priority : 3;
                     const color = getSubjectColor(s.subject);
-                    const safeSubId = s.subject.replace(/[^a-zA-Z0-9]/g, '-');
-                    
-                    // Find the track name for this subject
-                    let trackName = 'Unknown';
+                    let trackName = '';
                     for (const t of window.tracks) {
                         if (syllabusStructure[t.id] && syllabusStructure[t.id].some(x => x.subject === s.subject)) {
                             trackName = t.name;
                             break;
                         }
                     }
-
                     html += `
-                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all hover:border-blue-400">
-                        <div class="flex flex-col min-w-0 pr-2 flex-1">
-                            <div class="flex items-center space-x-2 min-w-0">
-                                <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${color}"></span>
-                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 break-words whitespace-normal leading-normal" title="${s.subject}">${s.subject}</span>
+                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:border-emerald-400 transition-all">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            ${rankBadge(idx + 1, color)}
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate" title="${s.subject}">${s.subject}</span>
+                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">${s.program}${trackName ? ' · ' + trackName : ''}</span>
                             </div>
-                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 shrink-0">${s.program} (${trackName}) - Order: ${idx + 1}</span>
                         </div>
-                        <div class="flex items-center space-x-1.5 shrink-0 ml-2">
-                            <input type="number" id="priority-subject-global-${safeSubId}" min="1" max="999" value="${val}"
-                                class="w-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
-                                title="Priority Number">
-                            <div class="flex flex-col space-y-0.5 shrink-0">
-                                <button onclick="window.moveSubjectGlobal(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
-                                    class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
-                                </button>
-                                <button onclick="window.moveSubjectGlobal(${idx}, 1)" ${idx === allSubs.length - 1 ? 'disabled' : ''} 
-                                    class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                                </button>
-                            </div>
+                        <div class="flex flex-col gap-0.5 shrink-0 ml-2">
+                            ${arrowUpBtn(`window.moveSubjectGlobal(${idx}, -1)`, idx === 0)}
+                            ${arrowDownBtn(`window.moveSubjectGlobal(${idx}, 1)`, idx === allSubs.length - 1)}
                         </div>
                     </div>`;
                 });
-            }
-            if (!hasSubjects) {
+            } else {
                 html += `<p class="text-xs font-bold text-slate-400">No syllabus subjects found.</p>`;
             }
-            html += '</div></div>';
+            html += `</div></div>`;
 
-            // 3. Daily Action Trackers Column
+            // Daily Action Trackers
             html += `
             <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Daily Action Trackers</h4>
-                <div class="flex flex-col gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-            `;
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-amber-500 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Daily Action Trackers
+                </h4>
+                <div class="flex flex-col gap-2 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">`;
             if (window.customActions.length === 0) {
                 html += `<p class="text-xs font-bold text-slate-400">No custom actions created yet.</p>`;
             } else {
@@ -6309,48 +6778,41 @@
                     const pVal = a.priority !== undefined ? a.priority : 3;
                     const cMap = twColors[a.color] || twColors.indigo;
                     html += `
-                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm transition-all hover:border-blue-400">
-                        <div class="flex items-center space-x-2 min-w-0 pr-1 flex-1">
-                            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${cMap.hex}"></span>
+                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:border-amber-400 transition-all">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            ${rankBadge(idx + 1, cMap.hex)}
                             <div class="flex flex-col min-w-0">
-                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 break-words whitespace-normal leading-normal">${a.title}</span>
+                                <span class="text-xs font-black text-slate-800 dark:text-slate-200 truncate">${a.title}</span>
                                 <span class="text-[8px] font-bold text-slate-400 uppercase break-words whitespace-normal mt-0.5">${a.desc}</span>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-1.5 shrink-0 ml-2">
+                        <div class="flex items-center gap-1.5 shrink-0 ml-2">
                             <select id="priority-action-${a.id}"
-                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 max-w-[80px]">
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-[9px] text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-amber-500 max-w-[72px]">
                                 <option value="1" ${pVal === 1 ? 'selected' : ''}>Critical</option>
                                 <option value="2" ${pVal === 2 ? 'selected' : ''}>High</option>
                                 <option value="3" ${pVal === 3 ? 'selected' : ''}>Medium</option>
                                 <option value="4" ${pVal === 4 ? 'selected' : ''}>Low</option>
                             </select>
-                            <div class="flex flex-col space-y-0.5 shrink-0">
-                                <button onclick="window.moveAction(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
-                                    class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
-                                </button>
-                                <button onclick="window.moveAction(${idx}, 1)" ${idx === window.customActions.length - 1 ? 'disabled' : ''} 
-                                    class="p-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-30 disabled:pointer-events-none transition-all active:scale-95 text-slate-600 dark:text-slate-300">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                                </button>
+                            <div class="flex flex-col gap-0.5 shrink-0">
+                                ${arrowUpBtn(`window.moveAction(${idx}, -1)`, idx === 0)}
+                                ${arrowDownBtn(`window.moveAction(${idx}, 1)`, idx === window.customActions.length - 1)}
                             </div>
                         </div>
                     </div>`;
                 });
             }
-            html += '</div></div></div>';
+            html += `</div></div></div>`;
 
-            // Save Priorities Button
+            // Save Button
             html += `
-            <div class="mt-8 flex justify-end">
+            <div class="mt-6 flex justify-end">
                 <button onclick="window.savePriorities()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest px-8 py-3 rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-2">
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest px-8 py-3 rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
-                    Save & Sync Priorities
+                    Save &amp; Sync Priorities
                 </button>
-            </div>
-            `;
+            </div>`;
 
             container.innerHTML = html;
         };
@@ -6592,7 +7054,7 @@
                     progressChart, window.mainChartPrograms, window.monthlyChartActions,
                     window.yearlyChartActions, window.subjectTrendChart, window.paceTrendChartInstance,
                     window.revisionTrendChartInstance, window.globalHistoryChartInstance, masterLineChart,
-                    window.dadbTrendChartInstance, window.resultsTrendChartInstance
+                    window.dadbTrendChartInstance, window.resultsTrendChartInstance, window.programTrendChartInstance
                 ];
                 charts.forEach(c => { if (c && typeof c.resize === 'function') c.resize(); });
             }, 50);
@@ -7394,7 +7856,7 @@
                 <div class="mb-8">
                     <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 font-bold">Add a completely new Program
                         bracket to any track.</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track</label>
                             <select id="add-prog-track"
@@ -7407,12 +7869,6 @@
                             <input type="text" id="add-prog-name"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
                                 placeholder="e.g. Honours, Year 1">
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target CGPA</label>
-                            <input type="text" id="add-prog-target-cgpa"
-                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
-                                placeholder="e.g. 3.80">
                         </div>
                         <button onclick="window.appendNewProgram()"
                             class="w-full bg-violet-600 hover:bg-violet-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest py-3 rounded-xl transition-all active:scale-95 shadow-md">Create
@@ -7671,33 +8127,30 @@
             </div>
 
             <div id="results-trend-container"
-                class="hidden mb-6 md:mb-8 w-full bg-slate-900/90 dark:bg-slate-950/80 border border-slate-800 dark:border-cyan-500/20 rounded-[2rem] p-6 shadow-[0_0_40px_-12px_rgba(6,182,212,0.15)] relative overflow-hidden flex flex-col gap-6 transition-all duration-300">
-                <!-- Radial Glow Spheres -->
-                <div class="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-cyan-500/5 blur-[90px] pointer-events-none"></div>
-                <div class="absolute -left-20 -bottom-20 w-72 h-72 rounded-full bg-emerald-500/5 blur-[90px] pointer-events-none"></div>
+                class="hidden mb-6 md:mb-8 w-full bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
                 
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/80 pb-4 z-10">
-                    <div>
-                        <h4 class="text-[10px] font-black uppercase tracking-widest text-cyan-400">Progression Analytics</h4>
-                        <h3 class="text-base md:text-lg font-black text-white mt-0.5">Results & Performance Trend</h3>
-                    </div>
-                    <!-- Controls -->
-                    <div class="flex gap-2 items-center flex-wrap">
-                        <select id="trend-program-filter" onchange="window.renderSuccessResults()"
-                            class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-300 focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3">
+                    <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
+                        Results & Performance Trend</h3>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[8px] sm:text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Start:</span>
+                            <input type="date" id="trend-start-date" onchange="window.renderResults()"
+                                class="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase text-slate-600 dark:text-slate-200 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer">
+                        </div>
+                        <select id="trend-program-filter" onchange="window.renderResults()"
+                            class="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1 text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-200 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer">
                             <option value="ALL">All Programs</option>
                         </select>
-                        <button onclick="window.toggleTrendDataset('program')" id="trend-btn-program"
-                            class="px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/30 text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-[0_0_15px_-3px_rgba(6,182,212,0.3)]">Program CGPA</button>
-                        <button onclick="window.toggleTrendDataset('subject')" id="trend-btn-subject"
-                            class="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)]">Subject CGPA</button>
                     </div>
                 </div>
 
-
-                <!-- Interactive Chart Panel -->
-                <div class="relative w-full h-[220px] sm:h-[280px] z-10 bg-slate-950/30 border border-slate-900 rounded-2xl p-4">
+                <div class="relative h-[180px] md:h-[250px] mt-auto w-full">
                     <canvas id="resultsTrendChart"></canvas>
+                </div>
+
+                <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                    <div id="results-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
                 </div>
             </div>
 
@@ -8030,6 +8483,44 @@
                         class="mt-4 sm:mt-6 md:mt-8 flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3 bg-slate-900/50 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl border border-slate-800 backdrop-blur-md shrink-0">
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Program Trend Modal (Individual Program CGPA) -->
+    <div id="program-trend-modal"
+        class="fixed inset-0 z-50 hidden flex items-center justify-center pt-5 sm:pt-10 pb-5 sm:pb-10 transition-all duration-300">
+        <div id="ptm-results-backdrop"
+            class="absolute inset-0 bg-slate-900/85 backdrop-blur-md opacity-0 transition-opacity duration-300"
+            onclick="closeModal('program-trend-modal')"></div>
+        <div id="ptm-results-content"
+            class="relative bg-white dark:bg-slate-800 p-4 sm:p-6 md:p-10 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-4xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 flex flex-col max-h-[95vh] mx-3 sm:mx-4 z-10">
+            <div
+                class="flex justify-between items-center mb-4 sm:mb-6 md:mb-8 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 md:pb-6 shrink-0">
+                <div class="flex items-center space-x-2 sm:space-x-3 md:space-x-5">
+                    <div
+                        class="p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl md:rounded-2xl bg-cyan-50 text-cyan-500 dark:bg-cyan-900/30 border border-cyan-100 dark:border-cyan-800 shadow-inner shrink-0 text-sm sm:text-base md:text-xl">
+                        📈</div>
+                    <div>
+                        <h2 id="ptm-results-title" class="text-base sm:text-xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">Program Progression</h2>
+                        <p class="text-[9px] sm:text-[10px] md:text-sm text-slate-500 font-bold mt-0.5 tracking-wide">
+                            Historical Actual vs Target CGPA comparison.</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('program-trend-modal')"
+                    class="p-2 sm:p-2.5 md:p-3 bg-slate-100 dark:bg-slate-700 rounded-lg sm:rounded-xl md:rounded-2xl hover:rotate-90 transition-transform active:scale-95 shrink-0 dark:text-slate-200"><svg
+                        class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            
+            <div class="overflow-y-auto flex-1 flex flex-col gap-4 sm:gap-6 md:gap-8 custom-scrollbar pr-1 md:pr-2">
+                <div class="h-[280px] sm:h-[350px] md:h-[450px] min-h-[250px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-4 shadow-inner shrink-0 flex flex-col relative">
+                    <div class="relative flex-1 w-full h-full"><canvas id="programTrendCanvas"></canvas></div>
+                </div>
+                <div id="program-trend-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3 shrink-0"></div>
             </div>
         </div>
     </div>
@@ -8569,18 +9060,53 @@
                 </div>
 
                 <div id="res-prog-container" class="flex flex-col gap-1.5">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target
-                        Program</label>
-                    <select id="res-prog-select" onchange="window.updateResultSubjectsGrid()"
+                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target Program</label>
+                    <select id="res-prog-select" onchange="window.updateResultSubjectsGrid(true)"
                         class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"></select>
+                </div>
+
+                <div id="res-evaluation-type-container" class="flex flex-col gap-1.5 hidden">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Evaluation Option</label>
+                    <select id="res-evaluation-type" onchange="window.toggleResultEvaluationType()"
+                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none">
+                        <option value="cgpa">CGPA-based</option>
+                        <option value="grade">Grade-based [A, B, C...]</option>
+                    </select>
                 </div>
 
                 <div id="res-subjects-grid-container" class="flex flex-col gap-3 hidden">
                     <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-                        <span class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall Program CGPA</span>
-                        <div class="flex gap-2 shrink-0">
-                            <input type="text" id="res-overall-grade" class="w-16 sm:w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Grade">
-                            <input type="text" id="res-overall-cgpa" class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="CGPA">
+                        <span id="res-overall-label" class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall Program CGPA</span>
+                        <div class="flex gap-2 shrink-0 flex-wrap justify-end">
+                            <input type="text" id="res-overall-cgpa" class="res-cgpa-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="CGPA">
+                            <input type="text" id="res-overall-target-cgpa" class="res-cgpa-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none" placeholder="Target CGPA">
+                            
+                            <select id="res-overall-grade" class="res-grade-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none hidden">
+                                <option value="">Grade</option>
+                                <option value="A+">A+</option>
+                                <option value="A">A</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B">B</option>
+                                <option value="B-">B-</option>
+                                <option value="C+">C+</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="F">F</option>
+                            </select>
+                            <select id="res-overall-target-grade" class="res-grade-field w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none hidden">
+                                <option value="">Target</option>
+                                <option value="A+">A+</option>
+                                <option value="A">A</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B">B</option>
+                                <option value="B-">B-</option>
+                                <option value="C+">C+</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="F">F</option>
+                            </select>
                         </div>
                     </div>
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Subject Grades & scores</span>
