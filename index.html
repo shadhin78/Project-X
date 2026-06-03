@@ -205,6 +205,30 @@
             window.updateCgpaBadge(selectEl.value, badge);
         };
 
+        // Update all subject target badges from the overall program target
+        window.updateSubjectTargets = function () {
+            const evalType = document.getElementById('res-evaluation-type').value;
+            const isGrade = evalType === 'grade';
+            let targetCgpa = '';
+            let targetGrade = '';
+            if (isGrade) {
+                targetGrade = (document.getElementById('res-overall-target-grade')?.value || '').trim();
+                targetCgpa = targetGrade ? window.mapGradeToNumeric(targetGrade).toFixed(2) : '';
+            } else {
+                targetCgpa = (document.getElementById('res-overall-target-cgpa')?.value || '').trim();
+                targetGrade = targetCgpa ? window.mapCgpaToGrade(targetCgpa) : '';
+            }
+            document.querySelectorAll('.res-sub-target-badge').forEach(badge => {
+                if (targetCgpa && targetGrade) {
+                    badge.textContent = isGrade ? `Target: ${targetGrade} (${targetCgpa})` : `Target: ${targetCgpa} (${targetGrade})`;
+                    badge.classList.remove('opacity-30');
+                } else {
+                    badge.textContent = 'Target: —';
+                    badge.classList.add('opacity-30');
+                }
+            });
+        };
+
         function ensureAvailableSlots(slotsNeeded, track, startIndex) {
             let availableSlots = 0;
             const key = track + 'Tasks';
@@ -3795,12 +3819,36 @@
 
         window.showProgramAnalytics = function (progName) {
             window.currentAnalyticsProgram = progName;
+            window.currentProgramAnalyticsView = 'overall';
             const titleEl = document.getElementById('ptm-results-title');
-            if (titleEl) {
-                titleEl.textContent = `${progName} Progression`;
-            }
-            window.renderProgramTrendModal(progName);
+            if (titleEl) titleEl.textContent = `${progName} Progression`;
+            window.switchProgramAnalyticsView('overall');
             openModal('program-trend-modal');
+        };
+
+        window.switchProgramAnalyticsView = function (view) {
+            window.currentProgramAnalyticsView = view;
+            const overallPanel = document.getElementById('ptm-overall-panel');
+            const subjectPanel = document.getElementById('ptm-subject-panel');
+            const btnOverall = document.getElementById('ptm-tab-overall');
+            const btnSubject = document.getElementById('ptm-tab-subject');
+
+            const activeTab = 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105';
+            const inactiveTab = 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400';
+
+            if (view === 'overall') {
+                overallPanel.classList.remove('hidden');
+                subjectPanel.classList.add('hidden');
+                btnOverall.className = `flex-1 py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab}`;
+                btnSubject.className = `flex-1 py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${inactiveTab}`;
+                window.renderProgramTrendModal(window.currentAnalyticsProgram);
+            } else {
+                overallPanel.classList.add('hidden');
+                subjectPanel.classList.remove('hidden');
+                btnOverall.className = `flex-1 py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${inactiveTab}`;
+                btnSubject.className = `flex-1 py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab}`;
+                window.renderSubjectWiseTrend(window.currentAnalyticsProgram);
+            }
         };
 
         window.renderProgramTrendModal = function (progName) {
@@ -3811,8 +3859,6 @@
             // Filter CGPAs for this specific program (overall only, no subjects)
             let cgpaResults = window.successResults
                 .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName);
-
-
 
             cgpaResults.sort((a, b) => parseDateSafe(a.date) - parseDateSafe(b.date));
 
@@ -3830,7 +3876,7 @@
                     const active = window.programTrendDatasetVisibility[idxKey];
                     return `<div onclick="window.toggleProgramTrendDataset('${idxKey}')" class="cursor-pointer flex items-center space-x-1.5 md:space-x-2 px-2.5 md:px-3 py-1.5 md:px-3.5 md:py-2 bg-slate-900 rounded-lg md:rounded-xl border border-slate-700 hover:bg-slate-800 active:scale-95 transition-all ${active ? 'opacity-100 scale-100 shadow-md' : 'opacity-40 grayscale scale-95 line-through'}"><div class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">${label}: ${val}</span></div>`;
                 };
-                legendEl.innerHTML = 
+                legendEl.innerHTML =
                     getLegendHtml('actual', '#06b6d4', 'Actual CGPA', latestActual) +
                     getLegendHtml('target', '#f59e0b', 'Target CGPA', latestTarget);
             }
@@ -3862,14 +3908,6 @@
             if (window.programTrendChartInstance) window.programTrendChartInstance.destroy();
 
             const canvasCtx = canvas.getContext('2d');
-            
-            const gradientActual = canvasCtx.createLinearGradient(0, 0, 0, 200);
-            gradientActual.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
-            gradientActual.addColorStop(1, 'rgba(6, 182, 212, 0)');
-            
-            const gradientTarget = canvasCtx.createLinearGradient(0, 0, 0, 200);
-            gradientTarget.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
-            gradientTarget.addColorStop(1, 'rgba(245, 158, 11, 0)');
 
             window.programTrendChartInstance = new Chart(canvasCtx, {
                 type: 'bar',
@@ -3902,9 +3940,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            display: false
-                        },
+                        legend: { display: false },
                         tooltip: {
                             backgroundColor: 'rgba(15, 23, 42, 0.9)',
                             titleColor: '#fff',
@@ -3947,6 +3983,197 @@
                         },
                         x: {
                             ticks: { font: { size: 9, weight: 'bold' } },
+                            grid: { display: false, drawBorder: false }
+                        }
+                    }
+                }
+            });
+        };
+
+        window.renderSubjectWiseTrend = function (progName) {
+            const container = document.getElementById('ptm-subject-panel');
+            if (!container) return;
+
+            // Get the latest overall record for this program to extract the target
+            const overallRecords = window.successResults
+                .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName)
+                .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
+
+            const latestOverall = overallRecords[0] || null;
+
+            // Determine program target CGPA and evaluation type
+            const isGradeMode = latestOverall && latestOverall.evaluationType === 'grade';
+            const programTargetCgpa = latestOverall ? (parseFloat(latestOverall.targetCGPA) || null) : null;
+            const programTargetGrade = latestOverall ? (latestOverall.targetGrade || null) : null;
+
+            // Get subject records for this program (latest per subject)
+            const subjectMap = {};
+            window.successResults
+                .filter(r => r.type === 'cgpa' && r.subject && r.title === progName)
+                .forEach(r => {
+                    if (!subjectMap[r.subject] || parseDateSafe(r.date) > parseDateSafe(subjectMap[r.subject].date)) {
+                        subjectMap[r.subject] = r;
+                    }
+                });
+
+            const subjects = Object.values(subjectMap).sort((a, b) => a.subject.localeCompare(b.subject));
+
+            if (subjects.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-10 gap-3">
+                        <span class="text-4xl grayscale opacity-40">📚</span>
+                        <p class="text-slate-400 text-xs font-black uppercase tracking-widest text-center">No subject-level data recorded for this program yet.</p>
+                        <p class="text-slate-400 text-[10px] font-bold text-center">Add subject scores using the Edit Program Card button.</p>
+                    </div>`;
+                return;
+            }
+
+            const labels = subjects.map(s => {
+                // Truncate long subject names
+                return s.subject.length > 18 ? s.subject.substring(0, 16) + '…' : s.subject;
+            });
+
+            const actualData = subjects.map(s => parseFloat(s.value) || 0);
+
+            // Estimate subject target from the program's overall target
+            const targetData = subjects.map(() => programTargetCgpa);
+
+            // Compute grade estimate for display
+            const gradeLabels = subjects.map(s => s.grade || window.mapCgpaToGrade(s.value) || '');
+            const targetGradeLabel = programTargetGrade || (programTargetCgpa ? window.mapCgpaToGrade(programTargetCgpa) : 'N/A');
+
+            const allVals = [...actualData, ...(programTargetCgpa ? [programTargetCgpa] : [])];
+            const maxVal = allVals.length > 0 ? Math.max(...allVals) : 4.0;
+            const yMax = maxVal > 4.0 ? 5.0 : 4.0;
+
+            // Status color per subject
+            const barColors = subjects.map(s => {
+                const actual = parseFloat(s.value) || 0;
+                if (programTargetCgpa === null) return '#06b6d4';
+                if (actual >= programTargetCgpa) return '#10b981'; // met or exceeded
+                if (actual >= programTargetCgpa * 0.85) return '#f59e0b'; // close
+                return '#ef4444'; // below
+            });
+
+            // Render canvas
+            container.innerHTML = `
+                <div class="h-[260px] sm:h-[330px] md:h-[400px] min-h-[240px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-4 shadow-inner flex flex-col relative">
+                    <div class="relative flex-1 w-full h-full"><canvas id="subjectWiseCanvas"></canvas></div>
+                </div>
+                <div class="flex flex-wrap justify-center gap-1.5 sm:gap-2 shrink-0">
+                    <div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                        <span class="text-[9px] font-black text-white uppercase tracking-widest">Met Target ≥ ${programTargetCgpa !== null ? programTargetCgpa.toFixed(2) : 'N/A'}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                        <span class="text-[9px] font-black text-white uppercase tracking-widest">Near (≥85%)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                        <span class="text-[9px] font-black text-white uppercase tracking-widest">Below Target</span>
+                    </div>
+                    ${programTargetCgpa !== null ? `<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-400" style="border: 2px dashed #f59e0b; background: transparent"></div>
+                        <span class="text-[9px] font-black text-white uppercase tracking-widest">Program Target: ${programTargetCgpa.toFixed(2)} (${targetGradeLabel})</span>
+                    </div>` : ''}
+                </div>
+                <div class="overflow-y-auto max-h-[160px] custom-scrollbar">
+                    <table class="w-full text-xs">
+                        <thead><tr class="border-b border-slate-200 dark:border-slate-700">
+                            <th class="text-left text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 pr-2">Subject</th>
+                            <th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Actual</th>
+                            <th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Grade</th>
+                            <th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Target</th>
+                            <th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 pl-2">Status</th>
+                        </tr></thead>
+                        <tbody>
+                            ${subjects.map((s, i) => {
+                                const actual = parseFloat(s.value) || 0;
+                                const met = programTargetCgpa !== null && actual >= programTargetCgpa;
+                                const near = programTargetCgpa !== null && !met && actual >= programTargetCgpa * 0.85;
+                                const statusDot = met ? '🟢' : (near ? '🟡' : '🔴');
+                                const statusText = met ? 'Met' : (near ? 'Near' : 'Below');
+                                const targetDisp = programTargetCgpa !== null ? programTargetCgpa.toFixed(2) : 'N/A';
+                                return `<tr class="border-b border-slate-100 dark:border-slate-700/60 last:border-0">
+                                    <td class="py-1.5 pr-2 font-bold text-slate-700 dark:text-slate-300 max-w-[120px] truncate">${s.subject}</td>
+                                    <td class="py-1.5 px-2 text-center font-black text-cyan-600 dark:text-cyan-400">${actual.toFixed(2)}</td>
+                                    <td class="py-1.5 px-2 text-center font-black text-yellow-500">${gradeLabels[i] || '—'}</td>
+                                    <td class="py-1.5 px-2 text-center font-bold text-slate-400">${targetDisp} <span class="text-[9px]">(${targetGradeLabel})</span></td>
+                                    <td class="py-1.5 pl-2 text-center text-[10px] font-black">${statusDot} ${statusText}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+
+            // Render chart
+            const subCanvas = document.getElementById('subjectWiseCanvas');
+            if (!subCanvas) return;
+            if (window.subjectWiseChartInstance) window.subjectWiseChartInstance.destroy();
+
+            const subCtx = subCanvas.getContext('2d');
+            window.subjectWiseChartInstance = new Chart(subCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Actual CGPA',
+                            data: actualData,
+                            backgroundColor: barColors,
+                            borderWidth: 0,
+                            borderRadius: 6,
+                            borderSkipped: false
+                        },
+                        ...(programTargetCgpa !== null ? [{
+                            label: 'Program Target',
+                            data: targetData,
+                            type: 'line',
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [5, 4],
+                            pointRadius: 0,
+                            tension: 0
+                        }] : [])
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                title: (items) => subjects[items[0].dataIndex]?.subject || '',
+                                label: (item) => {
+                                    if (item.datasetIndex === 0) {
+                                        const s = subjects[item.dataIndex];
+                                        const g = gradeLabels[item.dataIndex];
+                                        return ` Actual: ${parseFloat(s.value).toFixed(2)}${g ? ' (' + g + ')' : ''}`;
+                                    }
+                                    return ` Program Target: ${programTargetCgpa.toFixed(2)} (${targetGradeLabel})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: yMax,
+                            ticks: { font: { size: 9, weight: 'bold' } },
+                            grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }
+                        },
+                        x: {
+                            ticks: { font: { size: 8, weight: 'bold' }, maxRotation: 35, minRotation: 0 },
                             grid: { display: false, drawBorder: false }
                         }
                     }
@@ -4321,9 +4548,12 @@
                         syllabusStructure[track.id].forEach(s => {
                             if (s.program === selectedProg) {
                                 html += `
-                                <div class="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-700/60 last:border-0">
-                                    <span class="text-xs font-black text-slate-700 dark:text-slate-200 flex-1 truncate">${s.subject}</span>
-                                    <div class="flex gap-2 shrink-0 items-center">
+                                <div class="flex flex-col gap-1 py-2 border-b border-slate-100 dark:border-slate-700/60 last:border-0">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs font-black text-slate-700 dark:text-slate-200 flex-1 truncate">${s.subject}</span>
+                                        <span class="res-sub-target-badge text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-800/50 whitespace-nowrap opacity-30">Target: —</span>
+                                    </div>
+                                    <div class="flex gap-2 items-center justify-end">
                                         <!-- Grade mode: select A-F + auto CGPA badge -->
                                         <div class="${isGrade ? 'flex' : 'hidden'} items-center gap-1.5">
                                             <select data-subject="${s.subject}" data-field="grade"
@@ -4356,6 +4586,8 @@
                     listContainer.innerHTML = '<p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center py-4">No subjects found in this program</p>';
                 } else {
                     listContainer.innerHTML = html;
+                    // Update subject targets from the overall target
+                    window.updateSubjectTargets();
                 }
             }
         };
@@ -4403,45 +4635,10 @@
                 evalSelector.value = evalType;
                 evalSelector.disabled = true;
 
-                window.updateResultSubjectsGrid(false);
+                // Store prefill data to apply AFTER toggleResultType() re-renders the grid
+                window._pendingResultPrefill = { progRecords, evalType };
 
-                // Prefill the grid inputs from the database
-                let recordDate = '';
-
-                progRecords.forEach(r => {
-                    if (r.date) recordDate = r.date;
-                    if (!r.subject) {
-                        // Overall program score
-                        if (evalType === 'grade') {
-                            document.getElementById('res-overall-grade').value = r.grade || '';
-                            document.getElementById('res-overall-target-grade').value = r.targetGrade || '';
-                            
-                            window.updateCgpaBadge(r.grade || '', document.getElementById('res-overall-grade').parentElement.querySelector('.auto-cgpa-badge'));
-                            window.updateCgpaBadge(r.targetGrade || '', document.getElementById('res-overall-target-grade').parentElement.querySelector('.auto-cgpa-badge'));
-                        } else {
-                            document.getElementById('res-overall-cgpa').value = r.value || '';
-                            document.getElementById('res-overall-target-cgpa').value = r.targetCGPA || '';
-                            window.onCgpaInput(document.getElementById('res-overall-cgpa'));
-                            window.onCgpaInput(document.getElementById('res-overall-target-cgpa'));
-                        }
-                    } else {
-                        // Subject-level score
-                        if (evalType === 'grade') {
-                            const gradeInput = Array.from(document.querySelectorAll('.res-sub-grade-input')).find(input => input.getAttribute('data-subject') === r.subject);
-                            if (gradeInput) {
-                                gradeInput.value = r.grade || '';
-                                window.updateCgpaBadge(r.grade || '', gradeInput.parentElement.querySelector('.auto-cgpa-badge'));
-                            }
-                        } else {
-                            const cgpaInput = Array.from(document.querySelectorAll('.res-sub-cgpa-input')).find(input => input.getAttribute('data-subject') === r.subject);
-                            if (cgpaInput) {
-                                cgpaInput.value = r.value || '';
-                                window.onCgpaInput(cgpaInput);
-                            }
-                        }
-                    }
-                });
-
+                let recordDate = progRecords.find(r => r.date)?.date || '';
                 if (recordDate) {
                     document.getElementById('res-date').value = recordDate;
                 }
@@ -4484,10 +4681,53 @@
                 const pad = (n) => n < 10 ? '0' + n : n;
                 document.getElementById('res-date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-                window.updateResultSubjectsGrid(false);
+                window._pendingResultPrefill = null;
             }
 
+            // toggleResultType renders the grid via updateResultSubjectsGrid; do this FIRST
             window.toggleResultType();
+
+            // Now apply prefill AFTER the grid has been rendered
+            if (window._pendingResultPrefill) {
+                const { progRecords, evalType } = window._pendingResultPrefill;
+                window._pendingResultPrefill = null;
+
+                progRecords.forEach(r => {
+                    if (!r.subject) {
+                        // Overall program score
+                        if (evalType === 'grade') {
+                            document.getElementById('res-overall-grade').value = r.grade || '';
+                            document.getElementById('res-overall-target-grade').value = r.targetGrade || '';
+                            window.updateCgpaBadge(r.grade || '', document.getElementById('res-overall-grade').parentElement.querySelector('.auto-cgpa-badge'));
+                            window.updateCgpaBadge(r.targetGrade || '', document.getElementById('res-overall-target-grade').parentElement.querySelector('.auto-cgpa-badge'));
+                        } else {
+                            document.getElementById('res-overall-cgpa').value = r.value || '';
+                            document.getElementById('res-overall-target-cgpa').value = r.targetCGPA || '';
+                            window.onCgpaInput(document.getElementById('res-overall-cgpa'));
+                            window.onCgpaInput(document.getElementById('res-overall-target-cgpa'));
+                        }
+                    } else {
+                        // Subject-level score
+                        if (evalType === 'grade') {
+                            const gradeInput = Array.from(document.querySelectorAll('.res-sub-grade-input')).find(input => input.getAttribute('data-subject') === r.subject);
+                            if (gradeInput) {
+                                gradeInput.value = r.grade || '';
+                                window.updateCgpaBadge(r.grade || '', gradeInput.parentElement.querySelector('.auto-cgpa-badge'));
+                            }
+                        } else {
+                            const cgpaInput = Array.from(document.querySelectorAll('.res-sub-cgpa-input')).find(input => input.getAttribute('data-subject') === r.subject);
+                            if (cgpaInput) {
+                                cgpaInput.value = r.value || '';
+                                window.onCgpaInput(cgpaInput);
+                            }
+                        }
+                    }
+                });
+
+                // Update subject target badges after prefill
+                window.updateSubjectTargets();
+            }
+
             openModal('result-modal');
         };
 
@@ -4649,6 +4889,8 @@
                         subject: subName,
                         value: subScores.cgpa,
                         grade: subScores.grade,
+                        targetCGPA: overallTargetCgpaVal,
+                        targetGrade: overallTargetGradeVal,
                         date: date
                     });
                     timeOffset++;
@@ -4756,6 +4998,8 @@
                             subject: subName,
                             value: subScores.cgpa,
                             grade: subScores.grade,
+                            targetCGPA: overallTargetCgpaVal,
+                            targetGrade: overallTargetGradeVal,
                             date: date
                         });
                         timeOffset++;
@@ -5042,6 +5286,7 @@
                 if (modalId === 'global-history-modal' && window.globalHistoryChartInstance) window.globalHistoryChartInstance.resize();
                 if (modalId === 'daily-actions-db-modal' && window.dadbTrendChartInstance) window.dadbTrendChartInstance.resize();
                 if (modalId === 'program-trend-modal' && window.programTrendChartInstance) window.programTrendChartInstance.resize();
+                if (modalId === 'program-trend-modal' && window.subjectWiseChartInstance) window.subjectWiseChartInstance.resize();
             }, 320);
         };
 
@@ -8549,33 +8794,53 @@
             class="absolute inset-0 bg-slate-900/85 backdrop-blur-md opacity-0 transition-opacity duration-300"
             onclick="closeModal('program-trend-modal')"></div>
         <div id="ptm-results-content"
-            class="relative bg-white dark:bg-slate-800 p-4 sm:p-6 md:p-10 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-4xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 flex flex-col max-h-[95vh] mx-3 sm:mx-4 z-10">
+            class="relative bg-white dark:bg-slate-800 p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-4xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 flex flex-col max-h-[95vh] mx-3 sm:mx-4 z-10">
             <div
-                class="flex justify-between items-center mb-4 sm:mb-6 md:mb-8 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 md:pb-6 shrink-0">
-                <div class="flex items-center space-x-2 sm:space-x-3 md:space-x-5">
+                class="flex justify-between items-center mb-4 sm:mb-5 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                <div class="flex items-center space-x-2 sm:space-x-3">
                     <div
-                        class="p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl md:rounded-2xl bg-cyan-50 text-cyan-500 dark:bg-cyan-900/30 border border-cyan-100 dark:border-cyan-800 shadow-inner shrink-0 text-sm sm:text-base md:text-xl">
+                        class="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-cyan-50 text-cyan-500 dark:bg-cyan-900/30 border border-cyan-100 dark:border-cyan-800 shadow-inner shrink-0 text-sm sm:text-base">
                         📈</div>
                     <div>
-                        <h2 id="ptm-results-title" class="text-base sm:text-xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">Program Progression</h2>
-                        <p class="text-[9px] sm:text-[10px] md:text-sm text-slate-500 font-bold mt-0.5 tracking-wide">
+                        <h2 id="ptm-results-title" class="text-base sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Program Progression</h2>
+                        <p class="text-[9px] sm:text-[10px] text-slate-500 font-bold mt-0.5 tracking-wide">
                             Historical Actual vs Target CGPA comparison.</p>
                     </div>
                 </div>
                 <button onclick="closeModal('program-trend-modal')"
-                    class="p-2 sm:p-2.5 md:p-3 bg-slate-100 dark:bg-slate-700 rounded-lg sm:rounded-xl md:rounded-2xl hover:rotate-90 transition-transform active:scale-95 shrink-0 dark:text-slate-200"><svg
-                        class="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor"
+                    class="p-2 sm:p-2.5 bg-slate-100 dark:bg-slate-700 rounded-lg sm:rounded-xl hover:rotate-90 transition-transform active:scale-95 shrink-0 dark:text-slate-200"><svg
+                        class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12">
                         </path>
                     </svg></button>
             </div>
-            
-            <div class="overflow-y-auto flex-1 flex flex-col gap-4 sm:gap-6 md:gap-8 custom-scrollbar pr-1 md:pr-2">
-                <div class="h-[280px] sm:h-[350px] md:h-[450px] min-h-[250px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-4 shadow-inner shrink-0 flex flex-col relative">
-                    <div class="relative flex-1 w-full h-full"><canvas id="programTrendCanvas"></canvas></div>
+
+            <!-- Tab Switcher -->
+            <div class="flex gap-2 p-1 bg-slate-100 dark:bg-slate-700/60 rounded-2xl mb-4 sm:mb-5 shrink-0">
+                <button id="ptm-tab-overall" onclick="window.switchProgramAnalyticsView('overall')"
+                    class="flex-1 py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105">
+                    📊 Overall Result
+                </button>
+                <button id="ptm-tab-subject" onclick="window.switchProgramAnalyticsView('subject')"
+                    class="flex-1 py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                    📚 Subject-wise Result
+                </button>
+            </div>
+
+            <div class="overflow-y-auto flex-1 flex flex-col gap-4 sm:gap-5 custom-scrollbar pr-1">
+                <!-- Overall Result Panel -->
+                <div id="ptm-overall-panel" class="flex flex-col gap-4">
+                    <div class="h-[260px] sm:h-[330px] md:h-[400px] min-h-[240px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-inner shrink-0 flex flex-col relative">
+                        <div class="relative flex-1 w-full h-full"><canvas id="programTrendCanvas"></canvas></div>
+                    </div>
+                    <div id="program-trend-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 shrink-0"></div>
                 </div>
-                <div id="program-trend-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3 shrink-0"></div>
+
+                <!-- Subject-wise Result Panel -->
+                <div id="ptm-subject-panel" class="hidden flex flex-col gap-4">
+                    <!-- Dynamically rendered by renderSubjectWiseTrend() -->
+                </div>
             </div>
         </div>
     </div>
@@ -9143,7 +9408,7 @@
                         <div class="res-cgpa-field flex items-center gap-1.5">
                             <input type="text" id="res-overall-target-cgpa"
                                 class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
-                                placeholder="Target CGPA" oninput="window.onCgpaInput(this)">
+                                placeholder="Target CGPA" oninput="window.onCgpaInput(this); window.updateSubjectTargets()">
                             <span class="auto-grade-badge text-[10px] font-black text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800 min-w-[28px] text-center opacity-40">—</span>
                         </div>
 
@@ -9165,7 +9430,7 @@
                         <div class="res-grade-field hidden flex items-center gap-1.5">
                             <select id="res-overall-target-grade"
                                 class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
-                                onchange="window.onGradeSelect(this)">
+                                onchange="window.onGradeSelect(this); window.updateSubjectTargets()">
                                 <option value="">Target</option>
                                 <option value="A">A</option>
                                 <option value="B">B</option>
