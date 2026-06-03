@@ -10,7 +10,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Firebase Libraries -->
-        <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
         // --- Firebase Configuration ---
@@ -625,7 +625,7 @@
                         const pA_subj = a.priority !== undefined ? a.priority : 3;
                         const pB_subj = b.priority !== undefined ? b.priority : 3;
                         if (pA_subj !== pB_subj) return pA_subj - pB_subj;
-                        
+
                         const oA_subj = a.order !== undefined ? a.order : 999;
                         const oB_subj = b.order !== undefined ? b.order : 999;
                         return oA_subj - oB_subj;
@@ -730,18 +730,18 @@
                 db = firebase.firestore();
                 console.log("Firebase Connected");
                 loadFromCloud();
-            } catch(e) { console.error("Firebase init error:", e); }
+            } catch (e) { console.error("Firebase init error:", e); }
         }
 
         function loadFromCloud() {
             if (!db) return;
             db.collection('studyPlan').doc('globalData').onSnapshot((docSnap) => {
                 if (isSyncing) return; // Prevent loop
-                
+
                 if (docSnap.exists) {
                     const data = docSnap.data();
                     let newTasks = defaultTasks;
-                    
+
                     if (data.tracks) window.tracks = data.tracks;
                     if (data.customPrograms) window.customPrograms = data.customPrograms;
                     if (data.customActions) window.customActions = data.customActions;
@@ -790,9 +790,9 @@
                             PLAN_END_DATE = newEndDate;
                         }
                     } else { if (isInitialLoad) saveToCloud(true); }
-                    
+
                     tasks = newTasks;
-                    
+
                     // Always backup to localStorage
                     window.appState = data;
                     localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
@@ -804,7 +804,7 @@
                             const scrollPos = window.scrollY; // Preserve scroll position
                             renderUI();
                             window.scrollTo(0, scrollPos); // Seamlessly restore scroll
-                            showSync('saved'); 
+                            showSync('saved');
                         });
                     }
                 } else {
@@ -859,7 +859,7 @@
                 dashboardConfig: window.dashboardConfig
             };
             window.appState = payload;
-            
+
             // Backup locally
             localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
             console.log("Offline Backup Saved");
@@ -868,7 +868,7 @@
                 if (!db) return;
                 isSyncing = true;
                 showSync('saving');
-                
+
                 db.collection('studyPlan').doc('globalData').set(window.appState)
                     .then(() => {
                         console.log("Cloud Sync Success");
@@ -884,7 +884,7 @@
                         if (needsSave) { needsSave = false; saveTimeout = setTimeout(executeSave, 800); }
                     });
             };
-            
+
             if (immediate) { if (saveTimeout) clearTimeout(saveTimeout); executeSave(); }
             else { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(executeSave, 800); }
         }
@@ -1144,11 +1144,11 @@
                                 <div class="flex flex-wrap gap-2 md:gap-3">
                                     <button class="${btnClass(progName)}" onclick="window.setFilter('${progName}')">[ ENTIRE ${progName} ]</button>
                                     ${subs.map(s => {
-                                        let displaySub = s.subject;
-                                        if (displaySub.startsWith(s.program + ' - ')) displaySub = displaySub.replace(s.program + ' - ', '');
-                                        else if (displaySub.startsWith(s.program + ' ')) displaySub = displaySub.replace(s.program + ' ', '');
-                                        return `<button class="${btnClass(s.subject)}" onclick="window.setFilter('${s.subject}')">${displaySub}</button>`;
-                                    }).join('')}
+                                let displaySub = s.subject;
+                                if (displaySub.startsWith(s.program + ' - ')) displaySub = displaySub.replace(s.program + ' - ', '');
+                                else if (displaySub.startsWith(s.program + ' ')) displaySub = displaySub.replace(s.program + ' ', '');
+                                return `<button class="${btnClass(s.subject)}" onclick="window.setFilter('${s.subject}')">${displaySub}</button>`;
+                            }).join('')}
                                 </div>
                             </div>`;
                         }
@@ -1477,9 +1477,9 @@
                                     ${group.tasks.map(x => generateSingleTaskHtml(x.dayObj, x.taskObj, x.type)).join('')}
                                 </div>
                     `;
-                               if (isRevising) {
-                    if (isFrozen) {
-                        blockHtml += `
+                    if (isRevising) {
+                        if (isFrozen) {
+                            blockHtml += `
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/50 p-4 md:p-5 rounded-[1.25rem] shadow-sm mb-4">
                             <div class="flex items-center space-x-3 md:space-x-4 w-full">
                                 <div class="text-3xl drop-shadow-md">🏅</div>
@@ -1489,18 +1489,18 @@
                                 </div>
                             </div>
                         </div>`;
-                    } else {
-                        let revCompletedCount = window.revisionData.progress[sub] ? Object.values(window.revisionData.progress[sub]).filter(Boolean).length : 0;
-                        let revPct = group.totalChapters > 0 ? Math.round((revCompletedCount / group.totalChapters) * 100) : 0;
+                        } else {
+                            let revCompletedCount = window.revisionData.progress[sub] ? Object.values(window.revisionData.progress[sub]).filter(Boolean).length : 0;
+                            let revPct = group.totalChapters > 0 ? Math.round((revCompletedCount / group.totalChapters) * 100) : 0;
 
-                        let revGridHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5 mt-4">`;
-                        for (let i = 1; i <= group.totalChapters; i++) {
-                            let isCompleted = window.revisionData.progress[sub] && window.revisionData.progress[sub][i];
-                            revGridHtml += generateRevisionTaskHtml(sub, i, isCompleted);
-                        }
-                        revGridHtml += `</div>`;
+                            let revGridHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5 mt-4">`;
+                            for (let i = 1; i <= group.totalChapters; i++) {
+                                let isCompleted = window.revisionData.progress[sub] && window.revisionData.progress[sub][i];
+                                revGridHtml += generateRevisionTaskHtml(sub, i, isCompleted);
+                            }
+                            revGridHtml += `</div>`;
 
-                        let revisionHeaderHtml = `
+                            let revisionHeaderHtml = `
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-blue-200 dark:border-blue-800/50 pb-3 gap-3">
                                 <div class="flex flex-wrap items-center gap-y-2 space-x-3 w-full">
                                     <div class="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)] animate-pulse"></div>
@@ -1517,9 +1517,10 @@
                             </div>
                         `;
 
-                        blockHtml += `<div class="mt-8 w-full bg-blue-50/40 dark:bg-blue-900/10 p-4 md:p-6 rounded-[2rem] border-2 border-blue-200 dark:border-blue-800/50 shadow-sm relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>${revisionHeaderHtml}${revGridHtml}</div>`;
+                            blockHtml += `<div class="mt-8 w-full bg-blue-50/40 dark:bg-blue-900/10 p-4 md:p-6 rounded-[2rem] border-2 border-blue-200 dark:border-blue-800/50 shadow-sm relative overflow-hidden"><div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>${revisionHeaderHtml}${revGridHtml}</div>`;
+                        }
                     }
-                }        }
+                }
 
                 if (!isFrozen) {
                     blockHtml += `
@@ -4089,20 +4090,20 @@
                         </tr></thead>
                         <tbody>
                             ${subjects.map((s, i) => {
-                                const actual = parseFloat(s.value) || 0;
-                                const met = programTargetCgpa !== null && actual >= programTargetCgpa;
-                                const near = programTargetCgpa !== null && !met && actual >= programTargetCgpa * 0.85;
-                                const statusDot = met ? '🟢' : (near ? '🟡' : '🔴');
-                                const statusText = met ? 'Met' : (near ? 'Near' : 'Below');
-                                const targetDisp = programTargetCgpa !== null ? programTargetCgpa.toFixed(2) : 'N/A';
-                                return `<tr class="border-b border-slate-100 dark:border-slate-700/60 last:border-0">
+                const actual = parseFloat(s.value) || 0;
+                const met = programTargetCgpa !== null && actual >= programTargetCgpa;
+                const near = programTargetCgpa !== null && !met && actual >= programTargetCgpa * 0.85;
+                const statusDot = met ? '🟢' : (near ? '🟡' : '🔴');
+                const statusText = met ? 'Met' : (near ? 'Near' : 'Below');
+                const targetDisp = programTargetCgpa !== null ? programTargetCgpa.toFixed(2) : 'N/A';
+                return `<tr class="border-b border-slate-100 dark:border-slate-700/60 last:border-0">
                                     <td class="py-1.5 pr-2 font-bold text-slate-700 dark:text-slate-300 max-w-[120px] truncate">${s.subject}</td>
                                     <td class="py-1.5 px-2 text-center font-black text-cyan-600 dark:text-cyan-400">${actual.toFixed(2)}</td>
                                     <td class="py-1.5 px-2 text-center font-black text-yellow-500">${gradeLabels[i] || '—'}</td>
                                     <td class="py-1.5 px-2 text-center font-bold text-slate-400">${targetDisp} <span class="text-[9px]">(${targetGradeLabel})</span></td>
                                     <td class="py-1.5 pl-2 text-center text-[10px] font-black">${statusDot} ${statusText}</td>
                                 </tr>`;
-                            }).join('')}
+            }).join('')}
                         </tbody>
                     </table>
                 </div>`;
@@ -4385,7 +4386,7 @@
                     const active = window.trendDatasetVisibility[idxKey];
                     return `<div onclick="window.toggleTrendDataset('${idxKey}')" class="cursor-pointer flex items-center space-x-1.5 md:space-x-2 px-2.5 md:px-3 py-1.5 md:px-3.5 md:py-2 bg-slate-900 rounded-lg md:rounded-xl border border-slate-700 hover:bg-slate-800 active:scale-95 transition-all ${active ? 'opacity-100 scale-100 shadow-md' : 'opacity-40 grayscale scale-95 line-through'}"><div class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">${label}: ${val}</span></div>`;
                 };
-                rLeg.innerHTML = 
+                rLeg.innerHTML =
                     getResultsLegend('actual', '#06b6d4', 'Actual CGPA', latestProgramCgpa) +
                     getResultsLegend('target', '#f59e0b', 'Target CGPA', overallTargetCgpaVal);
             }
@@ -4417,12 +4418,12 @@
                     if (window.resultsTrendChartInstance) window.resultsTrendChartInstance.destroy();
 
                     const canvasCtx = ctx.getContext('2d');
-                    
+
                     // Create beautiful area glow gradients
                     const gradientActual = canvasCtx.createLinearGradient(0, 0, 0, 200);
                     gradientActual.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
                     gradientActual.addColorStop(1, 'rgba(6, 182, 212, 0)');
-                    
+
                     const gradientTarget = canvasCtx.createLinearGradient(0, 0, 0, 200);
                     gradientTarget.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
                     gradientTarget.addColorStop(1, 'rgba(245, 158, 11, 0)');
@@ -4723,9 +4724,6 @@
                         }
                     }
                 });
-
-                // Update subject target badges after prefill
-                window.updateSubjectTargets();
             }
 
             openModal('result-modal');
@@ -6410,29 +6408,29 @@
                     window.successResults = [];
                     window.customActions = [];
                     window.paceGoals = [];
-                    
+
                     window.dashboardConfig = {
                         topTag: "",
                         mainTitle: "Study Dashboard",
                         subTitle: ""
                     };
-                    
+
                     PLAN_START_DATE = new Date();
                     PLAN_START_DATE.setHours(0, 0, 0, 0);
                     PLAN_END_DATE = new Date();
                     PLAN_END_DATE.setMonth(PLAN_END_DATE.getMonth() + 10);
                     PLAN_END_DATE.setHours(23, 59, 59, 999);
-                    
+
                     tasks = generateStudyPlan();
                     recalculateTotals();
-                    
+
                     saveToCloud(true);
                     renderUI();
-                    
+
                     window.populateTrackDropdowns();
                     window.updateManageDropdown();
                     if (window.renderTrackList) window.renderTrackList();
-                    
+
                     showToast("Dashboard reset successfully to a clean slate!", "success");
                 }
             );
@@ -6483,10 +6481,10 @@
 
             const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             const nextOrder = window.customPrograms[track].length;
-            window.customPrograms[track].push({ 
-                id: slug || 'prog-' + Date.now(), 
-                name: name, 
-                priority: 3, 
+            window.customPrograms[track].push({
+                id: slug || 'prog-' + Date.now(),
+                name: name,
+                priority: 3,
                 order: nextOrder,
                 targetCGPA: ''
             });
@@ -6854,7 +6852,7 @@
             const list = window.getAllSubjects();
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= list.length) return;
-            
+
             // Sync current input values from DOM to state
             window.syncPriorityInputsFromDOM();
 
@@ -6869,12 +6867,12 @@
             const tempOrder = itemA.order;
             itemA.order = itemB.order;
             itemB.order = tempOrder;
-            
+
             // Re-assign order globally across all subjects
             list.forEach((s, idx) => {
                 s.order = idx;
             });
-            
+
             window.sortAllCustomData();
             saveToCloud();
             renderUI();
@@ -6886,7 +6884,7 @@
             const list = window.customActions;
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= list.length) return;
-            
+
             // Sync current input values from DOM to state
             window.syncPriorityInputsFromDOM();
 
@@ -6901,14 +6899,14 @@
             const tempOrder = itemA.order;
             itemA.order = itemB.order;
             itemB.order = tempOrder;
-            
+
             // Swap positions in array
             list[index] = itemB;
             list[targetIndex] = itemA;
-            
+
             // Re-assign order
             list.forEach((a, idx) => a.order = idx);
-            
+
             window.sortAllCustomData();
             saveToCloud();
             renderUI();
@@ -6960,7 +6958,7 @@
                 html += `<p class="text-xs font-bold text-slate-400">No tracks found.</p>`;
             } else {
                 window.tracks.forEach((t, idx) => {
-                    const trackColors = ['#6366f1','#8b5cf6','#10b981','#f59e0b','#f43f5e','#06b6d4','#a855f7','#f97316'];
+                    const trackColors = ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#06b6d4', '#a855f7', '#f97316'];
                     const tc = trackColors[idx % trackColors.length];
                     html += `
                     <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:border-indigo-400 transition-all">
@@ -7005,7 +7003,7 @@
             if (flatProgList.length === 0) {
                 html += `<p class="text-xs font-bold text-slate-400">No programs found.</p>`;
             } else {
-                const progColors = ['#7c3aed','#6366f1','#0891b2','#059669','#d97706','#dc2626','#db2777','#0284c7'];
+                const progColors = ['#7c3aed', '#6366f1', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#0284c7'];
                 flatProgList.forEach((item, flatIdx) => {
                     const pc = progColors[flatIdx % progColors.length];
                     html += `
@@ -7630,7 +7628,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             if (isAppInitialized) return;
             isAppInitialized = true;
-            
+
             try {
                 const stored = localStorage.getItem('studyMasterBackup');
                 if (stored) {
@@ -7652,8 +7650,8 @@
                         }
                     }
                 }
-            } catch(e) {}
-            
+            } catch (e) { }
+
             window.migrateLegacyData();
             window.sortAllCustomData();
 
@@ -8271,7 +8269,8 @@
                                 placeholder="Enter new name...">
                         </div>
                         <div class="flex flex-col gap-1.5 lg:col-span-1 hidden" id="manage-target-cgpa-box">
-                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target CGPA</label>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target
+                                CGPA</label>
                             <input type="text" id="manage-target-cgpa"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
                                 placeholder="e.g. 3.80">
@@ -8433,9 +8432,10 @@
 
             <div id="results-trend-container"
                 class="hidden mb-6 md:mb-8 w-full bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
-                
+
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3">
-                    <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
+                    <h3
+                        class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
                         Results & Performance Trend</h3>
                     <div class="flex items-center gap-2 flex-wrap">
                         <select id="trend-program-filter" onchange="window.renderResults()"
@@ -8703,7 +8703,8 @@
                     </div>
                     <div>
                         <h2 class="text-xl font-black truncate max-w-[220px]">Edit Track</h2>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Rename dynamic track</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Rename dynamic
+                            track</p>
                     </div>
                 </div>
                 <button onclick="closeModal('edit-track-modal')"
@@ -8724,7 +8725,8 @@
                 </div>
             </div>
 
-            <div class="flex justify-end items-center gap-2 mt-auto pt-4 border-t border-slate-100 dark:border-slate-700">
+            <div
+                class="flex justify-end items-center gap-2 mt-auto pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button onclick="closeModal('edit-track-modal')"
                     class="text-slate-500 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors active:scale-95">Cancel</button>
                 <button onclick="window.saveTrackEditModal()"
@@ -8758,7 +8760,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
                             </path>
-                        </svg></div>
+                        </svg>
+                    </div>
                     <div>
                         <h2 class="text-base sm:text-xl md:text-3xl font-black text-white leading-tight">Subject Trends
                         </h2>
@@ -8802,15 +8805,16 @@
                         class="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-cyan-50 text-cyan-500 dark:bg-cyan-900/30 border border-cyan-100 dark:border-cyan-800 shadow-inner shrink-0 text-sm sm:text-base">
                         📈</div>
                     <div>
-                        <h2 id="ptm-results-title" class="text-base sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Program Progression</h2>
+                        <h2 id="ptm-results-title"
+                            class="text-base sm:text-xl font-black text-slate-900 dark:text-white leading-tight">Program
+                            Progression</h2>
                         <p class="text-[9px] sm:text-[10px] text-slate-500 font-bold mt-0.5 tracking-wide">
                             Historical Actual vs Target CGPA comparison.</p>
                     </div>
                 </div>
                 <button onclick="closeModal('program-trend-modal')"
                     class="p-2 sm:p-2.5 bg-slate-100 dark:bg-slate-700 rounded-lg sm:rounded-xl hover:rotate-90 transition-transform active:scale-95 shrink-0 dark:text-slate-200"><svg
-                        class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
+                        class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12">
                         </path>
                     </svg></button>
@@ -8831,10 +8835,12 @@
             <div class="overflow-y-auto flex-1 flex flex-col gap-4 sm:gap-5 custom-scrollbar pr-1">
                 <!-- Overall Result Panel -->
                 <div id="ptm-overall-panel" class="flex flex-col gap-4">
-                    <div class="h-[260px] sm:h-[330px] md:h-[400px] min-h-[240px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-inner shrink-0 flex flex-col relative">
+                    <div
+                        class="h-[260px] sm:h-[330px] md:h-[400px] min-h-[240px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-inner shrink-0 flex flex-col relative">
                         <div class="relative flex-1 w-full h-full"><canvas id="programTrendCanvas"></canvas></div>
                     </div>
-                    <div id="program-trend-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 shrink-0"></div>
+                    <div id="program-trend-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 shrink-0">
+                    </div>
                 </div>
 
                 <!-- Subject-wise Result Panel -->
@@ -8922,7 +8928,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z">
                             </path>
-                        </svg></div>
+                        </svg>
+                    </div>
                     <div>
                         <h2
                             class="text-base sm:text-xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">
@@ -9005,7 +9012,8 @@
                     <div
                         class="text-sm sm:text-xl md:text-4xl font-black text-emerald-700 dark:text-emerald-400 mt-0.5 sm:mt-1">
                         <span id="ptm-req-pace">--</span> <span
-                            class="text-[8px] sm:text-[10px] md:text-sm opacity-60 font-bold">ch/d</span></div>
+                            class="text-[8px] sm:text-[10px] md:text-sm opacity-60 font-bold">ch/d</span>
+                    </div>
                 </div>
                 <div
                     class="p-2.5 sm:p-4 md:p-5 rounded-lg sm:rounded-xl md:rounded-2xl border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-900/10 shadow-sm flex flex-col justify-center">
@@ -9015,7 +9023,8 @@
                     <div
                         class="text-sm sm:text-xl md:text-4xl font-black text-indigo-700 dark:text-indigo-400 mt-0.5 sm:mt-1">
                         <span id="ptm-act-pace">--</span> <span
-                            class="text-[8px] sm:text-[10px] md:text-sm opacity-60 font-bold">ch/d</span></div>
+                            class="text-[8px] sm:text-[10px] md:text-sm opacity-60 font-bold">ch/d</span>
+                    </div>
                 </div>
                 <div
                     class="p-2.5 sm:p-4 md:p-5 rounded-lg sm:rounded-xl md:rounded-2xl border border-orange-200 dark:border-orange-800/50 bg-orange-50/50 dark:bg-orange-900/10 shadow-sm flex flex-col justify-center">
@@ -9376,17 +9385,20 @@
 
                 <div id="res-single-title-container" class="flex flex-col gap-1.5 hidden">
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Editing Item</span>
-                    <span id="res-single-title-display" class="text-sm font-black text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700"></span>
+                    <span id="res-single-title-display"
+                        class="text-sm font-black text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700"></span>
                 </div>
 
                 <div id="res-prog-container" class="flex flex-col gap-1.5">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target Program</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target
+                        Program</label>
                     <select id="res-prog-select" onchange="window.updateResultSubjectsGrid(true)"
                         class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"></select>
                 </div>
 
                 <div id="res-evaluation-type-container" class="flex flex-col gap-1.5 hidden">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Evaluation Option</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Evaluation
+                        Option</label>
                     <select id="res-evaluation-type" onchange="window.toggleResultEvaluationType()"
                         class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none">
                         <option value="cgpa">CGPA-based</option>
@@ -9396,55 +9408,64 @@
 
                 <div id="res-subjects-grid-container" class="flex flex-col gap-3 hidden">
                     <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-                        <span id="res-overall-label" class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall Program CGPA</span>
+                        <span id="res-overall-label"
+                            class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall
+                            Program CGPA</span>
                         <div class="flex gap-2 shrink-0 flex-wrap justify-end">
-                        <!-- CGPA mode: CGPA input + auto grade badge -->
-                        <div class="res-cgpa-field flex items-center gap-1.5">
-                            <input type="text" id="res-overall-cgpa"
-                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
-                                placeholder="CGPA" oninput="window.onCgpaInput(this)">
-                            <span class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
-                        </div>
-                        <div class="res-cgpa-field flex items-center gap-1.5">
-                            <input type="text" id="res-overall-target-cgpa"
-                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
-                                placeholder="Target CGPA" oninput="window.onCgpaInput(this); window.updateSubjectTargets()">
-                            <span class="auto-grade-badge text-[10px] font-black text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800 min-w-[28px] text-center opacity-40">—</span>
-                        </div>
+                            <!-- CGPA mode: CGPA input + auto grade badge -->
+                            <div class="res-cgpa-field flex items-center gap-1.5">
+                                <input type="text" id="res-overall-cgpa"
+                                    class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
+                                    placeholder="CGPA" oninput="window.onCgpaInput(this)">
+                                <span
+                                    class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
+                            </div>
+                            <div class="res-cgpa-field flex items-center gap-1.5">
+                                <input type="text" id="res-overall-target-cgpa"
+                                    class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
+                                    placeholder="Target CGPA"
+                                    oninput="window.onCgpaInput(this); window.updateSubjectTargets()">
+                                <span
+                                    class="auto-grade-badge text-[10px] font-black text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800 min-w-[28px] text-center opacity-40">—</span>
+                            </div>
 
-                        <!-- Grade mode: Grade select (A–F) + auto CGPA badge -->
-                        <div class="res-grade-field hidden flex items-center gap-1.5">
-                            <select id="res-overall-grade"
-                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
-                                onchange="window.onGradeSelect(this)">
-                                <option value="">Grade</option>
-                                <option value="A">A</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
-                                <option value="D">D</option>
-                                <option value="E">E</option>
-                                <option value="F">F</option>
-                            </select>
-                            <span class="auto-cgpa-badge text-[10px] font-black text-cyan-500 bg-cyan-50 dark:bg-cyan-900/30 px-1.5 py-0.5 rounded-lg border border-cyan-200 dark:border-cyan-800 min-w-[36px] text-center opacity-40">—</span>
-                        </div>
-                        <div class="res-grade-field hidden flex items-center gap-1.5">
-                            <select id="res-overall-target-grade"
-                                class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
-                                onchange="window.onGradeSelect(this); window.updateSubjectTargets()">
-                                <option value="">Target</option>
-                                <option value="A">A</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
-                                <option value="D">D</option>
-                                <option value="E">E</option>
-                                <option value="F">F</option>
-                            </select>
-                            <span class="auto-cgpa-badge text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 min-w-[36px] text-center opacity-40">—</span>
-                        </div>
+                            <!-- Grade mode: Grade select (A–F) + auto CGPA badge -->
+                            <div class="res-grade-field hidden flex items-center gap-1.5">
+                                <select id="res-overall-grade"
+                                    class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
+                                    onchange="window.onGradeSelect(this)">
+                                    <option value="">Grade</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                </select>
+                                <span
+                                    class="auto-cgpa-badge text-[10px] font-black text-cyan-500 bg-cyan-50 dark:bg-cyan-900/30 px-1.5 py-0.5 rounded-lg border border-cyan-200 dark:border-cyan-800 min-w-[36px] text-center opacity-40">—</span>
+                            </div>
+                            <div class="res-grade-field hidden flex items-center gap-1.5">
+                                <select id="res-overall-target-grade"
+                                    class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center uppercase focus:ring-2 focus:ring-yellow-500 outline-none"
+                                    onchange="window.onGradeSelect(this); window.updateSubjectTargets()">
+                                    <option value="">Target</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                </select>
+                                <span
+                                    class="auto-cgpa-badge text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 min-w-[36px] text-center opacity-40">—</span>
+                            </div>
                         </div>
                     </div>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Subject Grades & scores</span>
-                    <div id="res-subjects-list" class="max-h-52 overflow-y-auto pr-1 flex flex-col gap-2.5 custom-scrollbar">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Subject Grades &
+                        scores</span>
+                    <div id="res-subjects-list"
+                        class="max-h-52 overflow-y-auto pr-1 flex flex-col gap-2.5 custom-scrollbar">
                         <!-- Dynamically populated -->
                     </div>
                 </div>
@@ -9465,7 +9486,8 @@
                             placeholder="e.g. A+">
                     </div>
                     <div class="flex flex-col gap-1.5 flex-1">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Result / Score</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Result /
+                            Score</label>
                         <input type="text" id="res-value"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-bold w-full text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-yellow-500 outline-none"
                             placeholder="e.g. 3.85">
