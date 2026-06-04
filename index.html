@@ -206,7 +206,7 @@
         window.formatCgpaMin2Dec = function (val) {
             let parsed = parseFloat(val);
             if (isNaN(parsed)) return '';
-            
+
             // Limit floating point inaccuracies by rounding to 4 decimals first
             let rounded = Math.round(parsed * 10000) / 10000;
             let str = rounded.toString();
@@ -1525,12 +1525,13 @@
                     actualStartDateForPace.setHours(0, 0, 0, 0);
                 }
 
+                let daysElapsed = 0;
                 if (group.totalChapters > 0) {
                     if (completedCount > 0 && actualStartDateForPace && actualStartDateForPace <= today) {
-                        const daysElapsed = Math.floor((today - actualStartDateForPace) / msPerDay) + 1;
+                        daysElapsed = Math.floor((today - actualStartDateForPace) / msPerDay) + 1;
                         actPaceRaw = completedCount / daysElapsed;
                     } else if (startDate && startDate <= today) {
-                        const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+                        daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
                         actPaceRaw = completedCount / daysElapsed;
                     }
 
@@ -1547,6 +1548,11 @@
 
                 const actPace = actPaceRaw.toFixed(2);
                 const reqPace = hasTimeGoal ? reqPaceRaw.toFixed(2) : '--';
+
+                let subjectDaysPassedStr = '<span class="opacity-60">0 Days Passed</span>';
+                if (completedCount > 0 && daysElapsed > 0) {
+                    subjectDaysPassedStr = `${daysElapsed} Days Passed`;
+                }
 
                 let estFinishStr = '--';
                 let estDaysNeededStr = '<span class="opacity-60">Unknown</span>';
@@ -1663,6 +1669,7 @@
                                     <div class="relative overflow-hidden p-3.5 md:p-5 bg-gradient-to-br from-${colorClass}-50/80 to-${colorClass}-100/50 dark:from-${colorClass}-900/20 dark:to-${colorClass}-900/30 rounded-2xl border border-${colorClass}-100 dark:border-${colorClass}-800/50 shadow-sm flex flex-col justify-center text-center">
                                         <span class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-${colorClass}-500/90 dark:text-${colorClass}-400/90 mb-1">Actual Pace</span>
                                         <span class="text-sm md:text-[1.1rem] font-black text-${colorClass}-700 dark:text-${colorClass}-400"><span id="tg-act-${safeSubId}">${actPace}</span> <span class="text-[9px] opacity-70 font-bold uppercase tracking-widest">ch/d</span></span>
+                                        <span id="tg-act-days-${safeSubId}" class="text-[9px] text-${colorClass}-500/80 font-bold mt-0.5">${subjectDaysPassedStr}</span>
                                     </div>
                                     <div class="relative overflow-hidden p-3.5 md:p-5 bg-gradient-to-br from-orange-50/80 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-900/30 rounded-2xl border border-orange-100 dark:border-orange-800/50 shadow-sm flex flex-col justify-center text-center">
                                         <span class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-orange-500/90 dark:text-orange-400/90 mb-1">Est. Finish</span>
@@ -1921,12 +1928,13 @@
                 actualStartDateForPace.setHours(0, 0, 0, 0);
             }
 
+            let daysElapsed = 0;
             if (totalChapters > 0) {
                 if (completedCount > 0 && actualStartDateForPace && actualStartDateForPace <= today) {
-                    const daysElapsed = Math.floor((today - actualStartDateForPace) / msPerDay) + 1;
+                    daysElapsed = Math.floor((today - actualStartDateForPace) / msPerDay) + 1;
                     actPaceRaw = completedCount / daysElapsed;
                 } else if (startDate && startDate <= today) {
-                    const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+                    daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
                     actPaceRaw = completedCount / daysElapsed;
                 }
 
@@ -1977,6 +1985,13 @@
 
             const actEl = document.getElementById(`tg-act-${safeSubId}`);
             if (actEl) actEl.textContent = actPaceStr;
+
+            let subjectDaysPassedStr = '<span class="opacity-60">0 Days Passed</span>';
+            if (completedCount > 0 && daysElapsed > 0) {
+                subjectDaysPassedStr = `${daysElapsed} Days Passed`;
+            }
+            const actDaysEl = document.getElementById(`tg-act-days-${safeSubId}`);
+            if (actDaysEl) actDaysEl.innerHTML = subjectDaysPassedStr;
 
             const estEl1 = document.getElementById(`tg-est-${safeSubId}`);
             if (estEl1) estEl1.innerHTML = estFinishStr;
@@ -2111,6 +2126,7 @@
                 let finishDisplay = '';
                 let globalDaysLeftStr = '<span class="opacity-50">--</span>';
                 let globalDaysNeededStr = '<span class="opacity-50">--</span>';
+                let globalDaysPassedStr = '<span class="opacity-50">--</span>';
 
                 if (paceTotalChapters === 0) {
                     finishDisplay = '<span class="text-sm opacity-50 uppercase tracking-widest">No Targets</span>';
@@ -2118,6 +2134,10 @@
                     finishDisplay = '<span class="text-emerald-500">Finished!</span>';
                     globalDaysLeftStr = '<span class="text-emerald-500 font-bold">Done</span>';
                     globalDaysNeededStr = '<span class="text-emerald-500 font-bold">0 Days</span>';
+                    if (earliestDate) {
+                        const daysElapsed = Math.max(0, Math.floor((today - start) / msPerDay) + 1);
+                        globalDaysPassedStr = `${daysElapsed} Days Passed`;
+                    }
                 } else if (globalCurPace <= 0) {
                     finishDisplay = '<span class="text-sm opacity-50 uppercase tracking-widest">No Data</span>';
                     globalDaysLeftStr = '<span class="opacity-50">--</span>';
@@ -2127,6 +2147,10 @@
                     const globalDaysLeftNeed = remaining / globalCurPace;
                     globalDaysNeededStr = `${Math.ceil(globalDaysLeftNeed)} Days Needed`;
                     globalDaysLeftStr = '<span class="text-slate-400 font-bold">No Goal</span>';
+                    if (earliestDate) {
+                        const daysElapsed = Math.max(0, Math.floor((today - start) / msPerDay) + 1);
+                        globalDaysPassedStr = `${daysElapsed} Days Passed`;
+                    }
                 }
 
                 safeSetHtml('projected-finish', finishDisplay);
@@ -2136,6 +2160,9 @@
 
                 const globalNeedEl = document.getElementById('global-days-needed');
                 if (globalNeedEl) globalNeedEl.innerHTML = globalDaysNeededStr;
+
+                const globalPassedEl = document.getElementById('global-days-passed');
+                if (globalPassedEl) globalPassedEl.innerHTML = globalDaysPassedStr;
 
                 let timelineText = earliestDate ? `Started: ${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}` : `Not Started`;
                 safeSetHtml('pace-timeline-info', `<span class="text-slate-500 font-bold">Global Baseline</span> <span class="mx-1 opacity-50">|</span> <span class="tracking-widest text-[9px] uppercase">${timelineText}</span>`);
@@ -2271,6 +2298,7 @@
 
                 let globalDaysLeftStr = '<span class="opacity-50">--</span>';
                 let globalDaysNeededStr = '<span class="opacity-50">--</span>';
+                let globalDaysPassedStr = '<span class="opacity-50">--</span>';
                 let diffGlobalDaysTG = Math.ceil((end - today) / msPerDay);
 
                 if (paceTotalChapters === 0) {
@@ -2279,6 +2307,7 @@
                     finishDisplay = '<span class="text-emerald-500">Finished!</span>';
                     globalDaysLeftStr = '<span class="text-emerald-500 font-bold">Done</span>';
                     globalDaysNeededStr = '<span class="text-emerald-500 font-bold">0 Days</span>';
+                    globalDaysPassedStr = `${Math.max(0, daysElapsed)} Days Passed`;
                 } else if (globalCurPace <= 0) {
                     if (today < start) finishDisplay = '<span class="text-sm font-black text-blue-400 uppercase tracking-widest">Future Timeline</span>';
                     else if (today > end) finishDisplay = '<span class="text-sm font-black text-red-500 uppercase tracking-widest">Overdue</span>';
@@ -2287,6 +2316,7 @@
                     if (diffGlobalDaysTG > 0) globalDaysLeftStr = `${diffGlobalDaysTG} Days Left`;
                     else if (diffGlobalDaysTG === 0) globalDaysLeftStr = `<span class="text-orange-400">Due Today</span>`;
                     else globalDaysLeftStr = `<span class="text-red-400">${Math.abs(diffGlobalDaysTG)} Days Overdue</span>`;
+                    globalDaysPassedStr = `${Math.max(0, daysElapsed)} Days Passed`;
                 } else {
                     finishDisplay = maxProjectedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -2296,6 +2326,7 @@
 
                     const globalDaysLeftNeed = remaining / globalCurPace;
                     globalDaysNeededStr = `${Math.ceil(globalDaysLeftNeed)} Days Needed`;
+                    globalDaysPassedStr = `${Math.max(0, daysElapsed)} Days Passed`;
                 }
 
                 safeSetText('target-req-pace', `${reqPaceDisplay} Ch/Day`);
@@ -2307,6 +2338,9 @@
 
                 const globalNeedEl = document.getElementById('global-days-needed');
                 if (globalNeedEl) globalNeedEl.innerHTML = globalDaysNeededStr;
+
+                const globalPassedEl = document.getElementById('global-days-passed');
+                if (globalPassedEl) globalPassedEl.innerHTML = globalDaysPassedStr;
 
                 let timelineText = `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} &rarr; ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
                 safeSetHtml('pace-timeline-info', `<span class="text-blue-500 font-bold">Global Baseline</span> <span class="mx-1 opacity-50">|</span> <span class="tracking-widest text-[9px] uppercase">${timelineText}</span>`);
@@ -2578,6 +2612,7 @@
                 <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-[1.25rem] border ${isActiveFilter ? 'border-orange-500 shadow-md scale-[1.02]' : 'border-slate-200 dark:border-slate-700 shadow-sm'} relative group hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col justify-between">
                     ${isActiveFilter ? '<div class="absolute -top-2.5 right-4 bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm">Active Timeline</div>' : ''}
                     <div class="absolute top-3.5 right-3.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="window.openPaceTrendModal('${goal.id}')" class="text-slate-300 hover:text-indigo-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Pace Trend Chart"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1-1H5a1 1 0 01-1-1V4z"></path></svg></button>
                         <button onclick="window.openGoalDetailsModal('${goal.id}')" class="text-slate-300 hover:text-emerald-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Target Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                         <button onclick="window.openEditPaceModal('${goal.id}')" class="text-slate-300 hover:text-blue-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Edit Goal Dates"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                         <button onclick="window.requestDeletePaceGoal('${goal.id}')" class="text-slate-300 hover:text-red-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Remove Goal"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
@@ -2614,13 +2649,25 @@
                                     <span class="block text-[8px] uppercase tracking-widest font-black text-slate-500 opacity-80 mb-0.5">Cur Pace</span>
                                     <div class="font-black text-xs md:text-sm text-slate-700 dark:text-slate-300">${curPace} <span class="text-[8px] opacity-70">ch/d</span></div>
                                 </div>
+                                <div class="text-[9px] font-black text-emerald-500 mt-1.5 uppercase tracking-widest">${Math.max(0, daysElapsed)} Days Passed</div>
                             </div>
                             <div class="col-span-2 p-2.5 rounded-xl bg-slate-900 dark:bg-slate-900 border border-slate-800 flex justify-between items-center shadow-inner">
                                 <div class="flex flex-col">
                                     <span class="text-[8px] uppercase tracking-widest font-black text-slate-400 mb-0.5">Est. Finish</span>
                                     <span class="text-[9px] font-black mt-0.5">${estDaysNeededStr}</span>
                                 </div>
-                                <div class="font-black text-[10px] md:text-xs text-white text-right">${finishDisplay}</div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="font-black text-[10px] md:text-xs text-white text-right">${finishDisplay}</div>
+                                    <button onclick="window.openPaceTrendModal('${goal.id}')"
+                                        class="p-1.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-400 rounded-lg hover:scale-105 active:scale-95 transition-all border border-indigo-500/30 shrink-0"
+                                        title="View Pace Analytics Chart">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1-1H5a1 1 0 01-1-1V4z">
+                                            </path>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4756,9 +4803,9 @@
                                                 <div class="text-right shrink-0 flex items-center gap-2">
                                                     <div class="flex flex-col items-end">
                                                         <span class="font-black ${subScoreColor}">
-                                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (s.value || 'N/A')}
+                                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (window.formatCgpaMin2Dec(s.value) || 'N/A')}
                                                         </span>
-                                                        ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${s.value})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
+                                                        ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${window.formatCgpaMin2Dec(s.value)})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
                                                     </div>
                                                     ${subStatusBadge}
                                                 </div>
@@ -4967,8 +5014,8 @@
                                         label: (tooltipItem) => {
                                             const item = cgpaResults[tooltipItem.dataIndex];
                                             const isGrade = item.evaluationType === 'grade';
-                                            const actVal = item.value ? parseFloat(item.value).toFixed(2) : 'N/A';
-                                            const tgtVal = item.targetCGPA ? parseFloat(item.targetCGPA).toFixed(2) : 'N/A';
+                                            const actVal = item.value ? window.formatCgpaMin2Dec(item.value) : 'N/A';
+                                            const tgtVal = item.targetCGPA ? window.formatCgpaMin2Dec(item.targetCGPA) : 'N/A';
                                             if (tooltipItem.datasetIndex === 0) {
                                                 const labelPrefix = isGrade ? 'Actual Grade: ' + (item.grade || 'N/A') : 'Actual CGPA: ' + actVal;
                                                 const labelSuffix = isGrade ? ` (Numeric: ${actVal})` : (item.grade ? ` [Grade: ${item.grade}]` : '');
@@ -6144,7 +6191,19 @@
         window.openRevisionTrendModal = function () { openModal('revision-trend-modal'); };
         window.openYearlyActionsModal = function () { openModal('yearly-actions-modal'); };
 
-        window.openPaceTrendModal = function () {
+        window.openPaceTrendModal = function (goalId = null) {
+            window.activePaceTrendGoalId = goalId;
+            if (goalId) {
+                const goal = window.paceGoals.find(g => g.id === goalId);
+                if (goal) {
+                    window.latestPaceData = window.getPaceDataForGoal(goal);
+                }
+            } else {
+                const globalGoal = window.paceGoals.find(g => g.type === 'global');
+                if (globalGoal) {
+                    window.latestPaceData = window.getPaceDataForGoal(globalGoal);
+                }
+            }
             openModal('pace-trend-modal');
             window.renderPaceTrendChart(); // Initial render setup
             // Critical Fix: Force the chart to recalculate its dimensions strictly AFTER the 300ms CSS transition completes.
@@ -8582,8 +8641,12 @@
                     </div>
                     <div class="mt-4 sm:mt-5 md:mt-6">
                         <div id="current-pace-stat" class="text-2xl sm:text-3xl md:text-4xl font-black">--</div>
-                        <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block mt-1.5">Your
-                            current speed</span>
+                        <div class="flex items-center justify-between mt-1.5">
+                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Your
+                                current speed</span>
+                            <span id="global-days-passed"
+                                class="text-[9px] text-emerald-500 font-black uppercase tracking-widest"></span>
+                        </div>
                     </div>
                 </div>
                 <div
@@ -9671,7 +9734,7 @@
                     <span
                         class="block text-[7px] sm:text-[9px] md:text-[10px] font-black uppercase mb-0.5 sm:mb-1 text-orange-600 dark:text-orange-500 tracking-widest leading-tight">Est.<br
                             class="block sm:hidden"> Hit</span>
-                    <div class="text-sm sm:text-xl md:text-4xl font-black text-orange-700 dark:text-orange-400 mt-0.5 sm:mt-1 truncate px-1"
+                    <div class="text-[10px] sm:text-sm md:text-xl lg:text-2xl font-black text-orange-700 dark:text-orange-400 mt-0.5 sm:mt-1 px-1 break-words sm:whitespace-nowrap"
                         id="ptm-est-finish">--</div>
                 </div>
             </div>
@@ -9785,6 +9848,8 @@
             </div>
         </div>
     </div>
+
+
 
     <!-- Revision Management Modal -->
     <div id="revision-manage-modal"
@@ -10094,7 +10159,6 @@
                                     onchange="window.onGradeSelect(this); window.updateSubjectTargets()">
                                     <option value="">Target</option>
                                     <option value="none">None</option>
-                                    <option value="0">0</option>
                                     <option value="A">A</option>
                                     <option value="B">B</option>
                                     <option value="C">C</option>
