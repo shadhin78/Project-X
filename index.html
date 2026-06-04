@@ -147,41 +147,97 @@
             return new Date();
         }
 
-        // Grade-based: A=4, B=3, C=2, D=1, E=0, F=0
-        window.mapGradeToNumeric = function (grade) {
+        // Grade-based: A=4.00, B=3.00, C=2.25, D=2.00, E=0.00, F=0.00
+        window.mapGradeToNumeric = function (grade, evalType = 'cgpa') {
             if (!grade) return 0.0;
             const g = grade.toUpperCase().trim();
-            switch (g) {
-                case 'A': return 4.0;
-                case 'B': return 3.0;
-                case 'C': return 2.0;
-                case 'D': return 1.0;
-                case 'E': return 0.0;
-                case 'F': return 0.0;
-                default: return 0.0;
+            if (evalType === 'grade') {
+                switch (g) {
+                    case 'A': return 4.0;
+                    case 'B': return 3.0;
+                    case 'C': return 2.25;
+                    case 'D': return 2.00;
+                    case 'E': return 0.0;
+                    case 'F': return 0.0;
+                    default: return 0.0;
+                }
+            } else {
+                switch (g) {
+                    case 'A+': return 4.0;
+                    case 'A': return 3.75;
+                    case 'A-': return 3.50;
+                    case 'B+': return 3.25;
+                    case 'B': return 3.00;
+                    case 'B-': return 2.75;
+                    case 'C+': return 2.50;
+                    case 'C': return 2.25;
+                    case 'D': return 2.00;
+                    case 'F': return 0.00;
+                    default: return 0.0;
+                }
             }
         };
 
         // CGPA-based: estimate grade with +/- from numeric CGPA (4.0 scale)
-        window.mapCgpaToGrade = function (cgpa) {
+        window.mapCgpaToGrade = function (cgpa, evalType = 'cgpa') {
             const v = parseFloat(cgpa);
             if (isNaN(v)) return '';
-            if (v >= 4.0) return 'A+';
-            if (v >= 3.75) return 'A';
-            if (v >= 3.5) return 'A-';
-            if (v >= 3.25) return 'B+';
-            if (v >= 3.0) return 'B';
-            if (v >= 2.75) return 'B-';
-            if (v >= 2.5) return 'C+';
-            if (v >= 2.25) return 'C';
-            if (v >= 2.0) return 'C-';
-            if (v >= 1.75) return 'D+';
-            if (v >= 1.0) return 'D';
-            return 'F';
+            if (evalType === 'grade') {
+                if (v >= 4.0) return 'A';
+                if (v >= 3.0) return 'B';
+                if (v >= 2.25) return 'C';
+                if (v >= 2.0) return 'D';
+                if (v >= 0.01) return 'E';
+                return 'F';
+            } else {
+                if (v >= 4.0) return 'A+';
+                if (v >= 3.75) return 'A';
+                if (v >= 3.5) return 'A-';
+                if (v >= 3.25) return 'B+';
+                if (v >= 3.0) return 'B';
+                if (v >= 2.75) return 'B-';
+                if (v >= 2.5) return 'C+';
+                if (v >= 2.25) return 'C';
+                if (v >= 2.0) return 'D';
+                return 'F';
+            }
+        };
+
+        window.validateAndFormatCgpa = function (valStr) {
+            if (!valStr || valStr.trim() === '') return '';
+            let val = parseFloat(valStr);
+            if (isNaN(val)) return '';
+            if (val < 0) val = 0.00;
+            if (val > 4.0) val = 4.00;
+            return val.toFixed(2);
+        };
+
+        window.onCgpaBlur = function (inputEl) {
+            const formatted = window.validateAndFormatCgpa(inputEl.value);
+            inputEl.value = formatted;
+            window.onCgpaInput(inputEl);
         };
 
         // Called when a CGPA input changes → update sibling auto-grade badge
         window.onCgpaInput = function (inputEl) {
+            let valStr = inputEl.value;
+            // Remove negative signs and invalid characters
+            valStr = valStr.replace(/[^0-9.]/g, '');
+            // Prevent multiple decimal points
+            const parts = valStr.split('.');
+            if (parts.length > 2) {
+                valStr = parts[0] + '.' + parts.slice(1).join('');
+            }
+            // Real-time clamp (prevent value > 4)
+            let val = parseFloat(valStr);
+            if (!isNaN(val)) {
+                if (val < 0) valStr = '0.00';
+                if (val > 4.0) valStr = '4.00';
+            }
+            if (inputEl.value !== valStr) {
+                inputEl.value = valStr;
+            }
+
             const badge = inputEl.parentElement.querySelector('.auto-grade-badge');
             if (badge) {
                 const g = window.mapCgpaToGrade(inputEl.value);
@@ -193,7 +249,8 @@
         // Helper to update auto-cgpa badge based on grade selection
         window.updateCgpaBadge = function (gradeVal, badge) {
             if (badge) {
-                const c = window.mapGradeToNumeric(gradeVal);
+                const evalType = document.getElementById('res-evaluation-type')?.value || 'cgpa';
+                const c = window.mapGradeToNumeric(gradeVal, evalType);
                 badge.textContent = gradeVal ? c.toFixed(2) : '—';
                 badge.classList.toggle('opacity-40', !gradeVal);
             }
@@ -258,7 +315,7 @@
                     targetGrade = 'none';
                     targetCgpa = 'none';
                 } else {
-                    targetCgpa = targetGrade ? window.mapGradeToNumeric(targetGrade).toFixed(2) : '';
+                    targetCgpa = targetGrade ? window.mapGradeToNumeric(targetGrade, evalType).toFixed(2) : '';
                 }
             } else {
                 targetCgpa = (document.getElementById('res-overall-target-cgpa')?.value || '').trim();
@@ -270,33 +327,7 @@
                 }
             }
             
-            // If overall target fields are empty, try to prefill from main target
-            if (!targetCgpa) {
-                const progSelect = document.getElementById('res-prog-select');
-                if (progSelect && progSelect.value) {
-                    const mainTarget = window.getProgramMainTarget(progSelect.value);
-                    if (mainTarget.targetCGPA) {
-                        targetCgpa = mainTarget.targetCGPA;
-                        targetGrade = mainTarget.targetGrade;
-                        
-                        if (targetCgpa !== 'none') {
-                            if (isGrade) {
-                                const gradeInput = document.getElementById('res-overall-target-grade');
-                                if (gradeInput && !gradeInput.value.trim()) {
-                                    gradeInput.value = targetGrade;
-                                    window.updateCgpaBadge(targetGrade, gradeInput.parentElement.querySelector('.auto-cgpa-badge'));
-                                }
-                            } else {
-                                const cgpaInput = document.getElementById('res-overall-target-cgpa');
-                                if (cgpaInput && !cgpaInput.value.trim()) {
-                                    cgpaInput.value = targetCgpa;
-                                    window.onCgpaInput(cgpaInput);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Prefill is handled on program select change, not continuously on edit.
 
             document.querySelectorAll('.res-sub-target-badge').forEach(badge => {
                 if (targetCgpa && targetCgpa !== 'none' && targetGrade && targetGrade !== 'none') {
@@ -331,9 +362,9 @@
                 });
 
                 if (grades.length > 0) {
-                    const sumCgpa = grades.reduce((sum, g) => sum + window.mapGradeToNumeric(g), 0);
+                    const sumCgpa = grades.reduce((sum, g) => sum + window.mapGradeToNumeric(g, 'grade'), 0);
                     const avgCgpa = sumCgpa / grades.length;
-                    const estGrade = window.mapCgpaToGrade(avgCgpa);
+                    const estGrade = window.mapCgpaToGrade(avgCgpa, 'grade');
                     
                     if (estGradeEl) estGradeEl.value = estGrade;
                     const badge = estGradeEl ? estGradeEl.parentElement.querySelector('.auto-cgpa-badge') : null;
@@ -359,7 +390,7 @@
 
                 if (cgpas.length > 0) {
                     const avgCgpa = cgpas.reduce((sum, c) => sum + c, 0) / cgpas.length;
-                    const estGrade = window.mapCgpaToGrade(avgCgpa);
+                    const estGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa');
 
                     if (estCgpaEl) estCgpaEl.value = avgCgpa.toFixed(2);
                     const badge = estCgpaEl ? estCgpaEl.parentElement.querySelector('.auto-grade-badge') : null;
@@ -4189,8 +4220,8 @@
                 return isNaN(parsed) ? null : parsed;
             });
 
-            var gradeLabels = subjects.map(function(s) { return s.grade || window.mapCgpaToGrade(s.value) || ''; });
-            var targetGradeLabel = programTargetGrade || (programTargetCgpa ? window.mapCgpaToGrade(programTargetCgpa) : 'N/A');
+            var gradeLabels = subjects.map(function(s) { return s.grade || window.mapCgpaToGrade(s.value, isGradeMode ? 'grade' : 'cgpa') || ''; });
+            var targetGradeLabel = programTargetGrade || (programTargetCgpa ? window.mapCgpaToGrade(programTargetCgpa, isGradeMode ? 'grade' : 'cgpa') : 'N/A');
 
             var allVals = actualData.concat(targetData.filter(function(v) { return v !== null; }));
             var maxVal = allVals.length > 0 ? Math.max.apply(null, allVals) : 4.0;
@@ -4239,7 +4270,7 @@
                 var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                 var isTgtNone = subTargetVal === 'none' || subTargetVal === null || subTargetVal === undefined || subTargetVal === '';
                 var subTarget = isTgtNone ? null : parseFloat(subTargetVal);
-                var subTargetGrade = isTgtNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA) : targetGradeLabel));
+                var subTargetGrade = isTgtNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
                 
                 var met = subTarget !== null && !isNaN(subTarget) && actual >= subTarget;
                 var near = subTarget !== null && !isNaN(subTarget) && !met && actual >= subTarget * 0.85;
@@ -4248,11 +4279,12 @@
                 var targetDisp = isTgtNone ? 'None' : subTarget.toFixed(2);
                 
                 var gradeVal = gradeLabels[i] || '';
-                var isGradeFailed = gradeVal && ['C', 'D', 'E', 'F'].includes(gradeVal.trim().toUpperCase().charAt(0));
-                var isCgpaFailed = actual < 2.0;
+                var isFailed = isGradeMode
+                    ? (gradeVal && ['C', 'D', 'E', 'F'].includes(gradeVal.trim().toUpperCase()))
+                    : (s.value && parseFloat(s.value) < 2.0);
                 
-                var cgpaColorClass = isCgpaFailed ? 'text-red-500 dark:text-red-400 font-black' : 'text-cyan-600 dark:text-cyan-400 font-bold';
-                var gradeColorClass = isGradeFailed ? 'text-red-500 dark:text-red-400 font-black' : 'text-yellow-500 font-bold';
+                var cgpaColorClass = isFailed ? 'text-red-500 dark:text-red-400 font-black' : 'text-cyan-600 dark:text-cyan-400 font-bold';
+                var gradeColorClass = isFailed ? 'text-red-500 dark:text-red-400 font-black' : 'text-yellow-500 font-bold';
                 
                 var tgtGradeSpan = isTgtNone ? '' : ' <span class="text-[9px]">(' + (subTargetGrade || 'N/A') + ')</span>';
 
@@ -4341,7 +4373,7 @@
                                     var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                                     var isNone = subTargetVal === 'none' || !subTargetVal;
                                     var subTarget = isNone ? null : parseFloat(subTargetVal);
-                                    var subTargetGrade = isNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA) : targetGradeLabel));
+                                    var subTargetGrade = isNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
                                     return ' Target: ' + (subTarget !== null && !isNaN(subTarget) ? subTarget.toFixed(2) : 'None') + ' (' + (subTargetGrade || 'N/A') + ')';
                                 }
                             }
@@ -4411,15 +4443,15 @@
 
                 if (subjectsWithScores.length > 0) {
                     if (isGrade) {
-                        const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + window.mapGradeToNumeric(s.grade), 0);
+                        const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + window.mapGradeToNumeric(s.grade, 'grade'), 0);
                         const avgCgpa = sumCgpa / subjectsWithScores.length;
                         estCgpa = avgCgpa.toFixed(2);
-                        estGrade = window.mapCgpaToGrade(avgCgpa);
+                        estGrade = window.mapCgpaToGrade(avgCgpa, 'grade');
                     } else {
                         const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + parseFloat(s.value), 0);
                         const avgCgpa = sumCgpa / subjectsWithScores.length;
                         estCgpa = avgCgpa.toFixed(2);
-                        estGrade = window.mapCgpaToGrade(avgCgpa);
+                        estGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa');
                     }
                 }
 
@@ -4534,12 +4566,14 @@
                     // Estimate overall from subjects
                     let estCgpa = null;
                     let estGrade = null;
+                    const evalType = (item.overall && item.overall.evaluationType) || (subjects.length > 0 && subjects[0].evaluationType) || 'cgpa';
+                    const isGrade = evalType === 'grade';
                     const subjectsWithScores = subjects.filter(s => s.value && !isNaN(parseFloat(s.value)));
                     if (subjectsWithScores.length > 0) {
                         const sum = subjectsWithScores.reduce((acc, s) => acc + parseFloat(s.value), 0);
                         const avg = sum / subjectsWithScores.length;
                         estCgpa = avg.toFixed(2);
-                        estGrade = window.mapCgpaToGrade(avg);
+                        estGrade = window.mapCgpaToGrade(avg, evalType);
                     }
 
                     // Dynamically calculate and fill overall if empty/missing
@@ -4610,25 +4644,52 @@
                                 
                                 const hasTgt = currentOverall.targetCGPA && currentOverall.targetCGPA !== 'none';
                                 const tgtCgpaDisp = hasTgt ? parseFloat(currentOverall.targetCGPA).toFixed(2) : 'None';
-                                const tgtGradeDisp = hasTgt ? (currentOverall.targetGrade || window.mapCgpaToGrade(currentOverall.targetCGPA) || '—') : 'None';
+                                const tgtGradeDisp = hasTgt ? (currentOverall.targetGrade || window.mapCgpaToGrade(currentOverall.targetCGPA, currentOverall.evaluationType) || '—') : 'None';
                                 
                                 const isOverallFailed = currentOverall.evaluationType === 'grade'
-                                    ? (currentOverall.grade && ['C','D','E','F'].includes(currentOverall.grade.trim().toUpperCase().charAt(0)))
+                                    ? (currentOverall.grade && ['C','D','E','F'].includes(currentOverall.grade.trim().toUpperCase()))
                                     : (currentOverall.value && parseFloat(currentOverall.value) < 2.0);
-                                const overallScoreColor = isOverallFailed ? 'text-red-500 dark:text-red-400' : 'text-blue-600 dark:text-blue-400';
+                                
+                                const statusText = isOverallFailed ? 'FAIL' : 'PASS';
+                                const statusBadgeColor = isOverallFailed 
+                                    ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800' 
+                                    : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800';
+
+                                const indicatorText = currentOverall.isEstimated ? 'Estimated' : 'Manual';
+                                const indicatorBadgeColor = currentOverall.isEstimated 
+                                    ? 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-800' 
+                                    : 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800';
+
+                                const systemText = currentOverall.evaluationType === 'grade' ? 'Grade-Based' : 'CGPA-Based';
+                                const systemBadgeColor = 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800';
                                 
                                 return `
-                                <div class="mb-4 bg-blue-50/50 dark:bg-blue-950/20 px-3.5 py-2.5 rounded-xl border border-blue-100/50 dark:border-blue-900/30 flex justify-between items-center">
-                                    <div class="flex flex-col">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-blue-500">${currentOverall.evaluationType === 'grade' ? 'Overall Grade' : 'Overall CGPA'}</span>
-                                        <span class="text-[9px] font-bold text-slate-400 mt-0.5">Target: ${tgtGradeDisp} (${tgtCgpaDisp})</span>
+                                <div class="mb-4 bg-slate-50/50 dark:bg-slate-900/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col gap-2.5">
+                                    <div class="flex flex-wrap items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                                        <span class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.25 rounded border ${systemBadgeColor}">${systemText}</span>
+                                        <span class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.25 rounded border ${indicatorBadgeColor}">${indicatorText}</span>
+                                        <span class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.25 rounded border ${statusBadgeColor} ml-auto">${statusText}</span>
                                     </div>
-                                    <div class="text-right flex items-center gap-2 justify-end">
-                                        <div class="flex flex-col items-end">
-                                            <span class="text-base font-black ${overallScoreColor}">${currentOverall.evaluationType === 'grade' ? (currentOverall.grade || 'N/A') : (currentOverall.value || 'N/A')}</span>
-                                            ${currentOverall.evaluationType === 'grade' ? `<span class="text-[9px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${currentOverall.value})</span>` : (currentOverall.grade ? `<span class="text-[9px] font-bold text-slate-400 block -mt-0.5">(${currentOverall.grade})</span>` : '')}
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex flex-col">
+                                            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Target</span>
+                                            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">${tgtGradeDisp} (${tgtCgpaDisp})</span>
                                         </div>
-                                        ${matchStatusHtml}
+                                        <div class="text-right flex items-center gap-2">
+                                            <div class="flex flex-col items-end">
+                                                ${currentOverall.evaluationType === 'grade' 
+                                                    ? `
+                                                    <span class="text-sm font-black text-slate-800 dark:text-slate-100">Grade: ${currentOverall.grade || 'N/A'}</span>
+                                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">CGPA: ${currentOverall.value || 'N/A'}</span>
+                                                    `
+                                                    : `
+                                                    <span class="text-sm font-black text-slate-800 dark:text-slate-100">CGPA: ${currentOverall.value || 'N/A'}</span>
+                                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Grade: ${currentOverall.grade || 'N/A'}</span>
+                                                    `
+                                                }
+                                            </div>
+                                            ${matchStatusHtml}
+                                        </div>
                                     </div>
                                 </div>
                                 `;
@@ -4648,9 +4709,14 @@
                                             const targetDisp = hasSubTgt ? (s.evaluationType === 'grade' ? `${subTargetGrade} (${parseFloat(subTargetCgpa).toFixed(2)})` : `${parseFloat(subTargetCgpa).toFixed(2)} (${subTargetGrade})`) : 'None';
                                             
                                             const isSubFailed = s.evaluationType === 'grade'
-                                                ? (s.grade && ['C','D','E','F'].includes(s.grade.trim().toUpperCase().charAt(0)))
+                                                ? (s.grade && ['C','D','E','F'].includes(s.grade.trim().toUpperCase()))
                                                 : (s.value && parseFloat(s.value) < 2.0);
                                             const subScoreColor = isSubFailed ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400';
+                                            
+                                            const subStatusText = isSubFailed ? 'FAIL' : 'PASS';
+                                            const subStatusBadge = isSubFailed
+                                                ? `<span class="inline-block text-[8px] font-black px-1.5 py-0.25 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded border border-red-200 dark:border-red-800/50 scale-90 origin-right">FAIL</span>`
+                                                : `<span class="inline-block text-[8px] font-black px-1.5 py-0.25 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded border border-emerald-200 dark:border-emerald-800/50 scale-90 origin-right">PASS</span>`;
                                             
                                             return `
                                             <div class="flex justify-between items-center text-xs py-1 border-b border-slate-50 dark:border-slate-800/40 last:border-0">
@@ -4658,11 +4724,14 @@
                                                     <span class="font-bold text-slate-600 dark:text-slate-300 truncate">${s.subject}</span>
                                                     <span class="text-[9px] font-bold text-slate-400">Target: ${targetDisp}</span>
                                                 </div>
-                                                <div class="text-right shrink-0">
-                                                    <span class="font-black ${subScoreColor}">
-                                                        ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (s.value || 'N/A')}
-                                                    </span>
-                                                    ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${s.value})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
+                                                <div class="text-right shrink-0 flex items-center gap-2">
+                                                    <div class="flex flex-col items-end">
+                                                        <span class="font-black ${subScoreColor}">
+                                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (s.value || 'N/A')}
+                                                        </span>
+                                                        ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${s.value})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
+                                                    </div>
+                                                    ${subStatusBadge}
                                                 </div>
                                             </div>
                                             `;
@@ -4696,7 +4765,7 @@
                 }
             });
             container.innerHTML = html;
-            // Populate trend filter dynamically
+            // Populate trend filter dynamically
             const uniquePrograms = [];
             activeResults.forEach(r => {
                 if (r.type === 'cgpa' && r.title && !uniquePrograms.includes(r.title)) {
@@ -4923,30 +4992,7 @@
             const evalType = document.getElementById('res-evaluation-type').value;
             const isGrade = evalType === 'grade';
 
-            if (selectedProg) {
-                // Prefill overall target from program configuration/history if empty or clearOverall is true
-                const targetCgpaInput = document.getElementById('res-overall-target-cgpa');
-                const targetGradeInput = document.getElementById('res-overall-target-grade');
-                const isCgpaEmpty = targetCgpaInput && !targetCgpaInput.value.trim();
-                const isGradeEmpty = targetGradeInput && !targetGradeInput.value.trim();
-
-                if (clearOverall || isCgpaEmpty || isGradeEmpty) {
-                    const mainTarget = window.getProgramMainTarget(selectedProg);
-                    if (mainTarget.targetCGPA) {
-                        if (isGrade) {
-                            if (targetGradeInput) {
-                                targetGradeInput.value = mainTarget.targetGrade;
-                                window.updateCgpaBadge(mainTarget.targetGrade, targetGradeInput.parentElement.querySelector('.auto-cgpa-badge'));
-                            }
-                        } else {
-                            if (targetCgpaInput) {
-                                targetCgpaInput.value = mainTarget.targetCGPA;
-                                window.onCgpaInput(targetCgpaInput);
-                            }
-                        }
-                    }
-                }
-            }
+            // Prefills are handled explicitly in edit mode to avoid setting targets before the user sets them.
 
             // Update Overall label text
             const overallLabel = document.getElementById('res-overall-label');
@@ -4986,7 +5032,8 @@
                                         <div class="${isGrade ? 'hidden' : 'flex'} items-center gap-1">
                                             <input type="text" data-subject="${s.subject}" data-field="cgpa"
                                                 class="res-sub-cgpa-input w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 sm:p-2 text-[11px] sm:text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
-                                                placeholder="CGPA" oninput="window.onCgpaInput(this); window.updateModalEstScore();">
+                                                placeholder="CGPA" oninput="window.onCgpaInput(this); window.updateModalEstScore();"
+                                                onblur="window.onCgpaBlur(this); window.updateModalEstScore();">
                                             <span class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded border border-yellow-200 dark:border-yellow-800 min-w-[24px] text-center opacity-40">—</span>
                                         </div>
                                     </div>
@@ -5266,7 +5313,7 @@
                         if (gVal) {
                             subjectsData[sub] = {
                                 grade: gVal,
-                                cgpa: window.mapGradeToNumeric(gVal).toFixed(2)
+                                cgpa: window.mapGradeToNumeric(gVal, evalType).toFixed(2)
                             };
                         }
                     });
@@ -5275,11 +5322,14 @@
                         const sub = input.getAttribute('data-subject');
                         const cVal = input.value.trim();
                         if (cVal) {
-                            subjectsData[sub] = {
-                                // Automatically calculate and save estimated grade from CGPA
-                                grade: window.mapCgpaToGrade(cVal),
-                                cgpa: cVal
-                            };
+                            const formattedCgpa = window.validateAndFormatCgpa(cVal);
+                            if (formattedCgpa) {
+                                subjectsData[sub] = {
+                                    // Automatically calculate and save estimated grade from CGPA
+                                    grade: window.mapCgpaToGrade(formattedCgpa, evalType),
+                                    cgpa: formattedCgpa
+                                };
+                            }
                         }
                     });
                 }
@@ -5301,17 +5351,17 @@
                         isExplicitNone = true;
                     }
 
-                    // Estimate from subjects if overallGradeVal is empty
+                    // Manual input works, otherwise empty. Est is handled on the fly / rendering.
                     if (!overallGradeVal) {
-                        overallGradeVal = document.getElementById('res-overall-est-grade').value.trim();
-                        overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal).toFixed(2) : '';
+                        overallGradeVal = '';
+                        overallVal = '';
                         isEstimatedOverall = true;
                     } else {
-                        overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal).toFixed(2) : '';
+                        overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal, evalType).toFixed(2) : '';
                         isEstimatedOverall = false;
                     }
                     if (!isExplicitNone) {
-                        overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal).toFixed(2) : '';
+                        overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal, evalType).toFixed(2) : '';
                     }
                 } else {
                     overallVal = document.getElementById('res-overall-cgpa').value.trim();
@@ -5321,28 +5371,25 @@
                         overallTargetGradeVal = 'none';
                         overallTargetCgpaVal = 'none';
                         isExplicitNone = true;
+                    } else {
+                        overallTargetCgpaVal = window.validateAndFormatCgpa(overallTargetCgpaVal);
                     }
 
-                    // Estimate from subjects if overallVal is empty
+                    // Manual input works, otherwise empty. Est is handled on the fly / rendering.
                     if (!overallVal) {
-                        overallVal = document.getElementById('res-overall-est-cgpa').value.trim();
-                        overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal) : '';
+                        overallVal = '';
+                        overallGradeVal = '';
                         isEstimatedOverall = true;
                     } else {
-                        overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal) : '';
+                        overallVal = window.validateAndFormatCgpa(overallVal);
+                        overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal, evalType) : '';
                         isEstimatedOverall = false;
                     }
                     if (!isExplicitNone) {
-                        overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal) : '';
+                        overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal, evalType) : '';
                     }
                 }
 
-                if (!isExplicitNone && (!overallTargetCgpaVal || overallTargetCgpaVal === '0.00')) {
-                    if (fallbackMainTarget.targetCGPA && fallbackMainTarget.targetCGPA !== 'none') {
-                        overallTargetCgpaVal = fallbackMainTarget.targetCGPA;
-                        overallTargetGradeVal = fallbackMainTarget.targetGrade;
-                    }
-                }
 
                 if (overallVal || overallGradeVal || overallTargetCgpaVal || overallTargetGradeVal) {
                     window.successResults.push({
@@ -5419,7 +5466,7 @@
                             if (gVal) {
                                 subjectsData[sub] = {
                                     grade: gVal,
-                                    cgpa: window.mapGradeToNumeric(gVal).toFixed(2)
+                                    cgpa: window.mapGradeToNumeric(gVal, evalType).toFixed(2)
                                 };
                             }
                         });
@@ -5428,11 +5475,14 @@
                             const sub = input.getAttribute('data-subject');
                             const cVal = input.value.trim();
                             if (cVal) {
-                                subjectsData[sub] = {
-                                    // Automatically calculate and save estimated grade from CGPA
-                                    grade: window.mapCgpaToGrade(cVal),
-                                    cgpa: cVal
-                                };
+                                const formattedCgpa = window.validateAndFormatCgpa(cVal);
+                                if (formattedCgpa) {
+                                    subjectsData[sub] = {
+                                        // Automatically calculate and save estimated grade from CGPA
+                                        grade: window.mapCgpaToGrade(formattedCgpa, evalType),
+                                        cgpa: formattedCgpa
+                                    };
+                                }
                             }
                         });
                     }
@@ -5455,17 +5505,17 @@
                             isExplicitNone = true;
                         }
 
-                        // Estimate from subjects if overallGradeVal is empty
+                        // Manual input works, otherwise empty. Est is handled on the fly / rendering.
                         if (!overallGradeVal) {
-                            overallGradeVal = document.getElementById('res-overall-est-grade').value.trim();
-                            overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal).toFixed(2) : '';
+                            overallGradeVal = '';
+                            overallVal = '';
                             isEstimatedOverall = true;
                         } else {
-                            overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal).toFixed(2) : '';
+                            overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal, evalType).toFixed(2) : '';
                             isEstimatedOverall = false;
                         }
                         if (!isExplicitNone) {
-                            overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal).toFixed(2) : '';
+                            overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal, evalType).toFixed(2) : '';
                         }
                     } else {
                         overallVal = document.getElementById('res-overall-cgpa').value.trim();
@@ -5475,28 +5525,25 @@
                             overallTargetGradeVal = 'none';
                             overallTargetCgpaVal = 'none';
                             isExplicitNone = true;
+                        } else {
+                            overallTargetCgpaVal = window.validateAndFormatCgpa(overallTargetCgpaVal);
                         }
 
-                        // Estimate from subjects if overallVal is empty
+                        // Manual input works, otherwise empty. Est is handled on the fly / rendering.
                         if (!overallVal) {
-                            overallVal = document.getElementById('res-overall-est-cgpa').value.trim();
-                            overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal) : '';
+                            overallVal = '';
+                            overallGradeVal = '';
                             isEstimatedOverall = true;
                         } else {
-                            overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal) : '';
+                            overallVal = window.validateAndFormatCgpa(overallVal);
+                            overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal, evalType) : '';
                             isEstimatedOverall = false;
                         }
                         if (!isExplicitNone) {
-                            overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal) : '';
+                            overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal, evalType) : '';
                         }
                     }
 
-                    if (!isExplicitNone && (!overallTargetCgpaVal || overallTargetCgpaVal === '0.00')) {
-                        if (fallbackMainTarget.targetCGPA && fallbackMainTarget.targetCGPA !== 'none') {
-                            overallTargetCgpaVal = fallbackMainTarget.targetCGPA;
-                            overallTargetGradeVal = fallbackMainTarget.targetGrade;
-                        }
-                    }
 
                     if (overallVal || overallGradeVal || overallTargetCgpaVal || overallTargetGradeVal) {
                         window.successResults.push({
@@ -5934,7 +5981,7 @@
 
                 const isFailed = isCgpa && (
                     res.evaluationType === 'grade'
-                        ? (res.grade && ['C','D','E','F'].includes(res.grade.trim().toUpperCase().charAt(0)))
+                        ? (res.grade && ['C','D','E','F'].includes(res.grade.trim().toUpperCase()))
                         : (res.value && parseFloat(res.value) < 2.0)
                 );
                 
@@ -5952,8 +5999,9 @@
                         </div>
                     </div>
                     <div class="shrink-0 bg-white dark:bg-slate-800 px-3 sm:px-4 py-1.5 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 text-center min-w-[3.5rem] flex flex-col justify-center items-center">
-                        <span class="text-sm sm:text-base font-black ${valColor} leading-none">${res.value || 'N/A'}</span>
+                        <span class="text-xs sm:text-sm font-black ${valColor} leading-none">${res.value || 'N/A'}</span>
                         ${res.grade ? `<span class="text-[8px] font-bold ${gradeColor} mt-0.5">${res.grade}</span>` : ''}
+                        ${isCgpa ? `<span class="inline-block text-[7px] font-black px-1 mt-1 rounded ${isFailed ? 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800' : 'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'}">${isFailed ? 'FAIL' : 'PASS'}</span>` : ''}
                     </div>
                 </div>`;
             });
@@ -9979,7 +10027,7 @@
                             <div class="res-cgpa-field flex items-center gap-1.5">
                                 <input type="text" id="res-overall-cgpa"
                                     class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
-                                    placeholder="CGPA" oninput="window.onCgpaInput(this)">
+                                    placeholder="CGPA" oninput="window.onCgpaInput(this)" onblur="window.onCgpaBlur(this)">
                                 <span
                                     class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
                             </div>
@@ -9987,7 +10035,8 @@
                                 <input type="text" id="res-overall-target-cgpa"
                                     class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
                                     placeholder="Target CGPA"
-                                    oninput="window.onCgpaInput(this); window.updateSubjectTargets()">
+                                    oninput="window.onCgpaInput(this); window.updateSubjectTargets()"
+                                    onblur="window.onCgpaBlur(this); window.updateSubjectTargets()">
                                 <span
                                     class="auto-grade-badge text-[10px] font-black text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800 min-w-[28px] text-center opacity-40">—</span>
                             </div>
