@@ -203,13 +203,31 @@
             }
         };
 
+        window.formatCgpaMin2Dec = function (val) {
+            let parsed = parseFloat(val);
+            if (isNaN(parsed)) return '';
+            
+            // Limit floating point inaccuracies by rounding to 4 decimals first
+            let rounded = Math.round(parsed * 10000) / 10000;
+            let str = rounded.toString();
+            const dotIdx = str.indexOf('.');
+            if (dotIdx === -1) {
+                return rounded.toFixed(2);
+            }
+            const decLen = str.length - dotIdx - 1;
+            if (decLen < 2) {
+                return rounded.toFixed(2);
+            }
+            return str;
+        };
+
         window.validateAndFormatCgpa = function (valStr) {
             if (!valStr || valStr.trim() === '') return '';
             let val = parseFloat(valStr);
             if (isNaN(val)) return '';
             if (val < 0) val = 0.00;
             if (val > 4.0) val = 4.00;
-            return val.toFixed(2);
+            return window.formatCgpaMin2Dec(val);
         };
 
         window.onCgpaBlur = function (inputEl) {
@@ -251,7 +269,7 @@
             if (badge) {
                 const evalType = document.getElementById('res-evaluation-type')?.value || 'cgpa';
                 const c = window.mapGradeToNumeric(gradeVal, evalType);
-                badge.textContent = gradeVal ? c.toFixed(2) : '—';
+                badge.textContent = gradeVal ? window.formatCgpaMin2Dec(c) : '—';
                 badge.classList.toggle('opacity-40', !gradeVal);
             }
         };
@@ -315,7 +333,7 @@
                     targetGrade = 'none';
                     targetCgpa = 'none';
                 } else {
-                    targetCgpa = targetGrade ? window.mapGradeToNumeric(targetGrade, evalType).toFixed(2) : '';
+                    targetCgpa = targetGrade ? window.formatCgpaMin2Dec(window.mapGradeToNumeric(targetGrade, evalType)) : '';
                 }
             } else {
                 targetCgpa = (document.getElementById('res-overall-target-cgpa')?.value || '').trim();
@@ -326,7 +344,7 @@
                     targetGrade = targetCgpa ? window.mapCgpaToGrade(targetCgpa) : '';
                 }
             }
-            
+
             // Prefill is handled on program select change, not continuously on edit.
 
             document.querySelectorAll('.res-sub-target-badge').forEach(badge => {
@@ -365,11 +383,11 @@
                     const sumCgpa = grades.reduce((sum, g) => sum + window.mapGradeToNumeric(g, 'grade'), 0);
                     const avgCgpa = sumCgpa / grades.length;
                     const estGrade = window.mapCgpaToGrade(avgCgpa, 'grade');
-                    
+
                     if (estGradeEl) estGradeEl.value = estGrade;
                     const badge = estGradeEl ? estGradeEl.parentElement.querySelector('.auto-cgpa-badge') : null;
                     if (badge) {
-                        badge.textContent = avgCgpa.toFixed(2);
+                        badge.textContent = window.formatCgpaMin2Dec(avgCgpa);
                         badge.classList.remove('opacity-40');
                     }
                 } else {
@@ -392,7 +410,7 @@
                     const avgCgpa = cgpas.reduce((sum, c) => sum + c, 0) / cgpas.length;
                     const estGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa');
 
-                    if (estCgpaEl) estCgpaEl.value = avgCgpa.toFixed(2);
+                    if (estCgpaEl) estCgpaEl.value = window.formatCgpaMin2Dec(avgCgpa);
                     const badge = estCgpaEl ? estCgpaEl.parentElement.querySelector('.auto-grade-badge') : null;
                     if (badge) {
                         badge.textContent = estGrade || '—';
@@ -2782,18 +2800,29 @@
 
                 if (rawMidx < totalMonths) {
                     if (t.type === 'study') {
-                        let mIdxStudy = rawMidx < 0 ? 0 : rawMidx;
                         window.tracks.forEach(track => {
                             const key = track.id + 'Tasks';
                             if (Array.isArray(t[key])) {
                                 t[key].forEach(b => {
                                     if (b.completed) {
-                                        if (syllabusStructure[track.id]) {
-                                            const sObj = syllabusStructure[track.id].find(s => s.subject === b.subject);
-                                            if (sObj && sObj.program && progCum[sObj.program]) progCum[sObj.program][mIdxStudy]++;
+                                        const compDate = b.completedAt ? parseDateSafe(b.completedAt) : taskDate;
+                                        const cYear = compDate.getFullYear();
+                                        const cMonth = compDate.getMonth();
+                                        const cMidx = (cYear - sYear) * 12 + (cMonth - sMonth);
+
+                                        if (cMidx < totalMonths) {
+                                            const mIdxStudy = cMidx < 0 ? 0 : cMidx;
+                                            if (syllabusStructure[track.id]) {
+                                                const sObj = syllabusStructure[track.id].find(s => s.subject === b.subject);
+                                                if (sObj && sObj.program && progCum[sObj.program]) {
+                                                    progCum[sObj.program][mIdxStudy]++;
+                                                }
+                                            }
+                                            if (subData[b.subject]) {
+                                                subData[b.subject][mIdxStudy]++;
+                                            }
+                                            latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
                                         }
-                                        if (subData[b.subject]) subData[b.subject][mIdxStudy]++;
-                                        latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
                                     }
                                 });
                             }
@@ -4047,8 +4076,8 @@
             let latestActual = '0.00';
             let latestTarget = '0.00';
             if (cgpaResults.length > 0) {
-                latestActual = (parseFloat(cgpaResults[cgpaResults.length - 1].value) || 0).toFixed(2);
-                latestTarget = (parseFloat(cgpaResults[cgpaResults.length - 1].targetCGPA) || 0).toFixed(2);
+                latestActual = window.formatCgpaMin2Dec(parseFloat(cgpaResults[cgpaResults.length - 1].value) || 0);
+                latestTarget = window.formatCgpaMin2Dec(parseFloat(cgpaResults[cgpaResults.length - 1].targetCGPA) || 0);
             }
 
             // Legend rendering
@@ -4140,8 +4169,8 @@
                                 label: (tooltipItem) => {
                                     const item = cgpaResults[tooltipItem.dataIndex];
                                     const isGrade = item.evaluationType === 'grade';
-                                    const actVal = item.value ? parseFloat(item.value).toFixed(2) : 'N/A';
-                                    const tgtVal = item.targetCGPA ? parseFloat(item.targetCGPA).toFixed(2) : 'N/A';
+                                    const actVal = item.value ? window.formatCgpaMin2Dec(item.value) : 'N/A';
+                                    const tgtVal = item.targetCGPA ? window.formatCgpaMin2Dec(item.targetCGPA) : 'N/A';
                                     if (tooltipItem.datasetIndex === 0) {
                                         const labelPrefix = isGrade ? 'Actual Grade: ' + (item.grade || 'N/A') : 'Actual CGPA: ' + actVal;
                                         const labelSuffix = isGrade ? ` (Numeric: ${actVal})` : (item.grade ? ` [Grade: ${item.grade}]` : '');
@@ -4177,8 +4206,8 @@
 
             var activeResults = window.getProcessedResults();
             var overallRecords = activeResults
-                .filter(function(r) { return r.type === 'cgpa' && !r.subject && r.title === progName; })
-                .sort(function(a, b) { return parseDateSafe(b.date) - parseDateSafe(a.date); });
+                .filter(function (r) { return r.type === 'cgpa' && !r.subject && r.title === progName; })
+                .sort(function (a, b) { return parseDateSafe(b.date) - parseDateSafe(a.date); });
 
             var latestOverall = overallRecords[0] || null;
             var isGradeMode = latestOverall && latestOverall.evaluationType === 'grade';
@@ -4188,46 +4217,46 @@
 
             var subjectMap = {};
             activeResults
-                .filter(function(r) { return r.type === 'cgpa' && r.subject && r.title === progName; })
-                .forEach(function(r) {
+                .filter(function (r) { return r.type === 'cgpa' && r.subject && r.title === progName; })
+                .forEach(function (r) {
                     if (!subjectMap[r.subject] || parseDateSafe(r.date) > parseDateSafe(subjectMap[r.subject].date)) {
                         subjectMap[r.subject] = r;
                     }
                 });
 
-            var subjects = Object.values(subjectMap).sort(function(a, b) { return a.subject.localeCompare(b.subject); });
+            var subjects = Object.values(subjectMap).sort(function (a, b) { return a.subject.localeCompare(b.subject); });
 
             if (subjects.length === 0) {
-                container.innerHTML = 
+                container.innerHTML =
                     '<div class="flex flex-col items-center justify-center py-10 gap-3">' +
-                        '<span class="text-4xl grayscale opacity-40">📚</span>' +
-                        '<p class="text-slate-400 text-xs font-black uppercase tracking-widest text-center">No subject-level data recorded for this program yet.</p>' +
-                        '<p class="text-slate-400 text-[10px] font-bold text-center">Add subject scores using the Edit Program Card button.</p>' +
+                    '<span class="text-4xl grayscale opacity-40">📚</span>' +
+                    '<p class="text-slate-400 text-xs font-black uppercase tracking-widest text-center">No subject-level data recorded for this program yet.</p>' +
+                    '<p class="text-slate-400 text-[10px] font-bold text-center">Add subject scores using the Edit Program Card button.</p>' +
                     '</div>';
                 return;
             }
 
-            var labels = subjects.map(function(s) {
+            var labels = subjects.map(function (s) {
                 return s.subject.length > 18 ? s.subject.substring(0, 16) + '…' : s.subject;
             });
 
-            var actualData = subjects.map(function(s) { return parseFloat(s.value) || 0; });
+            var actualData = subjects.map(function (s) { return parseFloat(s.value) || 0; });
 
-            var targetData = subjects.map(function(s) {
+            var targetData = subjects.map(function (s) {
                 var val = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                 if (val === 'none' || val === null || val === undefined || val === '') return null;
                 var parsed = parseFloat(val);
                 return isNaN(parsed) ? null : parsed;
             });
 
-            var gradeLabels = subjects.map(function(s) { return s.grade || window.mapCgpaToGrade(s.value, isGradeMode ? 'grade' : 'cgpa') || ''; });
+            var gradeLabels = subjects.map(function (s) { return s.grade || window.mapCgpaToGrade(s.value, isGradeMode ? 'grade' : 'cgpa') || ''; });
             var targetGradeLabel = programTargetGrade || (programTargetCgpa ? window.mapCgpaToGrade(programTargetCgpa, isGradeMode ? 'grade' : 'cgpa') : 'N/A');
 
-            var allVals = actualData.concat(targetData.filter(function(v) { return v !== null; }));
+            var allVals = actualData.concat(targetData.filter(function (v) { return v !== null; }));
             var maxVal = allVals.length > 0 ? Math.max.apply(null, allVals) : 4.0;
             var yMax = maxVal > 4.0 ? 5.0 : 4.0;
 
-            var barColors = subjects.map(function(s) {
+            var barColors = subjects.map(function (s) {
                 var actual = parseFloat(s.value) || 0;
                 var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                 if (subTargetVal === 'none' || subTargetVal === null || subTargetVal === undefined || subTargetVal === '') {
@@ -4240,81 +4269,81 @@
                 return '#ef4444';
             });
 
-            var legendHtml = 
+            var legendHtml =
                 '<div class="flex flex-wrap justify-center gap-1.5 sm:gap-2 shrink-0">' +
-                    '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
-                        '<div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>' +
-                        '<span class="text-[9px] font-black text-white uppercase tracking-widest">Actual (Met Target)</span>' +
-                    '</div>' +
-                    '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
-                        '<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>' +
-                        '<span class="text-[9px] font-black text-white uppercase tracking-widest">Actual (Near Target)</span>' +
-                    '</div>' +
-                    '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
-                        '<div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>' +
-                        '<span class="text-[9px] font-black text-white uppercase tracking-widest">Actual (Below Target)</span>' +
-                    '</div>';
-            
-            var hasTarget = targetData.some(function(v) { return v !== null; });
+                '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
+                '<div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>' +
+                '<span class="text-[9px] font-black text-white uppercase tracking-widest">Actual (Met Target)</span>' +
+                '</div>' +
+                '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
+                '<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>' +
+                '<span class="text-[9px] font-black text-white uppercase tracking-widest">Actual (Near Target)</span>' +
+                '</div>' +
+                '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
+                '<div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>' +
+                '<span class="text-[9px] font-black text-white uppercase tracking-widest">Actual (Below Target)</span>' +
+                '</div>';
+
+            var hasTarget = targetData.some(function (v) { return v !== null; });
             if (hasTarget) {
-                legendHtml += 
+                legendHtml +=
                     '<div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 rounded-xl border border-slate-700">' +
-                        '<div class="w-2.5 h-2.5 rounded bg-slate-400/80 border border-slate-300"></div>' +
-                        '<span class="text-[9px] font-black text-white uppercase tracking-widest">Subject Target Bar</span>' +
+                    '<div class="w-2.5 h-2.5 rounded bg-slate-400/80 border border-slate-300"></div>' +
+                    '<span class="text-[9px] font-black text-white uppercase tracking-widest">Subject Target Bar</span>' +
                     '</div>';
             }
             legendHtml += '</div>';
 
-            var tableRowsHtml = subjects.map(function(s, i) {
+            var tableRowsHtml = subjects.map(function (s, i) {
                 var actual = parseFloat(s.value) || 0;
                 var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                 var isTgtNone = subTargetVal === 'none' || subTargetVal === null || subTargetVal === undefined || subTargetVal === '';
                 var subTarget = isTgtNone ? null : parseFloat(subTargetVal);
                 var subTargetGrade = isTgtNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
-                
+
                 var met = subTarget !== null && !isNaN(subTarget) && actual >= subTarget;
                 var near = subTarget !== null && !isNaN(subTarget) && !met && actual >= subTarget * 0.85;
                 var statusDot = isTgtNone ? '⚪' : (met ? '🟢' : (near ? '🟡' : '🔴'));
                 var statusText = isTgtNone ? 'N/A' : (met ? 'Met' : (near ? 'Near' : 'Below'));
-                var targetDisp = isTgtNone ? 'None' : subTarget.toFixed(2);
-                
+                var targetDisp = isTgtNone ? 'None' : window.formatCgpaMin2Dec(subTargetVal);
+
                 var gradeVal = gradeLabels[i] || '';
                 var isFailed = isGradeMode
                     ? (gradeVal && ['C', 'D', 'E', 'F'].includes(gradeVal.trim().toUpperCase()))
                     : (s.value && parseFloat(s.value) < 2.0);
-                
+
                 var cgpaColorClass = isFailed ? 'text-red-500 dark:text-red-400 font-black' : 'text-cyan-600 dark:text-cyan-400 font-bold';
                 var gradeColorClass = isFailed ? 'text-red-500 dark:text-red-400 font-black' : 'text-yellow-500 font-bold';
-                
+
                 var tgtGradeSpan = isTgtNone ? '' : ' <span class="text-[9px]">(' + (subTargetGrade || 'N/A') + ')</span>';
 
                 return '<tr class="border-b border-slate-100 dark:border-slate-700/60 last:border-0">' +
                     '<td class="py-1.5 pr-2 font-bold text-slate-700 dark:text-slate-300 max-w-[120px] truncate">' + s.subject + '</td>' +
-                    '<td class="py-1.5 px-2 text-center ' + cgpaColorClass + '">' + actual.toFixed(2) + '</td>' +
+                    '<td class="py-1.5 px-2 text-center ' + cgpaColorClass + '">' + window.formatCgpaMin2Dec(actual) + '</td>' +
                     '<td class="py-1.5 px-2 text-center ' + gradeColorClass + '">' + (gradeVal || '—') + '</td>' +
                     '<td class="py-1.5 px-2 text-center font-bold text-slate-400">' + targetDisp + tgtGradeSpan + '</td>' +
                     '<td class="py-1.5 pl-2 text-center text-[10px] font-black">' + statusDot + ' ' + statusText + '</td>' +
-                '</tr>';
+                    '</tr>';
             }).join('');
 
-            container.innerHTML = 
+            container.innerHTML =
                 '<div class="h-[260px] sm:h-[330px] md:h-[400px] min-h-[240px] w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-4 shadow-inner flex flex-col relative">' +
-                    '<div class="relative flex-1 w-full h-full"><canvas id="subjectWiseCanvas"></canvas></div>' +
+                '<div class="relative flex-1 w-full h-full"><canvas id="subjectWiseCanvas"></canvas></div>' +
                 '</div>' +
                 legendHtml +
                 '<div class="overflow-y-auto max-h-[160px] custom-scrollbar">' +
-                    '<table class="w-full text-xs">' +
-                        '<thead><tr class="border-b border-slate-200 dark:border-slate-700">' +
-                            '<th class="text-left text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 pr-2">Subject</th>' +
-                            '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Actual</th>' +
-                            '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Grade</th>' +
-                            '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Target</th>' +
-                            '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 pl-2">Status</th>' +
-                        '</tr></thead>' +
-                        '<tbody>' +
-                            tableRowsHtml +
-                        '</tbody>' +
-                    '</table>' +
+                '<table class="w-full text-xs">' +
+                '<thead><tr class="border-b border-slate-200 dark:border-slate-700">' +
+                '<th class="text-left text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 pr-2">Subject</th>' +
+                '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Actual</th>' +
+                '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Grade</th>' +
+                '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 px-2">Target</th>' +
+                '<th class="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 py-1.5 pl-2">Status</th>' +
+                '</tr></thead>' +
+                '<tbody>' +
+                tableRowsHtml +
+                '</tbody>' +
+                '</table>' +
                 '</div>';
 
             var subCanvas = document.getElementById('subjectWiseCanvas');
@@ -4360,21 +4389,21 @@
                             padding: 12,
                             cornerRadius: 8,
                             callbacks: {
-                                title: function(items) {
+                                title: function (items) {
                                     return subjects[items[0].dataIndex] ? subjects[items[0].dataIndex].subject : '';
                                 },
-                                label: function(item) {
+                                label: function (item) {
                                     if (item.datasetIndex === 0) {
                                         var s = subjects[item.dataIndex];
                                         var g = gradeLabels[item.dataIndex];
-                                        return ' Actual: ' + parseFloat(s.value).toFixed(2) + (g ? ' (' + g + ')' : '');
+                                        return ' Actual: ' + window.formatCgpaMin2Dec(s.value) + (g ? ' (' + g + ')' : '');
                                     }
                                     var s = subjects[item.dataIndex];
                                     var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                                     var isNone = subTargetVal === 'none' || !subTargetVal;
                                     var subTarget = isNone ? null : parseFloat(subTargetVal);
                                     var subTargetGrade = isNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
-                                    return ' Target: ' + (subTarget !== null && !isNaN(subTarget) ? subTarget.toFixed(2) : 'None') + ' (' + (subTargetGrade || 'N/A') + ')';
+                                    return ' Target: ' + (subTarget !== null && !isNaN(subTarget) ? window.formatCgpaMin2Dec(subTargetVal) : 'None') + ' (' + (subTargetGrade || 'N/A') + ')';
                                 }
                             }
                         }
@@ -4445,12 +4474,12 @@
                     if (isGrade) {
                         const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + window.mapGradeToNumeric(s.grade, 'grade'), 0);
                         const avgCgpa = sumCgpa / subjectsWithScores.length;
-                        estCgpa = avgCgpa.toFixed(2);
+                        estCgpa = window.formatCgpaMin2Dec(avgCgpa);
                         estGrade = window.mapCgpaToGrade(avgCgpa, 'grade');
                     } else {
                         const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + parseFloat(s.value), 0);
                         const avgCgpa = sumCgpa / subjectsWithScores.length;
-                        estCgpa = avgCgpa.toFixed(2);
+                        estCgpa = window.formatCgpaMin2Dec(avgCgpa);
                         estGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa');
                     }
                 }
@@ -4572,7 +4601,7 @@
                     if (subjectsWithScores.length > 0) {
                         const sum = subjectsWithScores.reduce((acc, s) => acc + parseFloat(s.value), 0);
                         const avg = sum / subjectsWithScores.length;
-                        estCgpa = avg.toFixed(2);
+                        estCgpa = window.formatCgpaMin2Dec(avg);
                         estGrade = window.mapCgpaToGrade(avg, evalType);
                     }
 
@@ -4613,9 +4642,9 @@
                         if (isGrade) {
                             isMatch = (currentOverall.grade || '').trim().toUpperCase() === (estGrade || '').trim().toUpperCase();
                         } else {
-                            isMatch = parseFloat(currentOverall.value || 0).toFixed(2) === parseFloat(estCgpa).toFixed(2);
+                            isMatch = window.formatCgpaMin2Dec(currentOverall.value || 0) === window.formatCgpaMin2Dec(estCgpa);
                         }
-                        
+
                         if (isMatch) {
                             matchStatusHtml = `
                             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-black shrink-0 shadow-sm shadow-emerald-500/20" title="Matches subject-wise estimate (CGPA: ${estCgpa}, Grade: ${estGrade})">✓</span>`;
@@ -4640,30 +4669,30 @@
                             <h4 class="font-black text-base text-slate-800 dark:text-slate-100 leading-tight mb-3 pr-12">${progName}</h4>
                             <!-- Overall Program Score Banner -->
                             ${(() => {
-                                if (!currentOverall || (!currentOverall.value && !currentOverall.grade)) return '';
-                                
-                                const hasTgt = currentOverall.targetCGPA && currentOverall.targetCGPA !== 'none';
-                                const tgtCgpaDisp = hasTgt ? parseFloat(currentOverall.targetCGPA).toFixed(2) : 'None';
-                                const tgtGradeDisp = hasTgt ? (currentOverall.targetGrade || window.mapCgpaToGrade(currentOverall.targetCGPA, currentOverall.evaluationType) || '—') : 'None';
-                                
-                                const isOverallFailed = currentOverall.evaluationType === 'grade'
-                                    ? (currentOverall.grade && ['C','D','E','F'].includes(currentOverall.grade.trim().toUpperCase()))
-                                    : (currentOverall.value && parseFloat(currentOverall.value) < 2.0);
-                                
-                                const statusText = isOverallFailed ? 'FAIL' : 'PASS';
-                                const statusBadgeColor = isOverallFailed 
-                                    ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800' 
-                                    : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800';
+                            if (!currentOverall || (!currentOverall.value && !currentOverall.grade)) return '';
 
-                                const indicatorText = currentOverall.isEstimated ? 'Estimated' : 'Manual';
-                                const indicatorBadgeColor = currentOverall.isEstimated 
-                                    ? 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-800' 
-                                    : 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800';
+                            const hasTgt = currentOverall.targetCGPA && currentOverall.targetCGPA !== 'none';
+                            const tgtCgpaDisp = hasTgt ? window.formatCgpaMin2Dec(currentOverall.targetCGPA) : 'None';
+                            const tgtGradeDisp = hasTgt ? (currentOverall.targetGrade || window.mapCgpaToGrade(currentOverall.targetCGPA, currentOverall.evaluationType) || '—') : 'None';
 
-                                const systemText = currentOverall.evaluationType === 'grade' ? 'Grade-Based' : 'CGPA-Based';
-                                const systemBadgeColor = 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800';
-                                
-                                return `
+                            const isOverallFailed = currentOverall.evaluationType === 'grade'
+                                ? (currentOverall.grade && ['C', 'D', 'E', 'F'].includes(currentOverall.grade.trim().toUpperCase()))
+                                : (currentOverall.value && parseFloat(currentOverall.value) < 2.0);
+
+                            const statusText = isOverallFailed ? 'FAIL' : 'PASS';
+                            const statusBadgeColor = isOverallFailed
+                                ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800'
+                                : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800';
+
+                            const indicatorText = currentOverall.isEstimated ? 'Estimated' : 'Manual';
+                            const indicatorBadgeColor = currentOverall.isEstimated
+                                ? 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-800'
+                                : 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800';
+
+                            const systemText = currentOverall.evaluationType === 'grade' ? 'Grade-Based' : 'CGPA-Based';
+                            const systemBadgeColor = 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800';
+
+                            return `
                                 <div class="mb-4 bg-slate-50/50 dark:bg-slate-900/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col gap-2.5">
                                     <div class="flex flex-wrap items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-1.5">
                                         <span class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.25 rounded border ${systemBadgeColor}">${systemText}</span>
@@ -4677,23 +4706,23 @@
                                         </div>
                                         <div class="text-right flex items-center gap-2">
                                             <div class="flex flex-col items-end">
-                                                ${currentOverall.evaluationType === 'grade' 
-                                                    ? `
+                                                ${currentOverall.evaluationType === 'grade'
+                                    ? `
                                                     <span class="text-sm font-black text-slate-800 dark:text-slate-100">Grade: ${currentOverall.grade || 'N/A'}</span>
-                                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">CGPA: ${currentOverall.value || 'N/A'}</span>
+                                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
                                                     `
-                                                    : `
-                                                    <span class="text-sm font-black text-slate-800 dark:text-slate-100">CGPA: ${currentOverall.value || 'N/A'}</span>
+                                    : `
+                                                    <span class="text-sm font-black text-slate-800 dark:text-slate-100">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
                                                     <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Grade: ${currentOverall.grade || 'N/A'}</span>
                                                     `
-                                                }
+                                }
                                             </div>
                                             ${matchStatusHtml}
                                         </div>
                                     </div>
                                 </div>
                                 `;
-                            })()}
+                        })()}
                             
                             <!-- Subject Listing -->
                             ${subjects.length > 0 ? `
@@ -4701,24 +4730,24 @@
                                 <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Subject Grades</span>
                                 <div class="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                                     ${(() => {
-                                        const mainTarget = window.getProgramMainTarget(progName);
-                                        return subjects.map(s => {
-                                            const subTargetCgpa = s.targetCGPA || mainTarget.targetCGPA;
-                                            const subTargetGrade = s.targetGrade || mainTarget.targetGrade;
-                                            const hasSubTgt = subTargetCgpa && subTargetCgpa !== 'none';
-                                            const targetDisp = hasSubTgt ? (s.evaluationType === 'grade' ? `${subTargetGrade} (${parseFloat(subTargetCgpa).toFixed(2)})` : `${parseFloat(subTargetCgpa).toFixed(2)} (${subTargetGrade})`) : 'None';
-                                            
-                                            const isSubFailed = s.evaluationType === 'grade'
-                                                ? (s.grade && ['C','D','E','F'].includes(s.grade.trim().toUpperCase()))
-                                                : (s.value && parseFloat(s.value) < 2.0);
-                                            const subScoreColor = isSubFailed ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400';
-                                            
-                                            const subStatusText = isSubFailed ? 'FAIL' : 'PASS';
-                                            const subStatusBadge = isSubFailed
-                                                ? `<span class="inline-block text-[8px] font-black px-1.5 py-0.25 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded border border-red-200 dark:border-red-800/50 scale-90 origin-right">FAIL</span>`
-                                                : `<span class="inline-block text-[8px] font-black px-1.5 py-0.25 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded border border-emerald-200 dark:border-emerald-800/50 scale-90 origin-right">PASS</span>`;
-                                            
-                                            return `
+                                const mainTarget = window.getProgramMainTarget(progName);
+                                return subjects.map(s => {
+                                    const subTargetCgpa = s.targetCGPA || mainTarget.targetCGPA;
+                                    const subTargetGrade = s.targetGrade || mainTarget.targetGrade;
+                                    const hasSubTgt = subTargetCgpa && subTargetCgpa !== 'none';
+                                    const targetDisp = hasSubTgt ? (s.evaluationType === 'grade' ? `${subTargetGrade} (${window.formatCgpaMin2Dec(subTargetCgpa)})` : `${window.formatCgpaMin2Dec(subTargetCgpa)} (${subTargetGrade})`) : 'None';
+
+                                    const isSubFailed = s.evaluationType === 'grade'
+                                        ? (s.grade && ['C', 'D', 'E', 'F'].includes(s.grade.trim().toUpperCase()))
+                                        : (s.value && parseFloat(s.value) < 2.0);
+                                    const subScoreColor = isSubFailed ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400';
+
+                                    const subStatusText = isSubFailed ? 'FAIL' : 'PASS';
+                                    const subStatusBadge = isSubFailed
+                                        ? `<span class="inline-block text-[8px] font-black px-1.5 py-0.25 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded border border-red-200 dark:border-red-800/50 scale-90 origin-right">FAIL</span>`
+                                        : `<span class="inline-block text-[8px] font-black px-1.5 py-0.25 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded border border-emerald-200 dark:border-emerald-800/50 scale-90 origin-right">PASS</span>`;
+
+                                    return `
                                             <div class="flex justify-between items-center text-xs py-1 border-b border-slate-50 dark:border-slate-800/40 last:border-0">
                                                 <div class="flex flex-col truncate mr-2">
                                                     <span class="font-bold text-slate-600 dark:text-slate-300 truncate">${s.subject}</span>
@@ -4735,8 +4764,8 @@
                                                 </div>
                                             </div>
                                             `;
-                                        }).join('');
-                                    })()}
+                                }).join('');
+                            })()}
                                 </div>
                             </div>
                             ` : ''}
@@ -5344,7 +5373,7 @@
                 if (evalType === 'grade') {
                     overallGradeVal = document.getElementById('res-overall-grade').value.trim();
                     overallTargetGradeVal = document.getElementById('res-overall-target-grade').value.trim();
-                    
+
                     if (overallTargetGradeVal.toLowerCase() === 'none' || overallTargetGradeVal === '0') {
                         overallTargetGradeVal = 'none';
                         overallTargetCgpaVal = 'none';
@@ -5366,7 +5395,7 @@
                 } else {
                     overallVal = document.getElementById('res-overall-cgpa').value.trim();
                     overallTargetCgpaVal = document.getElementById('res-overall-target-cgpa').value.trim();
-                    
+
                     if (overallTargetCgpaVal.toLowerCase() === 'none' || overallTargetCgpaVal === '0') {
                         overallTargetGradeVal = 'none';
                         overallTargetCgpaVal = 'none';
@@ -5498,7 +5527,7 @@
                     if (evalType === 'grade') {
                         overallGradeVal = document.getElementById('res-overall-grade').value.trim();
                         overallTargetGradeVal = document.getElementById('res-overall-target-grade').value.trim();
-                        
+
                         if (overallTargetGradeVal.toLowerCase() === 'none' || overallTargetGradeVal === '0') {
                             overallTargetGradeVal = 'none';
                             overallTargetCgpaVal = 'none';
@@ -5520,7 +5549,7 @@
                     } else {
                         overallVal = document.getElementById('res-overall-cgpa').value.trim();
                         overallTargetCgpaVal = document.getElementById('res-overall-target-cgpa').value.trim();
-                        
+
                         if (overallTargetCgpaVal.toLowerCase() === 'none' || overallTargetCgpaVal === '0') {
                             overallTargetGradeVal = 'none';
                             overallTargetCgpaVal = 'none';
@@ -5981,10 +6010,10 @@
 
                 const isFailed = isCgpa && (
                     res.evaluationType === 'grade'
-                        ? (res.grade && ['C','D','E','F'].includes(res.grade.trim().toUpperCase()))
+                        ? (res.grade && ['C', 'D', 'E', 'F'].includes(res.grade.trim().toUpperCase()))
                         : (res.value && parseFloat(res.value) < 2.0)
                 );
-                
+
                 const valColor = isFailed ? 'text-red-500 dark:text-red-400' : `text-${colorClass}-600 dark:text-${colorClass}-400`;
                 const gradeColor = isFailed ? 'text-red-500 dark:text-red-400 font-bold' : 'text-slate-400';
 
@@ -6850,7 +6879,7 @@
                         };
                         window.customPrograms[track][pIdx] = progObj;
                     }
-                    
+
                     if (renamed) {
                         progObj.name = newName;
                     }
@@ -10018,7 +10047,8 @@
                 </div>
 
                 <div id="res-subjects-grid-container" class="flex flex-col gap-2.5 sm:gap-3 hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pb-2.5 sm:pb-3 border-b border-slate-200 dark:border-slate-700">
+                    <div
+                        class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pb-2.5 sm:pb-3 border-b border-slate-200 dark:border-slate-700">
                         <span id="res-overall-label"
                             class="text-xs font-black text-slate-800 dark:text-slate-200 flex-1 truncate">Overall
                             Program CGPA</span>
@@ -10027,7 +10057,8 @@
                             <div class="res-cgpa-field flex items-center gap-1.5">
                                 <input type="text" id="res-overall-cgpa"
                                     class="w-20 sm:w-24 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-center focus:ring-2 focus:ring-yellow-500 outline-none"
-                                    placeholder="CGPA" oninput="window.onCgpaInput(this)" onblur="window.onCgpaBlur(this)">
+                                    placeholder="CGPA" oninput="window.onCgpaInput(this)"
+                                    onblur="window.onCgpaBlur(this)">
                                 <span
                                     class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
                             </div>
@@ -10076,8 +10107,10 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pb-2.5 sm:pb-3 border-b border-slate-200 dark:border-slate-700/60">
-                        <span class="text-xs font-black text-slate-500 dark:text-slate-400 flex-1 truncate">Subject-wise Estimated Score</span>
+                    <div
+                        class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pb-2.5 sm:pb-3 border-b border-slate-200 dark:border-slate-700/60">
+                        <span class="text-xs font-black text-slate-500 dark:text-slate-400 flex-1 truncate">Subject-wise
+                            Estimated Score</span>
                         <div class="flex gap-2 shrink-0 flex-wrap sm:justify-end">
                             <!-- CGPA Mode Est Box -->
                             <div class="res-cgpa-field flex items-center gap-1.5">
@@ -10087,7 +10120,7 @@
                                 <span id="res-overall-est-cgpa-grade-badge"
                                     class="auto-grade-badge text-[10px] font-black text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-lg border border-yellow-200 dark:border-yellow-800 min-w-[28px] text-center opacity-40">—</span>
                             </div>
-                            
+
                             <!-- Grade Mode Est Box -->
                             <div class="res-grade-field hidden flex items-center gap-1.5">
                                 <input type="text" id="res-overall-est-grade" readonly disabled
