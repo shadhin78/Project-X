@@ -2612,7 +2612,7 @@
                 <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-[1.25rem] border ${isActiveFilter ? 'border-orange-500 shadow-md scale-[1.02]' : 'border-slate-200 dark:border-slate-700 shadow-sm'} relative group hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col justify-between">
                     ${isActiveFilter ? '<div class="absolute -top-2.5 right-4 bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm">Active Timeline</div>' : ''}
                     <div class="absolute top-3.5 right-3.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="window.openPaceTrendModal('${goal.id}')" class="text-slate-300 hover:text-indigo-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Pace Trend Chart"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1-1H5a1 1 0 01-1-1V4z"></path></svg></button>
+                        <button onclick="window.openPaceCandleChartModal('${goal.id}')" class="text-slate-300 hover:text-yellow-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Pace Candle Chart"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 8v8m-4-5v5m-4-2v2M2 4h20v16H2V4z"></path></svg></button>
                         <button onclick="window.openGoalDetailsModal('${goal.id}')" class="text-slate-300 hover:text-emerald-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Target Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                         <button onclick="window.openEditPaceModal('${goal.id}')" class="text-slate-300 hover:text-blue-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Edit Goal Dates"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                         <button onclick="window.requestDeletePaceGoal('${goal.id}')" class="text-slate-300 hover:text-red-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Remove Goal"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
@@ -5911,8 +5911,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -5937,12 +5937,13 @@
                 if (modalId === 'daily-actions-db-modal' && window.dadbTrendChartInstance) window.dadbTrendChartInstance.resize();
                 if (modalId === 'program-trend-modal' && window.programTrendChartInstance) window.programTrendChartInstance.resize();
                 if (modalId === 'program-trend-modal' && window.subjectWiseChartInstance) window.subjectWiseChartInstance.resize();
+                if (modalId === 'pace-candle-modal' && window.paceCandleChartInstance) window.paceCandleChartInstance.resize();
             }, 320);
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -6191,19 +6192,288 @@
         window.openRevisionTrendModal = function () { openModal('revision-trend-modal'); };
         window.openYearlyActionsModal = function () { openModal('yearly-actions-modal'); };
 
-        window.openPaceTrendModal = function (goalId = null) {
-            window.activePaceTrendGoalId = goalId;
-            if (goalId) {
-                const goal = window.paceGoals.find(g => g.id === goalId);
-                if (goal) {
-                    window.latestPaceData = window.getPaceDataForGoal(goal);
+        window.getTargetedSubjectsForGoal = function (goal) {
+            let targetedSubjects = new Set();
+            if (!goal) return targetedSubjects;
+            if (goal.type === 'global') {
+                const isManual = goal.subjects || goal.secondaryPaces;
+                if (isManual) {
+                    if (goal.subjects) goal.subjects.forEach(s => targetedSubjects.add(s));
+                    if (goal.secondaryPaces) {
+                        goal.secondaryPaces.forEach(pid => {
+                            const g = window.paceGoals.find(x => x.id === pid);
+                            if (g) {
+                                if (g.type === 'bundle') {
+                                    if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                    if (g.programs) {
+                                        window.tracks.map(t => t.id).forEach(track => {
+                                            if (syllabusStructure[track]) {
+                                                syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                            }
+                                        });
+                                    }
+                                } else if (g.type === 'subject') {
+                                    targetedSubjects.add(g.target);
+                                } else if (g.type === 'program') {
+                                    window.tracks.map(t => t.id).forEach(track => {
+                                        if (syllabusStructure[track]) {
+                                            syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    window.paceGoals.forEach(g => {
+                        if (g.id === goal.id) return;
+                        if (!globalStartDate || !globalEndDate) return;
+                        const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                        const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
+                        gStart.setHours(0, 0, 0, 0); gEnd.setHours(23, 59, 59, 999);
+                        if (gEnd < globalStartDate || gStart > globalEndDate) return;
+                        if (g.type === 'bundle') {
+                            if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                            if (g.programs) {
+                                window.tracks.map(t => t.id).forEach(track => {
+                                    if (syllabusStructure[track]) {
+                                        syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                    }
+                                });
+                            }
+                        } else if (g.type === 'subject') {
+                            targetedSubjects.add(g.target);
+                        } else if (g.type === 'program') {
+                            window.tracks.map(t => t.id).forEach(track => {
+                                if (syllabusStructure[track]) {
+                                    syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                }
+                            });
+                        }
+                    });
                 }
-            } else {
-                const globalGoal = window.paceGoals.find(g => g.type === 'global');
-                if (globalGoal) {
-                    window.latestPaceData = window.getPaceDataForGoal(globalGoal);
+            } else if (goal.type === 'bundle') {
+                if (goal.subjects) {
+                    goal.subjects.forEach(sub => targetedSubjects.add(sub));
+                } else if (goal.programs) {
+                    window.tracks.map(t => t.id).forEach(track => {
+                        if (syllabusStructure[track]) {
+                            syllabusStructure[track].forEach(s => {
+                                if (goal.programs.includes(s.program)) targetedSubjects.add(s.subject);
+                            });
+                        }
+                    });
                 }
+            } else if (goal.type === 'subject') {
+                targetedSubjects.add(goal.target);
+            } else if (goal.type === 'program') {
+                window.tracks.map(t => t.id).forEach(track => {
+                    if (syllabusStructure[track]) {
+                        syllabusStructure[track].forEach(s => { if (s.program === goal.target) targetedSubjects.add(s.subject); });
+                    }
+                });
             }
+            return targetedSubjects;
+        };
+
+        window.openPaceCandleChartModal = function (goalId) {
+            const goal = window.paceGoals.find(g => g.id === goalId);
+            if (!goal) return;
+
+            document.getElementById('pcm-target-name').textContent = goal.target;
+            openModal('pace-candle-modal');
+
+            // 1. Calculate subject completion map for subjects targeted by this goal
+            const targetedSubjects = window.getTargetedSubjectsForGoal(goal);
+            const subsList = Array.from(targetedSubjects);
+
+            let completedPerDate = {};
+            tasks.forEach(t => {
+                if (t.type === 'study') {
+                    let count = 0;
+                    window.tracks.forEach(track => {
+                        const key = track.id + 'Tasks';
+                        if (Array.isArray(t[key])) {
+                            t[key].forEach(b => { if (b.completed && subsList.includes(b.subject)) count++; });
+                        }
+                    });
+                    completedPerDate[t.date] = (completedPerDate[t.date] || 0) + count;
+                }
+            });
+
+            // 2. Loop from startDate to today day-by-day to build daily pace stats
+            const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+            startDate.setHours(0, 0, 0, 0);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const msPerDay = 1000 * 60 * 60 * 24;
+            const daysElapsed = Math.max(1, Math.floor((today - startDate) / msPerDay) + 1);
+
+            let cumulativeAct = 0;
+            let dailyPaces = [];
+            let currentDt = new Date(startDate);
+
+            for (let i = 1; i <= daysElapsed; i++) {
+                let dStr = formatDate(currentDt);
+                let completedToday = completedPerDate[dStr] || 0;
+                cumulativeAct += completedToday;
+                let pace = cumulativeAct / i;
+                dailyPaces.push({
+                    dayIdx: i,
+                    dateStr: currentDt.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
+                    pace: pace,
+                    completedToday: completedToday
+                });
+                currentDt.setDate(currentDt.getDate() + 1);
+            }
+
+            // 3. Group daily stats into intervals (if daysElapsed > 15) to maintain readable candles
+            let intervals = [];
+            let daysPerInterval = 1;
+            if (daysElapsed > 15) {
+                daysPerInterval = Math.ceil(daysElapsed / 10);
+            }
+
+            for (let k = 0; k < daysElapsed; k += daysPerInterval) {
+                let chunk = dailyPaces.slice(k, k + daysPerInterval);
+                if (chunk.length === 0) continue;
+
+                let prevIdx = k - 1;
+                let openVal = prevIdx >= 0 ? dailyPaces[prevIdx].pace : 0;
+                let closeVal = chunk[chunk.length - 1].pace;
+
+                let completedInChunk = chunk.reduce((sum, d) => sum + d.completedToday, 0);
+
+                let maxPaceInChunk = Math.max(...chunk.map(d => d.pace));
+                let minPaceInChunk = Math.min(...chunk.map(d => d.pace));
+
+                let open = openVal;
+                let close = closeVal;
+                // Add wick variation based on completion activity
+                let high = Math.max(open, close, maxPaceInChunk) + (completedInChunk > 0 ? 0.05 * completedInChunk : 0.01);
+                let low = Math.max(0, Math.min(open, close, minPaceInChunk) - (completedInChunk === 0 ? 0.02 : 0.005));
+
+                let dateLabel = chunk[0].dateStr;
+                if (chunk.length > 1) {
+                    dateLabel = `${chunk[0].dateStr} - ${chunk[chunk.length - 1].dateStr}`;
+                }
+
+                intervals.push({
+                    label: dateLabel,
+                    open: open,
+                    close: close,
+                    high: high,
+                    low: low,
+                    completed: completedInChunk
+                });
+            }
+
+            // 4. Setup Chart.js
+            const ctx = document.getElementById('paceCandleCanvas');
+            if (!ctx) return;
+
+            if (window.paceCandleChartInstance) {
+                window.paceCandleChartInstance.destroy();
+            }
+
+            const canvasCtx = ctx.getContext('2d');
+            const isMobile = window.innerWidth < 640;
+
+            window.paceCandleChartInstance = new Chart(canvasCtx, {
+                type: 'bar',
+                data: {
+                    labels: intervals.map(item => item.label),
+                    datasets: [
+                        {
+                            label: 'Wick',
+                            data: intervals.map(item => [item.low, item.high]),
+                            backgroundColor: 'rgba(148, 163, 184, 0.7)',
+                            borderColor: 'rgba(148, 163, 184, 0.7)',
+                            borderWidth: 0,
+                            barThickness: isMobile ? 1.5 : 2.5,
+                            maxBarThickness: isMobile ? 1.5 : 2.5,
+                            grouped: false,
+                            order: 2
+                        },
+                        {
+                            label: 'Body',
+                            data: intervals.map(item => [item.open, item.close]),
+                            backgroundColor: intervals.map(item => item.close >= item.open ? '#10b981' : '#ef4444'),
+                            borderColor: intervals.map(item => item.close >= item.open ? '#059669' : '#dc2626'),
+                            borderWidth: 1.5,
+                            borderRadius: isMobile ? 3 : 5,
+                            barPercentage: 0.55,
+                            maxBarThickness: isMobile ? 12 : 24,
+                            grouped: false,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 9, weight: 'bold' } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false },
+                            ticks: { font: { size: 9, weight: 'bold' } },
+                            title: {
+                                display: true,
+                                text: 'Pace (Chapters/Day)',
+                                font: { size: 10, weight: 'black', family: 'Inter' },
+                                color: '#94a3b8'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#fff',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: (tooltipItem) => {
+                                    const item = intervals[tooltipItem.dataIndex];
+                                    const openStr = item.open.toFixed(3);
+                                    const closeStr = item.close.toFixed(3);
+                                    const highStr = item.high.toFixed(3);
+                                    const lowStr = item.low.toFixed(3);
+                                    const direction = item.close >= item.open ? '🟩 Pace Improved' : '🟥 Pace Decayed';
+                                    return [
+                                        `Trend: ${direction}`,
+                                        `Open Pace: ${openStr} ch/d`,
+                                        `High Pace: ${highStr} /d`,
+                                        `Low Pace: ${lowStr} ch/d`,
+                                        `Close Pace: ${closeStr} ch/d`,
+                                        `Completions: ${item.completed} Chapters`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Force resize after the modal transitions open
+            setTimeout(() => {
+                if (window.paceCandleChartInstance) {
+                    window.paceCandleChartInstance.resize();
+                }
+            }, 320);
+        };
+
+        window.openPaceTrendModal = function () {
             openModal('pace-trend-modal');
             window.renderPaceTrendChart(); // Initial render setup
             // Critical Fix: Force the chart to recalculate its dimensions strictly AFTER the 300ms CSS transition completes.
@@ -9849,7 +10119,63 @@
         </div>
     </div>
 
+    <!-- Pace Candle Chart Modal -->
+    <div id="pace-candle-modal"
+        class="fixed inset-0 z-[60] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+        <div id="pcm-backdrop"
+            class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+            onclick="closeModal('pace-candle-modal')"></div>
+        <div id="pcm-content"
+            class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl md:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-4xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 flex flex-col max-h-[90vh] mx-4 z-10">
 
+            <div
+                class="flex justify-between items-center mb-5 border-b border-slate-100 dark:border-slate-700 pb-3 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="p-2.5 bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-xl border border-yellow-100 dark:border-yellow-800 shadow-inner">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M16 8v8m-4-5v5m-4-2v2M2 4h20v16H2V4z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg md:text-xl font-black dark:text-white" id="pcm-title">Pace Candlestick Trend
+                        </h2>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5"
+                            id="pcm-target-name">Target Name</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('pace-candle-modal')"
+                    class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+
+            <div class="flex-1 min-h-[300px] md:min-h-[400px] relative w-full mb-4">
+                <canvas id="paceCandleCanvas"></canvas>
+            </div>
+
+            <div
+                class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                <div class="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 bg-emerald-500 rounded border border-emerald-600"></span>
+                        <span>🟩 Pace Increased</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 bg-red-500 rounded border border-red-600"></span>
+                        <span>🟥 Pace Decayed</span>
+                    </div>
+                </div>
+                <p class="text-[9px] text-slate-400 font-bold max-w-sm leading-normal">
+                    * Candles represent pace intervals. Body shows Open/Close pace. Wicks show High/Low pace. Green
+                    candle indicates your overall study speed improved, red indicates it slowed.
+                </p>
+            </div>
+        </div>
+    </div>
 
     <!-- Revision Management Modal -->
     <div id="revision-manage-modal"
