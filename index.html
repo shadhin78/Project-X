@@ -205,6 +205,42 @@
             window.updateCgpaBadge(selectEl.value, badge);
         };
 
+        // Helper to retrieve program's target CGPA and Grade from configuration or history
+        window.getProgramMainTarget = function (progName) {
+            let targetCGPA = '';
+            for (const trackId in window.customPrograms) {
+                const progList = window.customPrograms[trackId];
+                if (Array.isArray(progList)) {
+                    const prog = progList.find(p => (p.name || p) === progName);
+                    if (prog && typeof prog === 'object' && prog.targetCGPA !== undefined && prog.targetCGPA !== null) {
+                        targetCGPA = prog.targetCGPA.toString().trim();
+                        if (targetCGPA) break;
+                    }
+                }
+            }
+            if (!targetCGPA) {
+                const overallRecords = window.successResults
+                    .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName)
+                    .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
+                if (overallRecords.length > 0 && overallRecords[0].targetCGPA) {
+                    targetCGPA = overallRecords[0].targetCGPA.toString().trim();
+                }
+            }
+            if (!targetCGPA) {
+                const anyRecords = window.successResults
+                    .filter(r => r.type === 'cgpa' && r.title === progName && r.targetCGPA)
+                    .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
+                if (anyRecords.length > 0) {
+                    targetCGPA = anyRecords[0].targetCGPA.toString().trim();
+                }
+            }
+            let targetGrade = '';
+            if (targetCGPA) {
+                targetGrade = window.mapCgpaToGrade(targetCGPA);
+            }
+            return { targetCGPA, targetGrade };
+        };
+
         // Update all subject target badges from the overall program target
         window.updateSubjectTargets = function () {
             const evalType = document.getElementById('res-evaluation-type').value;
@@ -218,6 +254,33 @@
                 targetCgpa = (document.getElementById('res-overall-target-cgpa')?.value || '').trim();
                 targetGrade = targetCgpa ? window.mapCgpaToGrade(targetCgpa) : '';
             }
+            
+            // If overall target fields are empty, try to prefill from main target
+            if (!targetCgpa) {
+                const progSelect = document.getElementById('res-prog-select');
+                if (progSelect && progSelect.value) {
+                    const mainTarget = window.getProgramMainTarget(progSelect.value);
+                    if (mainTarget.targetCGPA) {
+                        targetCgpa = mainTarget.targetCGPA;
+                        targetGrade = mainTarget.targetGrade;
+                        
+                        if (isGrade) {
+                            const gradeInput = document.getElementById('res-overall-target-grade');
+                            if (gradeInput && !gradeInput.value.trim()) {
+                                gradeInput.value = targetGrade;
+                                window.updateCgpaBadge(targetGrade, gradeInput.parentElement.querySelector('.auto-cgpa-badge'));
+                            }
+                        } else {
+                            const cgpaInput = document.getElementById('res-overall-target-cgpa');
+                            if (cgpaInput && !cgpaInput.value.trim()) {
+                                cgpaInput.value = targetCgpa;
+                                window.onCgpaInput(cgpaInput);
+                            }
+                        }
+                    }
+                }
+            }
+
             document.querySelectorAll('.res-sub-target-badge').forEach(badge => {
                 if (targetCgpa && targetGrade) {
                     badge.textContent = isGrade ? `Target: ${targetGrade} (${targetCgpa})` : `Target: ${targetCgpa} (${targetGrade})`;
@@ -3995,17 +4058,18 @@
             const container = document.getElementById('ptm-subject-panel');
             if (!container) return;
 
-            // Get the latest overall record for this program to extract the target
+            // Get the latest overall record for this program to extract layout context
             const overallRecords = window.successResults
                 .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName)
                 .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
 
             const latestOverall = overallRecords[0] || null;
 
-            // Determine program target CGPA and evaluation type
+            // Determine program target CGPA and evaluation type from main target helper
             const isGradeMode = latestOverall && latestOverall.evaluationType === 'grade';
-            const programTargetCgpa = latestOverall ? (parseFloat(latestOverall.targetCGPA) || null) : null;
-            const programTargetGrade = latestOverall ? (latestOverall.targetGrade || null) : null;
+            const mainTarget = window.getProgramMainTarget(progName);
+            const programTargetCgpa = mainTarget.targetCGPA ? parseFloat(mainTarget.targetCGPA) : null;
+            const programTargetGrade = mainTarget.targetGrade || null;
 
             // Get subject records for this program (latest per subject)
             const subjectMap = {};
@@ -4255,11 +4319,14 @@
                             
                             <!-- Overall Program Score Banner -->
                             ${overall ? `
-                            <div class="mb-4 bg-blue-50/50 dark:bg-blue-950/20 px-3.5 py-2 rounded-xl border border-blue-100/50 dark:border-blue-900/30 flex justify-between items-center">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-blue-500">${overall.evaluationType === 'grade' ? 'Overall Grade' : 'Overall CGPA'}</span>
+                            <div class="mb-4 bg-blue-50/50 dark:bg-blue-950/20 px-3.5 py-2.5 rounded-xl border border-blue-100/50 dark:border-blue-900/30 flex justify-between items-center">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-500">${overall.evaluationType === 'grade' ? 'Overall Grade' : 'Overall CGPA'}</span>
+                                    <span class="text-[9px] font-bold text-slate-400 mt-0.5">Target: ${overall.targetGrade || window.mapCgpaToGrade(overall.targetCGPA) || '—'} (${overall.targetCGPA ? parseFloat(overall.targetCGPA).toFixed(2) : '—'})</span>
+                                </div>
                                 <div class="text-right">
                                     <span class="text-base font-black text-blue-600 dark:text-blue-400">${overall.evaluationType === 'grade' ? (overall.grade || 'N/A') : (overall.value || 'N/A')}</span>
-                                    ${overall.evaluationType === 'grade' ? `<span class="text-[9px] font-bold text-slate-400 ml-1">(CGPA: ${overall.value})</span>` : (overall.grade ? `<span class="text-[9px] font-bold text-slate-400 ml-1">(${overall.grade})</span>` : '')}
+                                    ${overall.evaluationType === 'grade' ? `<span class="text-[9px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${overall.value})</span>` : (overall.grade ? `<span class="text-[9px] font-bold text-slate-400 block -mt-0.5">(${overall.grade})</span>` : '')}
                                 </div>
                             </div>
                             ` : ''}
@@ -4268,16 +4335,29 @@
                             ${subjects.length > 0 ? `
                             <div class="flex flex-col gap-1.5 border-t border-slate-100 dark:border-slate-700/60 pt-3">
                                 <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Subject Grades</span>
-                                <div class="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
-                                    ${subjects.map(s => `
-                                    <div class="flex justify-between items-center text-xs">
-                                        <span class="font-bold text-slate-600 dark:text-slate-300 truncate mr-2">${s.subject}</span>
-                                        <span class="font-black text-emerald-600 dark:text-emerald-400 shrink-0">
-                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (s.value || 'N/A')}
-                                            ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400/80 ml-0.5">(${s.value})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400/80 ml-0.5">(${s.grade})</span>` : '')}
-                                        </span>
-                                    </div>
-                                    `).join('')}
+                                <div class="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                    ${(() => {
+                                        const mainTarget = window.getProgramMainTarget(progName);
+                                        return subjects.map(s => {
+                                            const subTargetCgpa = s.targetCGPA || mainTarget.targetCGPA;
+                                            const subTargetGrade = s.targetGrade || mainTarget.targetGrade;
+                                            const targetDisp = subTargetCgpa ? (s.evaluationType === 'grade' ? `${subTargetGrade} (${parseFloat(subTargetCgpa).toFixed(2)})` : `${parseFloat(subTargetCgpa).toFixed(2)} (${subTargetGrade})`) : '—';
+                                            return `
+                                            <div class="flex justify-between items-center text-xs py-1 border-b border-slate-50 dark:border-slate-800/40 last:border-0">
+                                                <div class="flex flex-col truncate mr-2">
+                                                    <span class="font-bold text-slate-600 dark:text-slate-300 truncate">${s.subject}</span>
+                                                    <span class="text-[9px] font-bold text-slate-400">Target: ${targetDisp}</span>
+                                                </div>
+                                                <div class="text-right shrink-0">
+                                                    <span class="font-black text-emerald-600 dark:text-emerald-400">
+                                                        ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (s.value || 'N/A')}
+                                                    </span>
+                                                    ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${s.value})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
+                                                </div>
+                                            </div>
+                                            `;
+                                        }).join('');
+                                    })()}
                                 </div>
                             </div>
                             ` : ''}
@@ -4536,6 +4616,31 @@
             const evalType = document.getElementById('res-evaluation-type').value;
             const isGrade = evalType === 'grade';
 
+            if (selectedProg) {
+                // Prefill overall target from program configuration/history if empty or clearOverall is true
+                const targetCgpaInput = document.getElementById('res-overall-target-cgpa');
+                const targetGradeInput = document.getElementById('res-overall-target-grade');
+                const isCgpaEmpty = targetCgpaInput && !targetCgpaInput.value.trim();
+                const isGradeEmpty = targetGradeInput && !targetGradeInput.value.trim();
+
+                if (clearOverall || isCgpaEmpty || isGradeEmpty) {
+                    const mainTarget = window.getProgramMainTarget(selectedProg);
+                    if (mainTarget.targetCGPA) {
+                        if (isGrade) {
+                            if (targetGradeInput) {
+                                targetGradeInput.value = mainTarget.targetGrade;
+                                window.updateCgpaBadge(mainTarget.targetGrade, targetGradeInput.parentElement.querySelector('.auto-cgpa-badge'));
+                            }
+                        } else {
+                            if (targetCgpaInput) {
+                                targetCgpaInput.value = mainTarget.targetCGPA;
+                                window.onCgpaInput(targetCgpaInput);
+                            }
+                        }
+                    }
+                }
+            }
+
             // Update Overall label text
             const overallLabel = document.getElementById('res-overall-label');
             if (overallLabel) {
@@ -4693,19 +4798,26 @@
                 const { progRecords, evalType } = window._pendingResultPrefill;
                 window._pendingResultPrefill = null;
 
+                // Also retrieve main target configuration
+                const mainTarget = window.getProgramMainTarget(editProgramName);
+                let overallPrefilled = false;
+
                 progRecords.forEach(r => {
                     if (!r.subject) {
+                        overallPrefilled = true;
                         // Overall program score
                         if (evalType === 'grade') {
                             document.getElementById('res-overall-grade').value = r.grade || '';
-                            document.getElementById('res-overall-target-grade').value = r.targetGrade || '';
+                            const tgtGrade = r.targetGrade || mainTarget.targetGrade;
+                            document.getElementById('res-overall-target-grade').value = tgtGrade;
                             window.updateCgpaBadge(r.grade || '', document.getElementById('res-overall-grade').parentElement.querySelector('.auto-cgpa-badge'));
-                            window.updateCgpaBadge(r.targetGrade || '', document.getElementById('res-overall-target-grade').parentElement.querySelector('.auto-cgpa-badge'));
+                            if (tgtGrade) window.updateCgpaBadge(tgtGrade, document.getElementById('res-overall-target-grade').parentElement.querySelector('.auto-cgpa-badge'));
                         } else {
                             document.getElementById('res-overall-cgpa').value = r.value || '';
-                            document.getElementById('res-overall-target-cgpa').value = r.targetCGPA || '';
+                            const tgtCgpa = r.targetCGPA || mainTarget.targetCGPA;
+                            document.getElementById('res-overall-target-cgpa').value = tgtCgpa;
                             window.onCgpaInput(document.getElementById('res-overall-cgpa'));
-                            window.onCgpaInput(document.getElementById('res-overall-target-cgpa'));
+                            if (tgtCgpa) window.onCgpaInput(document.getElementById('res-overall-target-cgpa'));
                         }
                     } else {
                         // Subject-level score
@@ -4724,6 +4836,22 @@
                         }
                     }
                 });
+
+                if (!overallPrefilled && mainTarget.targetCGPA) {
+                    if (evalType === 'grade') {
+                        const gradeTargetInput = document.getElementById('res-overall-target-grade');
+                        if (gradeTargetInput) {
+                            gradeTargetInput.value = mainTarget.targetGrade;
+                            window.updateCgpaBadge(mainTarget.targetGrade, gradeTargetInput.parentElement.querySelector('.auto-cgpa-badge'));
+                        }
+                    } else {
+                        const cgpaTargetInput = document.getElementById('res-overall-target-cgpa');
+                        if (cgpaTargetInput) {
+                            cgpaTargetInput.value = mainTarget.targetCGPA;
+                            window.onCgpaInput(cgpaTargetInput);
+                        }
+                    }
+                }
             }
 
             openModal('result-modal');
@@ -4827,7 +4955,15 @@
                     overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal) : '';
                 }
 
-                if (overallVal || overallGradeVal) {
+                if (!overallTargetCgpaVal || overallTargetCgpaVal === '0.00') {
+                    const mainTarget = window.getProgramMainTarget(window.editingProgramName);
+                    if (mainTarget.targetCGPA) {
+                        overallTargetCgpaVal = mainTarget.targetCGPA;
+                        overallTargetGradeVal = mainTarget.targetGrade;
+                    }
+                }
+
+                if (overallVal || overallGradeVal || overallTargetCgpaVal || overallTargetGradeVal) {
                     window.successResults.push({
                         id: 'res_' + Date.now() + '_overall',
                         type: 'cgpa',
@@ -4935,7 +5071,15 @@
                         overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal) : '';
                     }
 
-                    if (overallVal || overallGradeVal) {
+                    if (!overallTargetCgpaVal || overallTargetCgpaVal === '0.00') {
+                        const mainTarget = window.getProgramMainTarget(program);
+                        if (mainTarget.targetCGPA) {
+                            overallTargetCgpaVal = mainTarget.targetCGPA;
+                            overallTargetGradeVal = mainTarget.targetGrade;
+                        }
+                    }
+
+                    if (overallVal || overallGradeVal || overallTargetCgpaVal || overallTargetGradeVal) {
                         window.successResults.push({
                             id: 'res_' + Date.now() + '_overall',
                             type: 'cgpa',
@@ -6190,16 +6334,19 @@
             const targetSelect = document.getElementById('manage-target');
             const trackBox = document.getElementById('manage-track-box');
             const progBox = document.getElementById('manage-program-box');
+            const targetCgpaBox = document.getElementById('manage-target-cgpa-box');
             targetSelect.innerHTML = '';
 
             if (type === 'action') {
                 trackBox.classList.add('hidden');
                 progBox.classList.add('hidden');
+                if (targetCgpaBox) targetCgpaBox.classList.add('hidden');
                 const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
                 sortedActions.forEach(a => targetSelect.innerHTML += `<option value="${a.id}">${a.title}</option>`);
             } else if (type === 'program') {
                 trackBox.classList.remove('hidden');
                 progBox.classList.add('hidden');
+                if (targetCgpaBox) targetCgpaBox.classList.remove('hidden');
                 const track = document.getElementById('manage-track').value;
                 if (window.customPrograms[track]) {
                     window.customPrograms[track].forEach(p => {
@@ -6207,9 +6354,11 @@
                         targetSelect.innerHTML += `<option value="${pName}">${pName}</option>`;
                     });
                 }
+                window.updateManageProgramTargetCgpa();
             } else if (type === 'subject') {
                 trackBox.classList.remove('hidden');
                 progBox.classList.remove('hidden');
+                if (targetCgpaBox) targetCgpaBox.classList.add('hidden');
                 const track = document.getElementById('manage-track').value;
                 const progSelect = document.getElementById('manage-program');
                 progSelect.innerHTML = '';
@@ -6221,6 +6370,28 @@
                 }
                 window.updateManageSubjects();
             }
+        };
+
+        window.updateManageProgramTargetCgpa = function () {
+            const type = document.getElementById('manage-type').value;
+            const targetCgpaBox = document.getElementById('manage-target-cgpa-box');
+            if (type !== 'program') {
+                if (targetCgpaBox) targetCgpaBox.classList.add('hidden');
+                return;
+            }
+            if (targetCgpaBox) targetCgpaBox.classList.remove('hidden');
+            const track = document.getElementById('manage-track').value;
+            const progName = document.getElementById('manage-target').value;
+            
+            let targetCgpaVal = '';
+            if (window.customPrograms[track]) {
+                const prog = window.customPrograms[track].find(p => (p.name || p) === progName);
+                if (prog && typeof prog === 'object') {
+                    targetCgpaVal = prog.targetCGPA || '';
+                }
+            }
+            const inputEl = document.getElementById('manage-target-cgpa');
+            if (inputEl) inputEl.value = targetCgpaVal;
         };
 
         window.updateManageSubjects = function () {
@@ -6241,38 +6412,69 @@
             const newName = document.getElementById('manage-new-name').value.trim();
 
             if (!oldName) return showToast("Please select an item to edit.", "error");
-            if (!newName && type !== 'action') return showToast("New name cannot be empty.", "error");
+            if (!newName && type !== 'action' && type !== 'program') return showToast("New name cannot be empty.", "error");
 
             if (type === 'program') {
-                if (oldName.toLowerCase() === newName.toLowerCase()) return showToast("New name must be different.", "error");
-                if (window.customPrograms[track] && window.customPrograms[track].some(p => (p.name || p).toLowerCase() === newName.toLowerCase())) return showToast("Program already exists.", "error");
+                const targetCgpaVal = document.getElementById('manage-target-cgpa').value.trim();
+                let renamed = false;
+                if (newName && oldName.toLowerCase() !== newName.toLowerCase()) {
+                    if (window.customPrograms[track] && window.customPrograms[track].some(p => (p.name || p).toLowerCase() === newName.toLowerCase())) return showToast("Program already exists.", "error");
+                    renamed = true;
+                }
 
                 const pIdx = window.customPrograms[track] ? window.customPrograms[track].findIndex(p => (p.name || p) === oldName) : -1;
                 if (pIdx > -1) {
-                    if (typeof window.customPrograms[track][pIdx] === 'object') {
-                        window.customPrograms[track][pIdx].name = newName;
-                    } else {
-                        window.customPrograms[track][pIdx] = newName;
+                    let progObj = window.customPrograms[track][pIdx];
+                    if (typeof progObj !== 'object') {
+                        progObj = {
+                            id: oldName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'prog-' + pIdx,
+                            name: oldName,
+                            priority: 3,
+                            order: pIdx,
+                            targetCGPA: ''
+                        };
+                        window.customPrograms[track][pIdx] = progObj;
                     }
-                }
-                if (syllabusStructure[track]) {
-                    syllabusStructure[track].forEach(s => { if (s.program === oldName) s.program = newName; });
-                }
-                if (window.chartVisibility.prog[oldName] !== undefined) { window.chartVisibility.prog[newName] = window.chartVisibility.prog[oldName]; delete window.chartVisibility.prog[oldName]; }
-
-                window.paceGoals.forEach(g => {
-                    if (g.type === 'program' && g.target === oldName) g.target = newName;
-                    if (g.type === 'bundle' && g.programs) {
-                        const idx = g.programs.indexOf(oldName);
-                        if (idx > -1) g.programs[idx] = newName;
+                    
+                    if (renamed) {
+                        progObj.name = newName;
                     }
-                });
-                if (window.passedItems.programs.includes(oldName)) {
-                    window.passedItems.programs = window.passedItems.programs.filter(p => p !== oldName);
-                    window.passedItems.programs.push(newName);
+                    progObj.targetCGPA = targetCgpaVal;
                 }
 
-                showToast("Program renamed successfully!", "success");
+                if (renamed) {
+                    if (syllabusStructure[track]) {
+                        syllabusStructure[track].forEach(s => { if (s.program === oldName) s.program = newName; });
+                    }
+                    if (window.chartVisibility.prog[oldName] !== undefined) { window.chartVisibility.prog[newName] = window.chartVisibility.prog[oldName]; delete window.chartVisibility.prog[oldName]; }
+
+                    window.paceGoals.forEach(g => {
+                        if (g.type === 'program' && g.target === oldName) g.target = newName;
+                        if (g.type === 'bundle' && g.programs) {
+                            const idx = g.programs.indexOf(oldName);
+                            if (idx > -1) g.programs[idx] = newName;
+                        }
+                    });
+                    if (window.passedItems.programs.includes(oldName)) {
+                        window.passedItems.programs = window.passedItems.programs.filter(p => p !== oldName);
+                        window.passedItems.programs.push(newName);
+                    }
+                }
+
+                // Update target values and rename on existing overall and subject results
+                if (window.successResults) {
+                    window.successResults.forEach(r => {
+                        if (r.type === 'cgpa' && r.title === (renamed ? newName : oldName)) {
+                            if (renamed) {
+                                r.title = newName;
+                            }
+                            r.targetCGPA = targetCgpaVal;
+                            r.targetGrade = targetCgpaVal ? window.mapCgpaToGrade(targetCgpaVal) : '';
+                        }
+                    });
+                }
+
+                showToast(renamed ? "Program updated and renamed successfully!" : "Program target updated successfully!", "success");
 
             } else if (type === 'subject') {
                 if (oldName.toLowerCase() === newName.toLowerCase()) return showToast("New name must be different.", "error");
