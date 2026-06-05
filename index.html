@@ -46,6 +46,8 @@
         window.dadbTrendChartInstance = null;
         window.resultsTrendChartInstance = null;
         window.latestPaceData = null;
+        window.activeTrendGoalId = null;
+        window.activeSingleSubjectTrend = null;
 
         // Dynamic State Objects
         window.chartVisibility = { prog: {}, monthly: {}, yearly: {}, subjects: {}, revSubjects: {} };
@@ -2395,7 +2397,7 @@
 
             // Live Sync for Modals
             if (document.getElementById('pace-trend-modal') && !document.getElementById('pace-trend-modal').classList.contains('hidden')) {
-                window.renderPaceTrendChart();
+                window.renderPaceTrendChart(window.activeTrendGoalId);
             }
             if (document.getElementById('revision-trend-modal') && !document.getElementById('revision-trend-modal').classList.contains('hidden')) {
                 window.renderRevisionTrendChart();
@@ -2612,7 +2614,7 @@
                 <div class="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-[1.25rem] border ${isActiveFilter ? 'border-orange-500 shadow-md scale-[1.02]' : 'border-slate-200 dark:border-slate-700 shadow-sm'} relative group hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col justify-between">
                     ${isActiveFilter ? '<div class="absolute -top-2.5 right-4 bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm">Active Timeline</div>' : ''}
                     <div class="absolute top-3.5 right-3.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="window.openPaceCandleChartModal('${goal.id}')" class="text-slate-300 hover:text-yellow-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Pace Candle Chart"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 8v8m-4-5v5m-4-2v2M2 4h20v16H2V4z"></path></svg></button>
+                        <button onclick="window.openPaceTrendModal('${goal.id}')" class="text-slate-300 hover:text-indigo-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Pace Trend Chart"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1-1H5a1 1 0 01-1-1V4z"></path></svg></button>
                         <button onclick="window.openGoalDetailsModal('${goal.id}')" class="text-slate-300 hover:text-emerald-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="View Target Details"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                         <button onclick="window.openEditPaceModal('${goal.id}')" class="text-slate-300 hover:text-blue-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Edit Goal Dates"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
                         <button onclick="window.requestDeletePaceGoal('${goal.id}')" class="text-slate-300 hover:text-red-500 bg-white dark:bg-slate-800 rounded-lg p-1 shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all" title="Remove Goal"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
@@ -2658,15 +2660,6 @@
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="font-black text-[10px] md:text-xs text-white text-right">${finishDisplay}</div>
-                                    <button onclick="window.openPaceTrendModal('${goal.id}')"
-                                        class="p-1.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-400 rounded-lg hover:scale-105 active:scale-95 transition-all border border-indigo-500/30 shrink-0"
-                                        title="View Pace Analytics Chart">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1-1H5a1 1 0 01-1-1V4z">
-                                            </path>
-                                        </svg>
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2703,7 +2696,7 @@
                             const stats = subjectStats[sub.subject];
                             const perc = stats.totalChapters > 0 ? Math.min(100, (stats.effectiveChapters / stats.totalChapters) * 100) : 0;
 
-                            container.innerHTML += `<div class="mb-3.5 group"><div class="flex justify-between items-center text-[10px] md:text-[11px] font-black mb-1.5 transition-all group-hover:translate-x-1"><div class="flex items-center truncate pr-2"><span class="truncate text-slate-700 dark:text-slate-200">${sub.subject}</span></div><div class="flex items-center shrink-0"><span class="ml-1.5">${Math.round(stats.effectiveChapters)}/${stats.totalChapters} <span class="${cp.text} ml-0.5">(${Math.round(perc)}%)</span></span></div></div><div class="w-full bg-slate-100 dark:bg-slate-700/50 h-2 md:h-2.5 rounded-full overflow-hidden shadow-inner border border-slate-200/40 dark:border-slate-600/30"><div class="${cp.bg} h-full rounded-full transition-all duration-700 ease-out shadow-sm" style="width: ${perc}%"></div></div></div>`;
+                            container.innerHTML += `<div class="mb-3.5 group"><div class="flex justify-between items-center text-[10px] md:text-[11px] font-black mb-1.5 transition-all group-hover:translate-x-1"><div class="flex items-center truncate pr-2"><span class="truncate text-slate-700 dark:text-slate-200">${sub.subject}</span><button onclick="window.openSingleSubjectTrendModal('${sub.subject.replace(/'/g, "\\'")}')" class="ml-2 p-0.5 text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 active:scale-90 transition-all shrink-0" title="View Subject Trend"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></button></div><div class="flex items-center shrink-0"><span class="ml-1.5">${Math.round(stats.effectiveChapters)}/${stats.totalChapters} <span class="${cp.text} ml-0.5">(${Math.round(perc)}%)</span></span></div></div><div class="w-full bg-slate-100 dark:bg-slate-700/50 h-2 md:h-2.5 rounded-full overflow-hidden shadow-inner border border-slate-200/40 dark:border-slate-600/30"><div class="${cp.bg} h-full rounded-full transition-all duration-700 ease-out shadow-sm" style="width: ${perc}%"></div></div></div>`;
                         });
                         pIdx++;
                     });
@@ -3021,9 +3014,20 @@
             }
 
             if (ctxSub) {
-                const subDatasets = Object.keys(subData).map(k => ({
-                    label: getDynamicChartLabel(k), data: subData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: !window.chartVisibility.subjects[k], subjectKey: k
-                }));
+                const title = window.activeSingleSubjectTrend ? `${window.activeSingleSubjectTrend} Progress Trend` : 'Subject Progress Trends';
+                const desc = window.activeSingleSubjectTrend ? `Historical chapter completion trend for ${window.activeSingleSubjectTrend}.` : 'Historical chapter completion trend by subject.';
+                safeSetText('stm-title', title);
+                safeSetText('stm-desc', desc);
+
+                const subDatasets = Object.keys(subData).map(k => {
+                    let isHidden = !window.chartVisibility.subjects[k];
+                    if (window.activeSingleSubjectTrend) {
+                        isHidden = (k !== window.activeSingleSubjectTrend);
+                    }
+                    return {
+                        label: getDynamicChartLabel(k), data: subData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: isHidden, subjectKey: k
+                    };
+                });
                 const sortedSubs = window.getAllSubjects();
                 const getSubIndex = (subName) => sortedSubs.findIndex(s => s.subject === subName);
                 subDatasets.sort((a, b) => getSubIndex(a.subjectKey) - getSubIndex(b.subjectKey));
@@ -3160,11 +3164,14 @@
             const sLeg = document.getElementById('subject-trend-legend');
             if (sLeg) {
                 const sortedSubs = window.getAllSubjects().sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
-                sLeg.innerHTML = sortedSubs.map(s => {
+                const filteredSubs = window.activeSingleSubjectTrend
+                    ? sortedSubs.filter(s => s.subject === window.activeSingleSubjectTrend)
+                    : sortedSubs;
+                sLeg.innerHTML = filteredSubs.map(s => {
                     const k = s.subject; const val = window.latestChartStats.subjects ? window.latestChartStats.subjects[k] : 0; const active = window.chartVisibility.subjects[k]; const color = getSubjectColor(k);
                     const label = getDynamicCleanLabel(k, 12);
-                    const activeStyle = active ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%);`;
-                    return `<div onclick="toggleSubDataset('${k}')" class="cursor-pointer flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
+                    const activeStyle = (window.activeSingleSubjectTrend || active) ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%);`;
+                    return `<div onclick="${window.activeSingleSubjectTrend ? '' : `toggleSubDataset('${k}')`}" class="${window.activeSingleSubjectTrend ? '' : 'cursor-pointer'} flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
                 }).join('');
             }
         };
@@ -4727,6 +4734,7 @@
                                 : (currentOverall.value && parseFloat(currentOverall.value) < 2.0);
 
                             const statusText = isOverallFailed ? 'FAIL' : 'PASS';
+                            const scoreColorClass = isOverallFailed ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400';
                             const statusBadgeColor = isOverallFailed
                                 ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800'
                                 : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800';
@@ -4755,11 +4763,11 @@
                                             <div class="flex flex-col items-end">
                                                 ${currentOverall.evaluationType === 'grade'
                                     ? `
-                                                    <span class="text-sm font-black text-slate-800 dark:text-slate-100">Grade: ${currentOverall.grade || 'N/A'}</span>
+                                                    <span class="text-sm font-black ${scoreColorClass}">Grade: ${currentOverall.grade || 'N/A'}</span>
                                                     <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
                                                     `
                                     : `
-                                                    <span class="text-sm font-black text-slate-800 dark:text-slate-100">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
+                                                    <span class="text-sm font-black ${scoreColorClass}">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
                                                     <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Grade: ${currentOverall.grade || 'N/A'}</span>
                                                     `
                                 }
@@ -6188,7 +6196,26 @@
             }, 600);
         };
 
-        window.openSubjectTrendModal = function () { openModal('subject-trend-modal'); };
+        window.openSubjectTrendModal = function () {
+            window.activeSingleSubjectTrend = null;
+            openModal('subject-trend-modal');
+            renderTrendCharts();
+            setTimeout(() => {
+                if (window.subjectTrendChart) {
+                    window.subjectTrendChart.resize();
+                }
+            }, 320);
+        };
+        window.openSingleSubjectTrendModal = function (subjectName) {
+            window.activeSingleSubjectTrend = subjectName;
+            openModal('subject-trend-modal');
+            renderTrendCharts();
+            setTimeout(() => {
+                if (window.subjectTrendChart) {
+                    window.subjectTrendChart.resize();
+                }
+            }, 320);
+        };
         window.openRevisionTrendModal = function () { openModal('revision-trend-modal'); };
         window.openYearlyActionsModal = function () { openModal('yearly-actions-modal'); };
 
@@ -6473,9 +6500,10 @@
             }, 320);
         };
 
-        window.openPaceTrendModal = function () {
+        window.openPaceTrendModal = function (goalId) {
+            window.activeTrendGoalId = goalId || null;
             openModal('pace-trend-modal');
-            window.renderPaceTrendChart(); // Initial render setup
+            window.renderPaceTrendChart(goalId); // Initial render setup
             // Critical Fix: Force the chart to recalculate its dimensions strictly AFTER the 300ms CSS transition completes.
             // This perfectly syncs the canvas to the newly visible layout dimensions, preventing squishing/blurring.
             setTimeout(() => {
@@ -6485,12 +6513,179 @@
             }, 320);
         };
 
-        window.renderPaceTrendChart = function () {
-            if (!window.latestPaceData) return;
+        window.renderPaceTrendChart = function (goalId) {
+            let paceData = null;
+            if (goalId && window.paceGoals) {
+                const goal = window.paceGoals.find(g => g.id === goalId);
+                if (goal) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const msPerDay = 1000 * 60 * 60 * 24;
+                    const subjectStats = window.lastSubjectStats || {};
+                    let total = 0;
+                    let completed = 0;
+
+                    if (goal.type === 'global') {
+                        let targetedSubjects = new Set();
+                        const isManual = goal.subjects || goal.secondaryPaces;
+                        if (isManual) {
+                            if (goal.subjects) goal.subjects.forEach(s => targetedSubjects.add(s));
+                            if (goal.secondaryPaces) {
+                                goal.secondaryPaces.forEach(pid => {
+                                    const g = window.paceGoals.find(x => x.id === pid);
+                                    if (g) {
+                                        if (g.type === 'bundle') {
+                                            if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                            if (g.programs) {
+                                                window.tracks.map(t => t.id).forEach(track => {
+                                                    if (syllabusStructure[track]) {
+                                                        syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                                    }
+                                                });
+                                            }
+                                        } else if (g.type === 'subject') {
+                                            targetedSubjects.add(g.target);
+                                        } else if (g.type === 'program') {
+                                            window.tracks.map(t => t.id).forEach(track => {
+                                                if (syllabusStructure[track]) {
+                                                    syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            window.paceGoals.forEach(g => {
+                                if (g.id === goal.id) return;
+                                if (!globalStartDate || !globalEndDate) return;
+                                const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                                const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
+                                gStart.setHours(0, 0, 0, 0);
+                                gEnd.setHours(23, 59, 59, 999);
+                                if (gEnd < globalStartDate || gStart > globalEndDate) return;
+                                if (g.type === 'bundle') {
+                                    if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                    if (g.programs) {
+                                        window.tracks.map(t => t.id).forEach(track => {
+                                            if (syllabusStructure[track]) {
+                                                syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                            }
+                                        });
+                                    }
+                                } else if (g.type === 'subject') {
+                                    targetedSubjects.add(g.target);
+                                } else if (g.type === 'program') {
+                                    window.tracks.map(t => t.id).forEach(track => {
+                                        if (syllabusStructure[track]) {
+                                            syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                        targetedSubjects.forEach(sub => {
+                            if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                        });
+                    } else if (goal.type === 'bundle') {
+                        if (goal.subjects) {
+                            goal.subjects.forEach(sub => {
+                                if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                            });
+                        } else if (goal.programs) {
+                            let programSubs = [];
+                            window.tracks.map(t => t.id).forEach(track => {
+                                if (syllabusStructure[track]) {
+                                    syllabusStructure[track].forEach(s => {
+                                        if (goal.programs.includes(s.program)) programSubs.push(s.subject);
+                                    });
+                                }
+                            });
+                            programSubs.forEach(sub => {
+                                if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                            });
+                        }
+                    } else if (goal.type === 'subject') {
+                        if (subjectStats[goal.target]) { total = subjectStats[goal.target].totalChapters; completed = subjectStats[goal.target].effectiveChapters; }
+                    } else if (goal.type === 'program') {
+                        const programSubs = [];
+                        window.tracks.map(t => t.id).forEach(track => {
+                            if (syllabusStructure[track]) {
+                                syllabusStructure[track].forEach(s => { if (s.program === goal.target) programSubs.push(s.subject); });
+                            }
+                        });
+                        programSubs.forEach(sub => { if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; } });
+                    }
+
+                    const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                    const targetDate = parseDateSafe(goal.deadline);
+                    startDate.setHours(0, 0, 0, 0); targetDate.setHours(23, 59, 59, 999);
+
+                    const remaining = Math.max(0, total - completed);
+                    const totalDays = Math.max(1, Math.ceil((targetDate - startDate) / msPerDay));
+                    const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+                    const daysRemaining = Math.max(0, Math.ceil((targetDate - today) / msPerDay));
+
+                    let reqPaceVal = 0;
+                    let curPaceVal = 0;
+
+                    if (total > 0) {
+                        if (today < startDate) {
+                            reqPaceVal = total / totalDays;
+                            curPaceVal = 0;
+                        } else if (today > targetDate) {
+                            reqPaceVal = remaining > 0 ? remaining : 0;
+                            curPaceVal = completed / daysElapsed;
+                        } else {
+                            reqPaceVal = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
+                            curPaceVal = completed / daysElapsed;
+                        }
+                    }
+
+                    let projectedDate = new Date(today);
+                    if (remaining <= 0) {
+                        projectedDate = new Date(today);
+                    } else if (curPaceVal > 0) {
+                        const daysToFinish = remaining / curPaceVal;
+                        projectedDate.setDate(today.getDate() + daysToFinish);
+                    } else {
+                        projectedDate = new Date(0);
+                    }
+
+                    const targetSubjects = window.getTargetedSubjectsForGoal(goal);
+
+                    paceData = {
+                        total: total,
+                        completed: completed,
+                        start: startDate,
+                        end: targetDate,
+                        today: today,
+                        reqPace: reqPaceVal,
+                        curPace: curPaceVal,
+                        projectedDate: projectedDate,
+                        subjects: Array.from(targetSubjects),
+                        title: goal.target + " Trend",
+                        description: "Burn-up comparison of Required vs Actual trajectories for " + goal.target + "."
+                    };
+                }
+            }
+
+            if (!paceData) {
+                if (!window.latestPaceData) return;
+                paceData = {
+                    ...window.latestPaceData,
+                    title: "Pace Trend Analysis",
+                    description: "Burn-up comparison of Required vs Actual trajectories."
+                };
+            }
+
             const ctx = document.getElementById('paceTrendCanvas');
             if (!ctx) return;
 
-            const { total, completed, start, end, today, reqPace, curPace, projectedDate, subjects } = window.latestPaceData;
+            const { total, completed, start, end, today, reqPace, curPace, projectedDate, subjects, title, description } = paceData;
+
+            safeSetText('ptm-title', title);
+            safeSetText('ptm-desc', description);
 
             safeSetText('ptm-req-pace', reqPace.toFixed(2));
             safeSetText('ptm-act-pace', curPace.toFixed(2));
@@ -9736,9 +9931,8 @@
                         </svg>
                     </div>
                     <div>
-                        <h2 class="text-base sm:text-xl md:text-3xl font-black text-white leading-tight">Subject Trends
-                        </h2>
-                        <p class="text-[9px] sm:text-[10px] md:text-sm text-slate-400 font-bold mt-0.5 tracking-wider">
+                        <h2 id="stm-title" class="text-base sm:text-xl md:text-3xl font-black text-white leading-tight">Subject Trends</h2>
+                        <p id="stm-desc" class="text-[9px] sm:text-[10px] md:text-sm text-slate-400 font-bold mt-0.5 tracking-wider">
                             Detailed month-by-month progression.</p>
                     </div>
                 </div>
@@ -9960,10 +10154,10 @@
                         </svg>
                     </div>
                     <div>
-                        <h2
+                        <h2 id="ptm-title"
                             class="text-base sm:text-xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">
                             Pace Trend Analysis</h2>
-                        <p class="text-[9px] sm:text-[10px] md:text-sm text-slate-500 font-bold mt-0.5 tracking-wide">
+                        <p id="ptm-desc" class="text-[9px] sm:text-[10px] md:text-sm text-slate-500 font-bold mt-0.5 tracking-wide">
                             Burn-up comparison of Required vs Actual trajectories.</p>
                     </div>
                 </div>
