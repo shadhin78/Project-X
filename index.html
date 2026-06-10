@@ -208,19 +208,7 @@
         window.formatCgpaMin2Dec = function (val) {
             let parsed = parseFloat(val);
             if (isNaN(parsed)) return '';
-
-            // Limit floating point inaccuracies by rounding to 4 decimals first
-            let rounded = Math.round(parsed * 10000) / 10000;
-            let str = rounded.toString();
-            const dotIdx = str.indexOf('.');
-            if (dotIdx === -1) {
-                return rounded.toFixed(2);
-            }
-            const decLen = str.length - dotIdx - 1;
-            if (decLen < 2) {
-                return rounded.toFixed(2);
-            }
-            return str;
+            return parsed.toFixed(2);
         };
 
         window.validateAndFormatCgpa = function (valStr) {
@@ -659,7 +647,10 @@
             if (Array.isArray(window.tracks)) {
                 window.tracks = window.tracks.map(t => {
                     if (typeof t === 'string') {
-                        return { id: t, name: t.toUpperCase() };
+                        return { id: t, name: t.toUpperCase(), priority: 3 };
+                    }
+                    if (t && typeof t === 'object' && t.priority === undefined) {
+                        t.priority = 3;
                     }
                     return t;
                 });
@@ -955,7 +946,18 @@
                     else window.subjectTimeLinks = {};
                     if (data.successResults) window.successResults = data.successResults;
                     else window.successResults = [];
-                    if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
+                    if (data.dashboardConfig) {
+                        window.dashboardConfig = data.dashboardConfig;
+                        if (!window.dashboardConfig.trendStartDate) {
+                            window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
+                        } else {
+                            const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                            if (!isNaN(trendStart.getTime())) {
+                                trendStart.setHours(0, 0, 0, 0);
+                                PLAN_START_DATE = trendStart;
+                            }
+                        }
+                    }
 
                     if (data.customSyllabus) {
                         syllabusStructure = data.customSyllabus;
@@ -1130,18 +1132,27 @@
             const globalGoal = window.paceGoals.find(g => g.type === 'global');
             let dateChanged = false;
 
+            if (window.dashboardConfig && window.dashboardConfig.trendStartDate) {
+                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                if (!isNaN(trendStart.getTime())) {
+                    trendStart.setHours(0, 0, 0, 0);
+                    const currentStart = new Date(PLAN_START_DATE.getTime());
+                    currentStart.setHours(0, 0, 0, 0);
+
+                    if (trendStart.getTime() !== currentStart.getTime()) {
+                        PLAN_START_DATE = new Date(trendStart.getTime());
+                        dateChanged = true;
+                    }
+                }
+            } else if (window.dashboardConfig) {
+                window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
+            }
+
             if (globalGoal) {
                 if (globalGoal.startDate) {
                     const newStart = parseDateSafe(globalGoal.startDate);
                     if (!isNaN(newStart.getTime())) {
                         newStart.setHours(0, 0, 0, 0);
-                        const currentStart = new Date(PLAN_START_DATE.getTime());
-                        currentStart.setHours(0, 0, 0, 0);
-
-                        if (newStart.getTime() !== currentStart.getTime()) {
-                            PLAN_START_DATE = new Date(newStart.getTime());
-                            dateChanged = true;
-                        }
                         globalStartDate = new Date(newStart.getTime());
                     }
                 }
@@ -1164,6 +1175,21 @@
             }
         }
 
+        window.updateTrendsStartDate = function (newDateStr) {
+            if (!newDateStr) return;
+            const parsed = new Date(newDateStr);
+            if (isNaN(parsed.getTime())) return showToast("Invalid Date selected.", "error");
+
+            parsed.setHours(0, 0, 0, 0);
+            PLAN_START_DATE = new Date(parsed.getTime());
+            if (window.dashboardConfig) {
+                window.dashboardConfig.trendStartDate = newDateStr;
+            }
+            rebuildTaskDates(true);
+            renderUI();
+            showToast("Start date updated!", "success");
+        };
+
         function renderUI() {
             const loader = document.getElementById('loading-message');
             if (loader) loader.classList.add('hidden');
@@ -1173,6 +1199,11 @@
             safeSetText('dash-top-tag', window.dashboardConfig.topTag);
             safeSetText('dash-main-title', window.dashboardConfig.mainTitle);
             safeSetText('dash-sub-title', window.dashboardConfig.subTitle);
+
+            const trendsStartDateInput = document.getElementById('trends-start-date');
+            if (trendsStartDateInput && window.dashboardConfig && window.dashboardConfig.trendStartDate) {
+                trendsStartDateInput.value = window.dashboardConfig.trendStartDate;
+            }
             document.title = `${window.dashboardConfig.topTag} - ${window.dashboardConfig.mainTitle}`;
 
             const tagInput = document.getElementById('edit-header-tag');
@@ -2390,7 +2421,9 @@
                 safeSetHtml('prog-comment', `<div class="flex items-start space-x-3 p-3.5 rounded-xl border ${progComment.bg} ${progComment.border} shadow-sm transition-all duration-300 hover:shadow-md"><span class="text-lg md:text-xl drop-shadow-sm">${progComment.icon}</span><p class="text-[10px] md:text-xs font-bold leading-relaxed mt-0.5 ${progComment.color}">${progComment.text}</p></div>`);
             }
 
-            renderSubjectProgress(subjectStats); renderCategoryProgress(subjectStats);
+            renderSubjectProgress(subjectStats);
+            renderSubjectNavigation();
+            renderCategoryProgress(subjectStats);
             window.renderPaceGoals(subjectStats);
 
             if (progressChart) { progressChart.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted]; progressChart.update(); }
@@ -2673,7 +2706,6 @@
         function renderSubjectProgress(subjectStats) {
             const container = document.getElementById('subject-progress-container');
             if (!container) return;
-            container.innerHTML = '';
 
             const colorPairs = [
                 { bg: "bg-gradient-to-r from-indigo-400 to-indigo-600", text: "text-indigo-500" }, { bg: "bg-gradient-to-r from-emerald-400 to-emerald-600", text: "text-emerald-500" },
@@ -2682,6 +2714,7 @@
             ];
 
             let pIdx = 0;
+            let html = '';
             window.tracks.map(t => t.id).forEach(track => {
                 if (window.customPrograms[track]) {
                     window.customPrograms[track].forEach(prog => {
@@ -2690,18 +2723,87 @@
                         if (subs.length === 0) return;
 
                         const cp = colorPairs[pIdx % colorPairs.length];
-                        container.innerHTML += `<h3 class="text-[9px] md:text-[10px] font-black text-slate-400 uppercase mt-5 mb-3 tracking-widest">${progName}</h3>`;
+
+                        html += `
+                        <div class="mb-5 bg-slate-50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-sm">
+                            <h3 class="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-3.5 tracking-widest border-b border-slate-100 dark:border-slate-800/60 pb-1.5">${progName} Program</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                        `;
 
                         subs.forEach(sub => {
                             const stats = subjectStats[sub.subject];
                             const perc = stats.totalChapters > 0 ? Math.min(100, (stats.effectiveChapters / stats.totalChapters) * 100) : 0;
 
-                            container.innerHTML += `<div class="mb-3.5 group"><div class="flex justify-between items-center text-[10px] md:text-[11px] font-black mb-1.5 transition-all group-hover:translate-x-1"><div class="flex items-center truncate pr-2"><span class="truncate text-slate-700 dark:text-slate-200">${sub.subject}</span><button onclick="window.openSingleSubjectTrendModal('${sub.subject.replace(/'/g, "\\'")}')" class="ml-2 p-0.5 text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 active:scale-90 transition-all shrink-0" title="View Subject Trend"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></button></div><div class="flex items-center shrink-0"><span class="ml-1.5">${Math.round(stats.effectiveChapters)}/${stats.totalChapters} <span class="${cp.text} ml-0.5">(${Math.round(perc)}%)</span></span></div></div><div class="w-full bg-slate-100 dark:bg-slate-700/50 h-2 md:h-2.5 rounded-full overflow-hidden shadow-inner border border-slate-200/40 dark:border-slate-600/30"><div class="${cp.bg} h-full rounded-full transition-all duration-700 ease-out shadow-sm" style="width: ${perc}%"></div></div></div>`;
+                            let cleanSubName = sub.subject;
+                            if (cleanSubName.startsWith(progName + ' - ')) cleanSubName = cleanSubName.replace(progName + ' - ', '');
+                            else if (cleanSubName.startsWith(progName + ' ')) cleanSubName = cleanSubName.replace(progName + ' ', '');
+
+                            html += `
+                            <div class="group flex flex-col justify-center">
+                                <div class="flex justify-between items-center text-[10px] md:text-[11px] font-black mb-1.5 transition-all group-hover:translate-x-1">
+                                    <div class="flex items-center truncate pr-2">
+                                        <span class="truncate text-slate-700 dark:text-slate-200" title="${sub.subject}">${cleanSubName}</span>
+                                        <button onclick="window.openSingleSubjectTrendModal('${sub.subject.replace(/'/g, "\\'")}')" class="ml-2 p-0.5 text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 active:scale-90 transition-all shrink-0" title="View Subject Trend">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div class="flex items-center shrink-0">
+                                        <span class="ml-1">${Math.round(stats.effectiveChapters)}/${stats.totalChapters} <span class="${cp.text} ml-0.5">(${Math.round(perc)}%)</span></span>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-700/50 h-1.5 rounded-full overflow-hidden shadow-inner border border-slate-200/40 dark:border-slate-600/30">
+                                    <div class="${cp.bg} h-full rounded-full transition-all duration-700 ease-out shadow-sm" style="width: ${perc}%"></div>
+                                </div>
+                            </div>
+                            `;
                         });
+                        html += `</div></div>`;
                         pIdx++;
                     });
                 }
             });
+            container.innerHTML = html;
+        }
+
+        function renderSubjectNavigation() {
+            const container = document.getElementById('subject-navigation-container');
+            if (!container) return;
+            let html = '';
+
+            const btnClass = (val) => {
+                const isActive = currentFilter === val;
+                return `active:scale-95 whitespace-nowrap px-4 py-2 md:px-5 md:py-2.5 rounded-full text-[11px] md:text-sm font-black transition-all duration-300 ${isActive ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border-transparent scale-105' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:shadow-md'}`;
+            };
+
+            window.tracks.forEach(trackObj => {
+                const track = trackObj.id;
+                if (window.customPrograms[track]) {
+                    window.customPrograms[track].forEach(prog => {
+                        const progName = prog.name || prog;
+                        const subs = (syllabusStructure[track] || []).filter(s => s.program === progName).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                        if (subs.length > 0) {
+                            html += `
+                            <div class="p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm w-full">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1 w-full">${progName} PROGRAM</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2 md:gap-3">
+                                    <button class="${btnClass(progName)}" onclick="window.setFilter('${progName.replace(/'/g, "\\'")}'); window.switchPage('global-filter');">[ ENTIRE ${progName} ]</button>
+                                    ${subs.map(s => {
+                                        let displaySub = s.subject;
+                                        if (displaySub.startsWith(s.program + ' - ')) displaySub = displaySub.replace(s.program + ' - ', '');
+                                        else if (displaySub.startsWith(s.program + ' ')) displaySub = displaySub.replace(s.program + ' ', '');
+                                        return `<button class="${btnClass(s.subject)}" onclick="window.setFilter('${s.subject.replace(/'/g, "\\'")}'); window.switchPage('global-filter');">${displaySub}</button>`;
+                                    }).join('')}
+                                </div>
+                            </div>`;
+                        }
+                    });
+                }
+            });
+            container.innerHTML = html;
         }
 
         function renderCategoryProgress(subjectStats) {
@@ -2783,10 +2885,12 @@
                 chartEnd.setFullYear(chartEnd.getFullYear() + 3);
                 chartEnd.setMonth(chartEnd.getMonth() - 1);
             } else {
-                chartStart = new Date(PLAN_START_DATE);
-                chartStart.setMonth(0);
-                chartStart.setDate(1);
-                chartEnd = new Date(todayObj);
+                chartStart = new Date(PLAN_START_DATE.getTime());
+                chartEnd = new Date(todayObj.getTime());
+                if (chartEnd < chartStart) {
+                    chartEnd = new Date(chartStart.getTime());
+                    chartEnd.setMonth(chartEnd.getMonth() + 1);
+                }
             }
 
             const sYear = chartStart.getFullYear();
@@ -6935,10 +7039,12 @@
                 chartEnd.setFullYear(chartEnd.getFullYear() + 3);
                 chartEnd.setMonth(chartEnd.getMonth() - 1);
             } else {
-                chartStart = new Date(PLAN_START_DATE);
-                chartStart.setMonth(0);
-                chartStart.setDate(1);
-                chartEnd = new Date(todayObj);
+                chartStart = new Date(PLAN_START_DATE.getTime());
+                chartEnd = new Date(todayObj.getTime());
+                if (chartEnd < chartStart) {
+                    chartEnd = new Date(chartStart.getTime());
+                    chartEnd.setMonth(chartEnd.getMonth() + 1);
+                }
             }
 
             const sYear = chartStart.getFullYear();
@@ -7583,7 +7689,8 @@
                     window.dashboardConfig = {
                         topTag: "",
                         mainTitle: "Study Dashboard",
-                        subTitle: ""
+                        subTitle: "",
+                        trendStartDate: new Date().toISOString().split('T')[0]
                     };
 
                     PLAN_START_DATE = new Date();
@@ -7932,32 +8039,52 @@
         };
 
         window.syncPriorityInputsFromDOM = function () {
-            // Programs: re-derive GLOBAL priority from the flat sorted list
+            // Tracks
+            if (window.tracks) {
+                window.tracks.forEach((t, idx) => {
+                    const select = document.getElementById(`priority-track-${t.id}`);
+                    if (select) {
+                        const val = parseInt(select.value);
+                        t.priority = isNaN(val) ? 3 : val;
+                    }
+                    t.order = idx;
+                });
+            }
+
+            // Programs
             const flatProgs = window.getAllPrograms();
             flatProgs.forEach((p, idx) => {
-                // p is a copy with _trackId, update the original in customPrograms
+                const select = document.getElementById(`priority-program-${p.id}`);
                 const orig = (window.customPrograms[p._trackId] || []).find(x => x.id === p.id);
                 if (orig) {
-                    orig.priority = idx + 1;
+                    if (select) {
+                        const val = parseInt(select.value);
+                        orig.priority = isNaN(val) ? 3 : val;
+                    }
                     orig.order = idx;
                 }
             });
 
-            // Subjects: re-derive GLOBAL priority from the flat sorted list
+            // Subjects
             const flatSubs = window.getAllSubjects();
             flatSubs.forEach((s, idx) => {
-                s.priority = idx + 1;
+                const select = document.getElementById(`priority-subject-${s.subject.replace(/[^a-zA-Z0-9]/g, '-')}`);
+                if (select) {
+                    const val = parseInt(select.value);
+                    s.priority = isNaN(val) ? 3 : val;
+                }
                 s.order = idx;
             });
 
             // Daily Action priorities — still use select dropdown
             if (window.customActions) {
-                window.customActions.forEach(a => {
+                window.customActions.forEach((a, idx) => {
                     const select = document.getElementById(`priority-action-${a.id}`);
                     if (select) {
                         const val = parseInt(select.value);
                         a.priority = isNaN(val) ? 3 : val;
                     }
+                    a.order = idx;
                 });
             }
         };
@@ -7968,9 +8095,26 @@
             const targetIndex = index + direction;
             if (targetIndex < 0 || targetIndex >= list.length) return;
 
-            const temp = list[index];
-            list[index] = list[targetIndex];
-            list[targetIndex] = temp;
+            window.syncPriorityInputsFromDOM();
+
+            const itemA = list[index];
+            const itemB = list[targetIndex];
+
+            // Swap priority and order
+            const tempPriority = itemA.priority;
+            itemA.priority = itemB.priority;
+            itemB.priority = tempPriority;
+
+            const tempOrder = itemA.order;
+            itemA.order = itemB.order;
+            itemB.order = tempOrder;
+
+            // Swap position in array
+            list[index] = itemB;
+            list[targetIndex] = itemA;
+
+            // Re-assign order
+            list.forEach((t, idx) => t.order = idx);
 
             saveToCloud();
             renderUI();
@@ -7979,6 +8123,8 @@
         };
 
         window.moveProgramGlobal = function (flatIndex, direction) {
+            window.syncPriorityInputsFromDOM();
+
             // Build a globally-sorted flat list of all programs across all tracks
             const flat = [];
             window.tracks.forEach(t => {
@@ -7996,21 +8142,32 @@
             const targetIndex = flatIndex + direction;
             if (targetIndex < 0 || targetIndex >= flat.length) return;
 
+            const itemA = flat[flatIndex].prog;
+            const itemB = flat[targetIndex].prog;
+
+            // Swap priority and order
+            const tempPriority = itemA.priority;
+            itemA.priority = itemB.priority;
+            itemB.priority = tempPriority;
+
+            const tempOrder = itemA.order;
+            itemA.order = itemB.order;
+            itemB.order = tempOrder;
+
             // Swap the two items in the flat list
             const temp = flat[flatIndex];
             flat[flatIndex] = flat[targetIndex];
             flat[targetIndex] = temp;
 
-            // Re-assign sequential global priorities based on new positions
+            // Re-assign order
             flat.forEach((item, idx) => {
-                item.prog.priority = idx + 1;
                 item.prog.order = idx;
             });
 
-            // Re-sort each track's local array by the updated priorities (for internal consistency)
+            // Re-sort each track's local array by the updated priorities & orders
             window.tracks.forEach(t => {
                 if (window.customPrograms[t.id]) {
-                    window.customPrograms[t.id].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+                    window.customPrograms[t.id].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || (a.order ?? 999) - (b.order ?? 999));
                 }
             });
             saveToCloud();
@@ -8140,9 +8297,18 @@
                                 <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Track &middot; Controls program card &amp; subject order</span>
                             </div>
                         </div>
-                        <div class="flex flex-col gap-0.5 shrink-0 ml-2">
-                            ${arrowUpBtn(`window.moveTrack(${idx}, -1)`, idx === 0)}
-                            ${arrowDownBtn(`window.moveTrack(${idx}, 1)`, idx === window.tracks.length - 1)}
+                        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                            <select id="priority-track-${t.id}"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-[9px] text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-indigo-500 max-w-[72px]">
+                                <option value="1" ${(t.priority ?? 3) === 1 ? 'selected' : ''}>Critical</option>
+                                <option value="2" ${(t.priority ?? 3) === 2 ? 'selected' : ''}>High</option>
+                                <option value="3" ${(t.priority ?? 3) === 3 ? 'selected' : ''}>Medium</option>
+                                <option value="4" ${(t.priority ?? 3) === 4 ? 'selected' : ''}>Low</option>
+                            </select>
+                            <div class="flex flex-col gap-0.5 shrink-0">
+                                ${arrowUpBtn(`window.moveTrack(${idx}, -1)`, idx === 0)}
+                                ${arrowDownBtn(`window.moveTrack(${idx}, 1)`, idx === window.tracks.length - 1)}
+                            </div>
                         </div>
                     </div>`;
                 });
@@ -8186,9 +8352,18 @@
                                 <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">${item.trackName}</span>
                             </div>
                         </div>
-                        <div class="flex flex-col gap-0.5 shrink-0 ml-2">
-                            ${arrowUpBtn(`window.moveProgramGlobal(${flatIdx}, -1)`, flatIdx === 0)}
-                            ${arrowDownBtn(`window.moveProgramGlobal(${flatIdx}, 1)`, flatIdx === flatProgList.length - 1)}
+                        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                            <select id="priority-program-${item.prog.id}"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-[9px] text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-violet-500 max-w-[72px]">
+                                <option value="1" ${(item.prog.priority ?? 3) === 1 ? 'selected' : ''}>Critical</option>
+                                <option value="2" ${(item.prog.priority ?? 3) === 2 ? 'selected' : ''}>High</option>
+                                <option value="3" ${(item.prog.priority ?? 3) === 3 ? 'selected' : ''}>Medium</option>
+                                <option value="4" ${(item.prog.priority ?? 3) === 4 ? 'selected' : ''}>Low</option>
+                            </select>
+                            <div class="flex flex-col gap-0.5 shrink-0">
+                                ${arrowUpBtn(`window.moveProgramGlobal(${flatIdx}, -1)`, flatIdx === 0)}
+                                ${arrowDownBtn(`window.moveProgramGlobal(${flatIdx}, 1)`, flatIdx === flatProgList.length - 1)}
+                            </div>
                         </div>
                     </div>`;
                 });
@@ -8226,9 +8401,18 @@
                                 <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">${s.program}${trackName ? ' · ' + trackName : ''}</span>
                             </div>
                         </div>
-                        <div class="flex flex-col gap-0.5 shrink-0 ml-2">
-                            ${arrowUpBtn(`window.moveSubjectGlobal(${idx}, -1)`, idx === 0)}
-                            ${arrowDownBtn(`window.moveSubjectGlobal(${idx}, 1)`, idx === allSubs.length - 1)}
+                        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                            <select id="priority-subject-${s.subject.replace(/[^a-zA-Z0-9]/g, '-')}"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-[9px] text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 max-w-[72px]">
+                                <option value="1" ${(s.priority ?? 3) === 1 ? 'selected' : ''}>Critical</option>
+                                <option value="2" ${(s.priority ?? 3) === 2 ? 'selected' : ''}>High</option>
+                                <option value="3" ${(s.priority ?? 3) === 3 ? 'selected' : ''}>Medium</option>
+                                <option value="4" ${(s.priority ?? 3) === 4 ? 'selected' : ''}>Low</option>
+                            </select>
+                            <div class="flex flex-col gap-0.5 shrink-0">
+                                ${arrowUpBtn(`window.moveSubjectGlobal(${idx}, -1)`, idx === 0)}
+                                ${arrowDownBtn(`window.moveSubjectGlobal(${idx}, 1)`, idx === allSubs.length - 1)}
+                            </div>
                         </div>
                     </div>`;
                 });
@@ -8866,7 +9050,16 @@
                         if (data.revisionData) window.revisionData = data.revisionData;
                         if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
                         if (data.successResults) window.successResults = data.successResults;
-                        if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
+                        if (data.dashboardConfig) {
+                            window.dashboardConfig = data.dashboardConfig;
+                            if (window.dashboardConfig.trendStartDate) {
+                                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                                if (!isNaN(trendStart.getTime())) {
+                                    trendStart.setHours(0, 0, 0, 0);
+                                    PLAN_START_DATE = trendStart;
+                                }
+                            }
+                        }
                         if (data.customSyllabus) {
                             syllabusStructure = data.customSyllabus;
                             recalculateTotals();
@@ -9025,9 +9218,16 @@
             <!-- Trend Charts -->
             <div class="mb-8 md:mb-10 pt-2 scroll-mt-24" id="trend-charts-section">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                <h2
-                    class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                    Performance Trends</h2>
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2
+                        class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                        Performance Trends</h2>
+                    <div class="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Start:</span>
+                        <input type="date" id="trends-start-date" onchange="window.updateTrendsStartDate(this.value)"
+                            class="bg-transparent border-0 text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-0 p-0 cursor-pointer">
+                    </div>
+                </div>
                 <div
                     class="flex bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-slate-600/50">
                     <button onclick="window.setTrendFilter('1Y')" id="tf-1Y"
@@ -9244,14 +9444,22 @@
         </div>
 
         <!-- Page: Subjects -->
-        <div id="page-subjects" class="hidden">
+        <div id="page-subjects" class="hidden space-y-6">
             <aside id="sidebar-progress-section"
                 class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm space-y-4 md:space-y-6 scroll-mt-24 md:scroll-mt-32 w-full">
                 <h2
                     class="text-xs md:text-sm font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-700 pb-2 md:pb-3">
                     Subject Progress</h2>
-                <div id="subject-progress-container" class="space-y-2"></div>
+                <div id="subject-progress-container"></div>
             </aside>
+
+            <div id="subject-navigation-section"
+                class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm space-y-4 md:space-y-6 w-full">
+                <h2
+                    class="text-xs md:text-sm font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-700 pb-2 md:pb-3">
+                    Filter Tasks by Subject</h2>
+                <div id="subject-navigation-container" class="space-y-4"></div>
+            </div>
         </div>
 
         <!-- Page: Global Filter -->
