@@ -66,7 +66,11 @@
         window.dashboardConfig = {
             topTag: "",
             mainTitle: "Study Dashboard",
-            subTitle: ""
+            subTitle: "",
+            trendStartDate: "",
+            trendEndDate: "",
+            showDaysRemaining: false,
+            independentPaces: { tracks: {}, programs: {} }
         };
 
         // Pass/Freeze & Revision System State
@@ -742,6 +746,9 @@
                     if (a.order === undefined) a.order = idx;
                 });
             }
+
+            window.ensureConfigDefaults();
+            window.normalizePriorities();
         };
 
         window.getAllSubjects = function () {
@@ -778,6 +785,77 @@
                 const oB = b.order !== undefined ? b.order : 999;
                 return oA - oB;
             });
+        };
+
+        window.ensureConfigDefaults = function () {
+            if (!window.dashboardConfig) {
+                window.dashboardConfig = {};
+            }
+            if (!window.dashboardConfig.trendStartDate) {
+                window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
+            }
+            if (window.dashboardConfig.trendEndDate === undefined) {
+                window.dashboardConfig.trendEndDate = "";
+            }
+            if (window.dashboardConfig.showDaysRemaining === undefined) {
+                window.dashboardConfig.showDaysRemaining = false;
+            }
+            if (!window.dashboardConfig.independentPaces) {
+                window.dashboardConfig.independentPaces = { tracks: {}, programs: {} };
+            }
+            if (!window.dashboardConfig.independentPaces.tracks) {
+                window.dashboardConfig.independentPaces.tracks = {};
+            }
+            if (!window.dashboardConfig.independentPaces.programs) {
+                window.dashboardConfig.independentPaces.programs = {};
+            }
+        };
+
+        window.normalizePriorities = function () {
+            // 1. Tracks
+            if (Array.isArray(window.tracks)) {
+                const priorities = window.tracks.map(t => t.priority);
+                const hasDuplicates = new Set(priorities).size !== priorities.length;
+                const hasInvalid = priorities.some(p => typeof p !== 'number' || p < 1 || p > window.tracks.length);
+                if (hasDuplicates || hasInvalid) {
+                    window.tracks.forEach((t, idx) => {
+                        t.priority = idx + 1;
+                        t.order = idx;
+                    });
+                }
+            }
+
+            // 2. Programs
+            const flatProgs = [];
+            window.tracks.forEach(trackObj => {
+                if (window.customPrograms[trackObj.id]) {
+                    window.customPrograms[trackObj.id].forEach(p => {
+                        flatProgs.push(p);
+                    });
+                }
+            });
+            const progPriorities = flatProgs.map(p => p.priority);
+            const progsHasDuplicates = new Set(progPriorities).size !== progPriorities.length;
+            const progsHasInvalid = progPriorities.some(p => typeof p !== 'number' || p < 1 || p > flatProgs.length);
+            if (progsHasDuplicates || progsHasInvalid) {
+                flatProgs.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || (a.order ?? 999) - (b.order ?? 999));
+                flatProgs.forEach((p, idx) => {
+                    p.priority = idx + 1;
+                    p.order = idx;
+                });
+            }
+
+            // 3. Subjects
+            const flatSubs = window.getAllSubjects();
+            const subPriorities = flatSubs.map(s => s.priority);
+            const subsHasDuplicates = new Set(subPriorities).size !== subPriorities.length;
+            const subsHasInvalid = subPriorities.some(p => typeof p !== 'number' || p < 1 || p > flatSubs.length);
+            if (subsHasDuplicates || subsHasInvalid) {
+                flatSubs.forEach((s, idx) => {
+                    s.priority = idx + 1;
+                    s.order = idx;
+                });
+            }
         };
 
         window.populateTrackDropdowns = function () {
@@ -1190,6 +1268,243 @@
             showToast("Start date updated!", "success");
         };
 
+        window.openTrendsSettingsModal = function () {
+            window.ensureConfigDefaults();
+
+            document.getElementById('settings-trend-start-date').value = window.dashboardConfig.trendStartDate || '';
+            document.getElementById('settings-trend-end-date').value = window.dashboardConfig.trendEndDate || '';
+            document.getElementById('settings-show-days-remaining').checked = window.dashboardConfig.showDaysRemaining || false;
+
+            // Tracks Paces Container
+            const trackContainer = document.getElementById('settings-track-paces-container');
+            if (trackContainer) {
+                let trackHtml = '';
+                window.tracks.forEach(track => {
+                    const val = window.dashboardConfig.independentPaces.tracks[track.id] || '';
+                    trackHtml += `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${track.name}</span>
+                        <input type="number" step="0.01" min="0" id="settings-pace-track-${track.id}" value="${val}" placeholder="e.g. 1.0"
+                            class="w-24 p-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-right text-xs font-black focus:ring-1 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white">
+                    </div>`;
+                });
+                trackContainer.innerHTML = trackHtml || '<span class="text-xs text-slate-400">No tracks found.</span>';
+            }
+
+            // Programs Paces Container
+            const progContainer = document.getElementById('settings-program-paces-container');
+            if (progContainer) {
+                let progHtml = '';
+                const uniqueProgs = Array.from(new Set(window.getAllPrograms().map(p => p.name || p)));
+                uniqueProgs.forEach(progName => {
+                    const safeId = progName.replace(/[^a-zA-Z0-9]/g, '_');
+                    const val = window.dashboardConfig.independentPaces.programs[progName] || '';
+                    progHtml += `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${progName}</span>
+                        <input type="number" step="0.01" min="0" id="settings-pace-prog-${safeId}" value="${val}" placeholder="e.g. 1.0"
+                            class="w-24 p-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-right text-xs font-black focus:ring-1 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white">
+                    </div>`;
+                });
+                progContainer.innerHTML = progHtml || '<span class="text-xs text-slate-400">No programs found.</span>';
+            }
+
+            openModal('edit-trends-pace-modal');
+        };
+
+        window.saveTrendsSettings = function () {
+            const startStr = document.getElementById('settings-trend-start-date').value;
+            const endStr = document.getElementById('settings-trend-end-date').value;
+            const showDays = document.getElementById('settings-show-days-remaining').checked;
+
+            let dateChanged = false;
+            if (startStr && startStr !== window.dashboardConfig.trendStartDate) {
+                const parsed = new Date(startStr);
+                if (!isNaN(parsed.getTime())) {
+                    parsed.setHours(0, 0, 0, 0);
+                    PLAN_START_DATE = new Date(parsed.getTime());
+                    window.dashboardConfig.trendStartDate = startStr;
+                    dateChanged = true;
+                }
+            }
+            window.dashboardConfig.trendEndDate = endStr;
+            window.dashboardConfig.showDaysRemaining = showDays;
+
+            // Read Track paces
+            window.tracks.forEach(track => {
+                const valInput = document.getElementById(`settings-pace-track-${track.id}`);
+                if (valInput) {
+                    const val = parseFloat(valInput.value);
+                    window.dashboardConfig.independentPaces.tracks[track.id] = isNaN(val) ? 0 : val;
+                }
+            });
+
+            // Read Program paces
+            const uniqueProgs = Array.from(new Set(window.getAllPrograms().map(p => p.name || p)));
+            uniqueProgs.forEach(progName => {
+                const safeId = progName.replace(/[^a-zA-Z0-9]/g, '_');
+                const valInput = document.getElementById(`settings-pace-prog-${safeId}`);
+                if (valInput) {
+                    const val = parseFloat(valInput.value);
+                    window.dashboardConfig.independentPaces.programs[progName] = isNaN(val) ? 0 : val;
+                }
+            });
+
+            if (dateChanged) {
+                rebuildTaskDates(true);
+            } else {
+                saveToCloud();
+            }
+
+            renderUI();
+            closeModal('edit-trends-pace-modal');
+            showToast("Trends & pace settings saved!", "success");
+        };
+
+        function calculateIndependentEstFinish() {
+            let totalTrackDays = 0;
+            let maxTrackDays = 0;
+            let totalProgDays = 0;
+            let maxProgDays = 0;
+
+            const subjectStats = window.lastSubjectStats || {};
+
+            // 1. Calculate Track Est Days
+            window.tracks.forEach(track => {
+                let trackRemaining = 0;
+                if (syllabusStructure[track.id]) {
+                    syllabusStructure[track.id].forEach(s => {
+                        const stats = subjectStats[s.subject];
+                        if (stats) {
+                            const rem = Math.max(0, stats.totalChapters - stats.effectiveChapters);
+                            trackRemaining += rem;
+                        }
+                    });
+                }
+                const paceVal = parseFloat(window.dashboardConfig.independentPaces?.tracks?.[track.id]) || 0;
+                if (paceVal > 0) {
+                    const days = trackRemaining / paceVal;
+                    if (days > maxTrackDays) maxTrackDays = days;
+                    totalTrackDays += days;
+                }
+            });
+
+            // 2. Calculate Program Est Days
+            const allPrograms = window.getAllPrograms();
+            const uniqueProgs = Array.from(new Set(allPrograms.map(p => p.name || p)));
+            uniqueProgs.forEach(progName => {
+                let progRemaining = 0;
+                window.tracks.forEach(track => {
+                    if (syllabusStructure[track.id]) {
+                        syllabusStructure[track.id].forEach(s => {
+                            if ((s.program || "") === progName) {
+                                const stats = subjectStats[s.subject];
+                                if (stats) {
+                                    const rem = Math.max(0, stats.totalChapters - stats.effectiveChapters);
+                                    progRemaining += rem;
+                                }
+                            }
+                        });
+                    }
+                });
+                const paceVal = parseFloat(window.dashboardConfig.independentPaces?.programs?.[progName]) || 0;
+                if (paceVal > 0) {
+                    const days = progRemaining / paceVal;
+                    if (days > maxProgDays) maxProgDays = days;
+                    totalProgDays += days;
+                }
+            });
+
+            // Return formatting
+            let trackDaysStr = maxTrackDays > 0 ? `${Math.ceil(maxTrackDays)}d` : '--';
+            let progDaysStr = maxProgDays > 0 ? `${Math.ceil(maxProgDays)}d` : '--';
+
+            // Check current filter
+            if (currentFilter !== 'All') {
+                // If filter is a Track
+                const selectedTrack = window.tracks.find(t => t.name === currentFilter || t.id === currentFilter);
+                if (selectedTrack) {
+                    let trackRemaining = 0;
+                    if (syllabusStructure[selectedTrack.id]) {
+                        syllabusStructure[selectedTrack.id].forEach(s => {
+                            const stats = subjectStats[s.subject];
+                            if (stats) {
+                                trackRemaining += Math.max(0, stats.totalChapters - stats.effectiveChapters);
+                            }
+                        });
+                    }
+                    const paceVal = parseFloat(window.dashboardConfig.independentPaces?.tracks?.[selectedTrack.id]) || 0;
+                    if (paceVal > 0) {
+                        return `${Math.ceil(trackRemaining / paceVal)} Days (Track)`;
+                    }
+                }
+
+                // If filter is a Program
+                const isProgram = uniqueProgs.includes(currentFilter);
+                if (isProgram) {
+                    let progRemaining = 0;
+                    window.tracks.forEach(track => {
+                        if (syllabusStructure[track.id]) {
+                            syllabusStructure[track.id].forEach(s => {
+                                if (s.program === currentFilter) {
+                                    const stats = subjectStats[s.subject];
+                                    if (stats) {
+                                        progRemaining += Math.max(0, stats.totalChapters - stats.effectiveChapters);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    const paceVal = parseFloat(window.dashboardConfig.independentPaces?.programs?.[currentFilter]) || 0;
+                    if (paceVal > 0) {
+                        return `${Math.ceil(progRemaining / paceVal)} Days (Program)`;
+                    }
+                }
+            }
+
+            if (maxTrackDays === 0 && maxProgDays === 0) return '--';
+            return `Track: ${trackDaysStr} | Prog: ${progDaysStr}`;
+        }
+
+        window.updateTrendsBar = function () {
+            const barStartVal = document.getElementById('trends-bar-start-date');
+            const barPassedVal = document.getElementById('trends-bar-days-passed');
+            const barRemainVal = document.getElementById('trends-bar-days-remaining');
+            const barRemainContainer = document.getElementById('trends-bar-days-remain-container');
+            const barEstFinishVal = document.getElementById('trends-bar-est-finish');
+
+            if (barStartVal) {
+                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate || "");
+                const startDateStr = !isNaN(trendStart.getTime()) ? trendStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
+                barStartVal.textContent = startDateStr;
+
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                if (!isNaN(trendStart.getTime())) {
+                    const daysPassed = Math.max(0, Math.floor((today - trendStart) / (1000 * 60 * 60 * 24))) + 1;
+                    barPassedVal.textContent = `${daysPassed} Days`;
+                } else {
+                    barPassedVal.textContent = '--';
+                }
+
+                if (window.dashboardConfig.showDaysRemaining && window.dashboardConfig.trendEndDate) {
+                    const trendEnd = parseDateSafe(window.dashboardConfig.trendEndDate);
+                    if (!isNaN(trendEnd.getTime())) {
+                        const diff = trendEnd - today;
+                        const daysRemain = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                        barRemainVal.textContent = `${daysRemain} Days`;
+                        barRemainContainer.classList.remove('hidden');
+                    } else {
+                        barRemainContainer.classList.add('hidden');
+                    }
+                } else {
+                    barRemainContainer.classList.add('hidden');
+                }
+
+                // Est Finish time [Days]
+                barEstFinishVal.textContent = calculateIndependentEstFinish();
+            }
+        };
+
         function renderUI() {
             const loader = document.getElementById('loading-message');
             if (loader) loader.classList.add('hidden');
@@ -1228,6 +1543,7 @@
             renderTaskList();
             renderChart();
             updateMetrics();
+            window.updateTrendsBar();
             renderDailyTracker();
             renderDailyLogs();
             renderTrendCharts();
@@ -6023,8 +6339,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -6054,8 +6370,8 @@
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -9222,11 +9538,6 @@
                     <h2
                         class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
                         Performance Trends</h2>
-                    <div class="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl">
-                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Start:</span>
-                        <input type="date" id="trends-start-date" onchange="window.updateTrendsStartDate(this.value)"
-                            class="bg-transparent border-0 text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-0 p-0 cursor-pointer">
-                    </div>
                 </div>
                 <div
                     class="flex bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-slate-600/50">
@@ -9240,6 +9551,71 @@
                         class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all bg-blue-600 text-white shadow">Life
                         Time</button>
                 </div>
+            </div>
+
+            <!-- Trends Performance Status Bar -->
+            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm mb-6">
+                <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+                    <!-- Start Date Info -->
+                    <div class="flex items-center space-x-2.5">
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="block text-[8px] sm:text-[9px] uppercase font-black text-slate-400 tracking-wider">Start Date</span>
+                            <span id="trends-bar-start-date" class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Days Passed Info -->
+                    <div class="flex items-center space-x-2.5">
+                        <div class="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="block text-[8px] sm:text-[9px] uppercase font-black text-slate-400 tracking-wider">Days Passed</span>
+                            <span id="trends-bar-days-passed" class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Days Remaining (Optional) -->
+                    <div id="trends-bar-days-remain-container" class="flex items-center space-x-2.5 hidden">
+                        <div class="p-2 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="block text-[8px] sm:text-[9px] uppercase font-black text-slate-400 tracking-wider">Days Remaining</span>
+                            <span id="trends-bar-days-remaining" class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Est Finish Time [Days] -->
+                    <div class="flex items-center space-x-2.5">
+                        <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="block text-[8px] sm:text-[9px] uppercase font-black text-slate-400 tracking-wider">Est. Finish (Days)</span>
+                            <span id="trends-bar-est-finish" class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Settings Button -->
+                <button onclick="window.openTrendsSettingsModal()" class="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                    <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                    </svg>
+                    <span>Edit Settings</span>
+                </button>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
                 <div
@@ -9985,6 +10361,92 @@
                         class="text-slate-500 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors active:scale-95">Cancel</button>
                     <button onclick="window.saveTaskEdit()"
                         class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-2.5 px-6 rounded-lg transition-colors shadow-md active:scale-95">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Trends & Pace Settings Modal -->
+    <div id="edit-trends-pace-modal"
+        class="fixed inset-0 z-50 hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+        <div id="etpm-backdrop"
+            class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+            onclick="closeModal('edit-trends-pace-modal')"></div>
+        <div id="etpm-content"
+            class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col max-h-[90vh]">
+            <div
+                class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black">Trends &amp; Pace Settings</h2>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Customize dates &amp; target speeds</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('edit-trends-pace-modal')"
+                    class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+
+            <div class="flex flex-col gap-4 mb-6 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                <!-- Date Settings Section -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Start Date</label>
+                        <input type="date" id="settings-trend-start-date"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-bold w-full">
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">End Date (Optional)</label>
+                        <input type="date" id="settings-trend-end-date"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-bold w-full">
+                    </div>
+                </div>
+
+                <!-- Show Days Remaining Toggle -->
+                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div class="flex flex-col">
+                        <span class="text-xs font-black text-slate-800 dark:text-slate-200">Show Days Remaining</span>
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Display remaining days until end date</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="settings-show-days-remaining" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+
+                <!-- Independent Pace: Tracks -->
+                <div class="flex flex-col gap-2 mt-2">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">Independent Track Paces (Ch/Day)</h3>
+                    <div id="settings-track-paces-container" class="flex flex-col gap-2">
+                        <!-- Populated Dynamically -->
+                    </div>
+                </div>
+
+                <!-- Independent Pace: Programs -->
+                <div class="flex flex-col gap-2 mt-2">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">Independent Program Paces (Ch/Day)</h3>
+                    <div id="settings-program-paces-container" class="flex flex-col gap-2">
+                        <!-- Populated Dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end items-center mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                <div class="flex gap-2">
+                    <button onclick="closeModal('edit-trends-pace-modal')"
+                        class="text-slate-500 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors active:scale-95">Cancel</button>
+                    <button onclick="window.saveTrendsSettings()"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest py-2.5 px-6 rounded-lg transition-colors shadow-md active:scale-95">Save Settings</button>
                 </div>
             </div>
         </div>
