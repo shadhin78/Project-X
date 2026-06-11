@@ -139,6 +139,15 @@
             return color;
         }
 
+        window.getProgramColor = function(pName) {
+            const allProgs = window.getAllPrograms().map(p => p.name || p);
+            const idx = allProgs.indexOf(pName);
+            if (idx !== -1) {
+                return dynamicLineColors[idx % dynamicLineColors.length];
+            }
+            return '#6366f1';
+        };
+
         const dynamicLineColors = ['#6366f1', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#0ea5e9', '#ec4899', '#14b8a6'];
 
         let isInitialLoad = true;
@@ -3739,9 +3748,10 @@
             const chartOptions = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', bodyColor: '#cbd5e1', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 12, cornerRadius: 8, usePointStyle: true, boxPadding: 6, callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y + '%' } } }, scales: { y: { min: 0, max: 100, ticks: { font: { size: 9, weight: 'bold' }, callback: v => v + '%' }, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false } }, x: { ticks: { font: { size: 9, weight: 'bold' } }, grid: { display: false, drawBorder: false } } } };
 
             if (ctx1) {
-                let pDatasets = []; let dIdx = 0;
+                let pDatasets = [];
                 Object.keys(progCum).forEach(p => {
-                    pDatasets.push({ label: p, data: progCum[p], borderColor: dynamicLineColors[dIdx % dynamicLineColors.length], backgroundColor: dynamicLineColors[dIdx % dynamicLineColors.length] + '25', tension: 0.4, borderWidth: 3, pointBackgroundColor: dynamicLineColors[dIdx % dynamicLineColors.length], pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.prog[p] }); dIdx++;
+                    const color = window.getProgramColor(p);
+                    pDatasets.push({ label: p, data: progCum[p], borderColor: color, backgroundColor: color + '25', tension: 0.4, borderWidth: 3, pointBackgroundColor: color, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.prog[p] });
                 });
                 if (window.mainChartPrograms) {
                     window.mainChartPrograms.data.labels = months;
@@ -3753,6 +3763,85 @@
             }
 
             if (ctx2) {
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const currentMonthName = monthNames[todayObj.getMonth()];
+                safeSetText('daily-actions-month-title', `Daily Actions (${currentMonthName})`);
+
+                const msgBar = document.getElementById('daily-actions-msg-bar');
+                if (msgBar) {
+                    let elapsedDays = todayObj.getDate();
+                    let totalPossible = window.customActions.length * elapsedDays;
+                    let completedCount = 0;
+                    
+                    tasks.forEach(t => {
+                        const taskDate = getTaskDate(t);
+                        if (taskDate.getFullYear() === todayObj.getFullYear() && taskDate.getMonth() === todayObj.getMonth()) {
+                            window.customActions.forEach(a => {
+                                if (t[a.id]) completedCount++;
+                            });
+                        }
+                    });
+                    
+                    let avgPct = totalPossible > 0 ? Math.round((completedCount / totalPossible) * 100) : 0;
+                    
+                    // Streak calculation
+                    let streak = 0;
+                    let checkDate = new Date();
+                    checkDate.setHours(0, 0, 0, 0);
+                    
+                    const tTodayStr = formatDate(checkDate);
+                    const tTodayObj = tasks.find(t => t.date === tTodayStr);
+                    let todayHasAction = false;
+                    window.customActions.forEach(a => { if (tTodayObj && tTodayObj[a.id]) todayHasAction = true; });
+                    
+                    if (!todayHasAction) {
+                        let yesterday = new Date(checkDate.getTime() - 24 * 60 * 60 * 1000);
+                        const yestStr = formatDate(yesterday);
+                        const yestTaskObj = tasks.find(t => t.date === yestStr);
+                        let yestHasAction = false;
+                        window.customActions.forEach(a => { if (yestTaskObj && yestTaskObj[a.id]) yestHasAction = true; });
+                        if (yestHasAction) {
+                            checkDate = yesterday;
+                        }
+                    }
+                    
+                    while (true) {
+                        const dStr = formatDate(checkDate);
+                        const tObj = tasks.find(t => t.date === dStr);
+                        let hasAction = false;
+                        window.customActions.forEach(a => { if (tObj && tObj[a.id]) hasAction = true; });
+                        if (hasAction) {
+                            streak++;
+                            checkDate.setDate(checkDate.getDate() - 1);
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    let motMsg = "Start your streak today! Every small daily habit builds your long-term success.";
+                    if (streak >= 7) {
+                        motMsg = `🔥 Insane ${streak}-day streak! You are virtually unstoppable. Keep it up!`;
+                    } else if (streak >= 3) {
+                        motMsg = `⚡ Strong ${streak}-day streak active! Your momentum is growing. Finish strong!`;
+                    } else if (avgPct >= 80) {
+                        motMsg = "🚀 Outstanding consistency this month! Your dedication is building massive leverage.";
+                    } else if (avgPct >= 50) {
+                        motMsg = "💪 Good consistency. Keep tracking daily and watch your habits transform your score.";
+                    }
+                    
+                    msgBar.innerHTML = `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20 text-orange-850 dark:text-orange-350 gap-3 shadow-sm transition-all duration-300 hover:shadow-md">
+                        <div class="flex items-center space-x-2.5 min-w-0">
+                            <span class="text-base shrink-0">🎯</span>
+                            <p class="text-[10px] md:text-xs font-bold leading-normal truncate">${motMsg}</p>
+                        </div>
+                        <div class="flex items-center space-x-3 shrink-0 text-[10px] md:text-xs font-black uppercase tracking-wider">
+                            <span class="bg-orange-100 dark:bg-orange-900/60 px-2 py-1 rounded border border-orange-200/55 dark:border-orange-800">Avg: ${avgPct}%</span>
+                            <span class="bg-orange-100 dark:bg-orange-900/60 px-2 py-1 rounded border border-orange-200/55 dark:border-orange-800">Streak: ${streak} Days</span>
+                        </div>
+                    </div>`;
+                }
+
                 const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
                 let mDatasets = sortedActions.map(a => ({
                     label: a.title, data: actDaily[a.id], borderColor: twColors[a.color].hex, backgroundColor: twColors[a.color].hex + '25', tension: 0.4, borderWidth: 3, pointBackgroundColor: twColors[a.color].hex, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.monthly[a.id]
@@ -3916,8 +4005,7 @@
                 const sortedAllProgs = window.getAllPrograms();
                 pLeg.innerHTML = sortedAllProgs.map(pObj => {
                     const p = pObj.name || pObj;
-                    const html = getLegend('prog', p, dynamicLineColors[pIdx % dynamicLineColors.length], p, p);
-                    pIdx++;
+                    const html = getLegend('prog', p, window.getProgramColor(p), p, p);
                     return html;
                 }).join('');
             }
@@ -6744,8 +6832,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -6768,6 +6856,7 @@
                 if (modalId === 'analytics-modal' && masterLineChart) masterLineChart.resize();
                 if (modalId === 'global-history-modal' && window.globalHistoryChartInstance) window.globalHistoryChartInstance.resize();
                 if (modalId === 'daily-actions-db-modal' && window.dadbTrendChartInstance) window.dadbTrendChartInstance.resize();
+                if (modalId === 'weekly-targets-db-modal' && window.wtdbMixedChartInstance) window.wtdbMixedChartInstance.resize();
                 if (modalId === 'program-trend-modal' && window.programTrendChartInstance) window.programTrendChartInstance.resize();
                 if (modalId === 'program-trend-modal' && window.subjectWiseChartInstance) window.subjectWiseChartInstance.resize();
                 if (modalId === 'pace-candle-modal' && window.paceCandleChartInstance) window.paceCandleChartInstance.resize();
@@ -6775,8 +6864,8 @@
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -9037,6 +9126,474 @@
             }
         };
 
+        // --- Weekly Targets Database Modal Controls & Logic ---
+        window.openWeeklyTargetsDatabase = function () {
+            const modal = document.getElementById('weekly-targets-db-modal');
+            if (!modal) return;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                const backdrop = document.getElementById('wtdb-backdrop');
+                const content = document.getElementById('wtdb-content');
+                if (backdrop) backdrop.classList.replace('opacity-0', 'opacity-100');
+                if (content) {
+                    content.classList.replace('scale-95', 'scale-100');
+                    content.classList.replace('opacity-0', 'opacity-100');
+                    content.classList.replace('translate-y-4', 'translate-y-0');
+                }
+            }, 10);
+
+            window.switchWtdbTab('list');
+            window.populateWtdbFilters();
+            window.renderWtdbList();
+        };
+
+        window.switchWtdbTab = function (tab) {
+            const listBtn = document.getElementById('wtdb-tab-btn-list');
+            const monthBtn = document.getElementById('wtdb-tab-btn-month');
+            const listContent = document.getElementById('wtdb-tab-content-list');
+            const monthContent = document.getElementById('wtdb-tab-content-month');
+
+            if (tab === 'list') {
+                listBtn.className = "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-blue-600 text-white shadow-md whitespace-nowrap";
+                monthBtn.className = "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap";
+                listContent.classList.remove('hidden');
+                monthContent.classList.add('hidden');
+                window.renderWtdbList();
+            } else {
+                monthBtn.className = "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-blue-600 text-white shadow-md whitespace-nowrap";
+                listBtn.className = "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap";
+                listContent.classList.add('hidden');
+                monthContent.classList.remove('hidden');
+                window.renderWtdbMonthView();
+            }
+        };
+
+        window.populateWtdbFilters = function () {
+            const weekFilter = document.getElementById('wtdb-filter-week');
+            const progFilter = document.getElementById('wtdb-filter-prog');
+            const subFilter = document.getElementById('wtdb-filter-sub');
+            const addProgSelect = document.getElementById('wtdb-add-prog');
+
+            if (!weekFilter || !progFilter || !subFilter || !addProgSelect) return;
+
+            const currentRange = window.getWeeklyTargetRange();
+            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+            
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+            const allWeeksSet = new Set(Object.keys(window.weeklyTargetsDatabase));
+            allWeeksSet.add(currentWeekKey);
+            const allWeeks = Array.from(allWeeksSet).sort((a, b) => {
+                const parseStart = (wkStr) => {
+                    const parts = wkStr.split(' - ');
+                    return parts[0] ? new Date(parts[0]) : new Date(0);
+                };
+                return parseStart(b) - parseStart(a);
+            });
+
+            const prevWeekVal = weekFilter.value;
+            weekFilter.innerHTML = '<option value="all">All Weeks</option>';
+            allWeeks.forEach(wk => {
+                weekFilter.innerHTML += `<option value="${wk}">${wk}</option>`;
+            });
+            if (prevWeekVal) weekFilter.value = prevWeekVal;
+            else weekFilter.value = currentWeekKey;
+
+            const activeProgs = [];
+            window.tracks.forEach(track => {
+                if (window.customPrograms[track.id]) {
+                    window.customPrograms[track.id].forEach(p => {
+                        activeProgs.push(p.name || p);
+                    });
+                }
+            });
+
+            const prevProgVal = progFilter.value;
+            progFilter.innerHTML = '<option value="all">All Programs</option>';
+            addProgSelect.innerHTML = '';
+            activeProgs.forEach(p => {
+                progFilter.innerHTML += `<option value="${p}">${p}</option>`;
+                addProgSelect.innerHTML += `<option value="${p}">${p}</option>`;
+            });
+            if (prevProgVal) progFilter.value = prevProgVal;
+            
+            window.updateWtdbAddSubjectDropdown();
+
+            const prevSubVal = subFilter.value;
+            subFilter.innerHTML = '<option value="all">All Subjects</option>';
+            window.getAllSubjects().forEach(s => {
+                subFilter.innerHTML += `<option value="${s.subject}">${s.subject}</option>`;
+            });
+            if (prevSubVal) subFilter.value = prevSubVal;
+        };
+
+        window.updateWtdbAddSubjectDropdown = function () {
+            const progName = document.getElementById('wtdb-add-prog').value;
+            const subSelect = document.getElementById('wtdb-add-sub');
+            if (!subSelect) return;
+            subSelect.innerHTML = '';
+
+            const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+            if (!trackId) {
+                subSelect.innerHTML = '<option value="">No Subjects</option>';
+                window.updateWtdbAddChapterDropdown();
+                return;
+            }
+
+            const subs = (syllabusStructure[trackId] || []).filter(s => s.program === progName);
+            if (subs.length === 0) {
+                subSelect.innerHTML = '<option value="">No Subjects</option>';
+            } else {
+                subs.forEach(s => {
+                    subSelect.innerHTML += `<option value="${s.subject}">${s.subject}</option>`;
+                });
+            }
+            window.updateWtdbAddChapterDropdown();
+        };
+
+        window.updateWtdbAddChapterDropdown = function () {
+            const progName = document.getElementById('wtdb-add-prog').value;
+            const subject = document.getElementById('wtdb-add-sub').value;
+            const chSelect = document.getElementById('wtdb-add-ch');
+            if (!chSelect) return;
+            chSelect.innerHTML = '';
+
+            const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+            if (!trackId || !subject) {
+                chSelect.innerHTML = '<option value="">No Chapters</option>';
+                return;
+            }
+
+            const chapters = window.getChaptersForSubject(trackId, subject);
+            if (chapters.length === 0) {
+                chSelect.innerHTML = '<option value="">No Chapters</option>';
+            } else {
+                chapters.forEach(ch => {
+                    chSelect.innerHTML += `<option value="${ch}">${ch}</option>`;
+                });
+            }
+        };
+
+        window.addWtdbTarget = function () {
+            const weekFilter = document.getElementById('wtdb-filter-week');
+            let targetWeek = weekFilter ? weekFilter.value : '';
+            if (!targetWeek || targetWeek === 'all') {
+                const range = window.getWeeklyTargetRange();
+                targetWeek = window.formatDateRangeKey(range.start, range.end);
+            }
+
+            const progName = document.getElementById('wtdb-add-prog').value;
+            const subject = document.getElementById('wtdb-add-sub').value;
+            const chapter = document.getElementById('wtdb-add-ch').value;
+
+            if (!progName || !subject || !chapter) {
+                return showToast("Please select a Program, Subject, and Chapter.", "error");
+            }
+
+            const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+            if (!trackId) return;
+
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+            if (!window.weeklyTargetsDatabase[targetWeek]) window.weeklyTargetsDatabase[targetWeek] = [];
+
+            const exists = window.weeklyTargetsDatabase[targetWeek].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
+            if (exists) {
+                return showToast("This target is already in the list for the selected week.", "error");
+            }
+
+            window.weeklyTargetsDatabase[targetWeek].push({
+                track: trackId,
+                program: progName,
+                subject: subject,
+                chapter: chapter,
+                completed: false
+            });
+
+            saveToCloud();
+            renderUI();
+            window.renderWtdbList();
+            showToast("Target added to week: " + targetWeek, "success");
+        };
+
+        window.deleteWtdbTarget = function (weekKey, idx) {
+            if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[weekKey] && window.weeklyTargetsDatabase[weekKey][idx]) {
+                window.weeklyTargetsDatabase[weekKey].splice(idx, 1);
+                saveToCloud();
+                renderUI();
+                window.renderWtdbList();
+                showToast("Weekly target removed.", "success");
+            }
+        };
+
+        window.toggleWtdbTargetCompletion = function (weekKey, idx, isCompleted) {
+            if (!window.weeklyTargetsDatabase || !window.weeklyTargetsDatabase[weekKey] || !window.weeklyTargetsDatabase[weekKey][idx]) return;
+            
+            const target = window.weeklyTargetsDatabase[weekKey][idx];
+            target.completed = isCompleted;
+            
+            const found = window.findTaskChapter(target.track, target.subject, target.chapter);
+            if (found) {
+                found.subTask.completed = isCompleted;
+                recalculateTotals();
+            }
+
+            saveToCloud();
+            renderUI();
+            window.renderWtdbList();
+            showToast("Target completion state updated!", "success");
+        };
+
+        window.renderWtdbList = function () {
+            const tbody = document.getElementById('wtdb-targets-tbody');
+            if (!tbody) return;
+
+            const wFilter = document.getElementById('wtdb-filter-week').value;
+            const pFilter = document.getElementById('wtdb-filter-prog').value;
+            const sFilter = document.getElementById('wtdb-filter-sub').value;
+            const statFilter = document.getElementById('wtdb-filter-status').value;
+
+            tbody.innerHTML = '';
+            let matchedCount = 0;
+
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+
+            Object.keys(window.weeklyTargetsDatabase).forEach(weekKey => {
+                if (wFilter !== 'all' && weekKey !== wFilter) return;
+
+                const list = window.weeklyTargetsDatabase[weekKey] || [];
+                list.forEach((target, idx) => {
+                    if (pFilter !== 'all' && target.program !== pFilter) return;
+                    if (sFilter !== 'all' && target.subject !== sFilter) return;
+                    
+                    const isCompleted = target.completed || false;
+                    if (statFilter === 'completed' && !isCompleted) return;
+                    if (statFilter === 'non-completed' && isCompleted) return;
+
+                    matchedCount++;
+                    
+                    let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
+
+                    const row = `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                        <td class="py-3 px-4 text-center">
+                            <input type="checkbox" onchange="window.toggleWtdbTargetCompletion('${weekKey}', ${idx}, this.checked)" class="form-checkbox h-4 w-4 text-blue-600 rounded cursor-pointer" ${isCompleted ? 'checked' : ''}>
+                        </td>
+                        <td class="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 text-[10px]">${weekKey}</td>
+                        <td class="py-3 px-4 uppercase text-[10px] text-slate-400">${target.program}</td>
+                        <td class="py-3 px-4 truncate max-w-[120px]" title="${target.subject}">${displaySub}</td>
+                        <td class="py-3 px-4 text-blue-600 dark:text-blue-400">${target.chapter}</td>
+                        <td class="py-3 px-4 text-center">
+                            <button onclick="window.deleteWtdbTarget('${weekKey}', ${idx})" class="p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 rounded transition-all active:scale-90 shadow-sm">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            });
+
+            if (matchedCount === 0) {
+                tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="py-8 text-center text-[10px] uppercase font-black tracking-widest text-slate-400">
+                        No matching targets found in database.
+                    </td>
+                </tr>`;
+            }
+        };
+
+        window.calculateMonthWiseTargets = function () {
+            const monthsData = {};
+            
+            const getMonthKey = (date) => {
+                return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+            };
+
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+
+            Object.keys(window.weeklyTargetsDatabase).forEach(weekKey => {
+                const targets = window.weeklyTargetsDatabase[weekKey] || [];
+                if (targets.length === 0) return;
+
+                const dates = weekKey.split(' - ');
+                if (dates.length !== 2) return;
+                
+                const start = parseDateSafe(dates[0]);
+                const end = parseDateSafe(dates[1]);
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+                const weekDays = [];
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(start.getTime());
+                    d.setDate(start.getDate() + i);
+                    weekDays.push(d);
+                }
+
+                targets.forEach(t => {
+                    // 1. Distribute set count (proportional by day)
+                    weekDays.forEach(d => {
+                        const mKey = getMonthKey(d);
+                        if (!monthsData[mKey]) {
+                            monthsData[mKey] = { set: 0, completed: 0, rawMonth: d };
+                        }
+                        monthsData[mKey].set += 1 / 7;
+                    });
+
+                    // 2. Distribute completed count
+                    if (t.completed) {
+                        const found = window.findTaskChapter(t.track, t.subject, t.chapter);
+                        if (found && found.subTask && found.subTask.completed) {
+                            const taskObj = tasks[found.taskIndex];
+                            if (taskObj && taskObj.date) {
+                                // Match the task date string against the week's days
+                                const foundDate = weekDays.find(d => formatDate(d) === taskObj.date);
+                                const compDate = foundDate || start;
+                                const compMonthKey = getMonthKey(compDate);
+                                if (!monthsData[compMonthKey]) {
+                                    monthsData[compMonthKey] = { set: 0, completed: 0, rawMonth: compDate };
+                                }
+                                monthsData[compMonthKey].completed += 1;
+                                return;
+                            }
+                        }
+
+                        // Proportional fallback
+                        weekDays.forEach(d => {
+                            const mKey = getMonthKey(d);
+                            if (!monthsData[mKey]) {
+                                monthsData[mKey] = { set: 0, completed: 0, rawMonth: d };
+                            }
+                            monthsData[mKey].completed += 1 / 7;
+                        });
+                    }
+                });
+            });
+
+            return Object.keys(monthsData).map(k => {
+                return {
+                    month: k,
+                    set: Math.round(monthsData[k].set * 100) / 100,
+                    completed: Math.round(monthsData[k].completed * 100) / 100,
+                    rawMonth: monthsData[k].rawMonth
+                };
+            }).sort((a, b) => a.rawMonth - b.rawMonth);
+        };
+
+        window.renderWtdbMonthChart = function (monthsList) {
+            const ctx = document.getElementById('weeklyMonthMixedChart');
+            if (!ctx) return;
+
+            const labels = monthsList.map(m => m.month);
+            const setDataset = {
+                type: 'bar',
+                label: 'Targets Set (Proportional)',
+                data: monthsList.map(m => m.set),
+                backgroundColor: 'rgba(59, 130, 246, 0.65)',
+                borderColor: '#3b82f6',
+                borderWidth: 2,
+                borderRadius: 6,
+                order: 2
+            };
+            const completedDataset = {
+                type: 'line',
+                label: 'Targets Completed',
+                data: monthsList.map(m => m.completed),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: false,
+                pointBackgroundColor: '#10b981',
+                pointRadius: 4,
+                order: 1
+            };
+
+            if (window.wtdbMixedChartInstance) {
+                window.wtdbMixedChartInstance.data.labels = labels;
+                window.wtdbMixedChartInstance.data.datasets = [completedDataset, setDataset];
+                window.wtdbMixedChartInstance.update();
+            } else {
+                window.wtdbMixedChartInstance = new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [completedDataset, setDataset]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: { size: 10, weight: 'bold' },
+                                    color: '#94a3b8'
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleColor: '#fff',
+                                bodyColor: '#cbd5e1',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                borderWidth: 1,
+                                padding: 12,
+                                cornerRadius: 8
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { font: { size: 9, weight: 'bold' }, color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }
+                            },
+                            x: {
+                                ticks: { font: { size: 9, weight: 'bold' }, color: '#94a3b8' },
+                                grid: { display: false, drawBorder: false }
+                            }
+                        }
+                    }
+                });
+            }
+        };
+
+        window.renderWtdbMonthView = function () {
+            const tbody = document.getElementById('wtdb-months-tbody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            const monthsList = window.calculateMonthWiseTargets();
+
+            monthsList.forEach(m => {
+                const rate = m.set > 0 ? Math.round((m.completed / m.set) * 100) : 0;
+                let rateColor = 'text-rose-600 dark:text-rose-400';
+                if (rate >= 50) rateColor = 'text-orange-500';
+                if (rate >= 80) rateColor = 'text-emerald-600 dark:text-emerald-400';
+
+                const row = `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                    <td class="py-3 px-4 font-black text-slate-800 dark:text-slate-100">${m.month}</td>
+                    <td class="py-3 px-4 text-center text-blue-600 dark:text-blue-400 font-black">${m.set.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center text-emerald-600 dark:text-emerald-400 font-black">${m.completed.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center font-black ${rateColor}">${rate}%</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+
+            if (monthsList.length === 0) {
+                tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-[10px] uppercase font-black tracking-widest text-slate-400">
+                        No monthly target data available. Set and complete targets in weeks to build trends.
+                    </td>
+                </tr>`;
+            }
+
+            window.renderWtdbMonthChart(monthsList);
+        };
+
         window.togglePassStatus = function (type, name, isChecked) {
             if (!window.passedItems) window.passedItems = { programs: [], subjects: [] };
 
@@ -10630,14 +11187,16 @@
                 </div>
                 <div
                     class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
-                    <div class="flex justify-between items-center mb-4 md:mb-6">
+                    <div class="flex justify-between items-center mb-4">
                         <h3
-                            class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
+                            class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest" id="daily-actions-month-title">
                             Daily Actions (Month)</h3>
                         <button onclick="openYearlyActionsModal()"
                             class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Year
                             View</button>
                     </div>
+                    <!-- Message bar (Avg % and Streak) -->
+                    <div id="daily-actions-msg-bar" class="mb-4"></div>
                     <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
                             id="monthlyActionsChart"></canvas></div>
                     <div class="mt-4 md:mt-6 flex flex-col gap-3">
@@ -10830,11 +11389,15 @@
                             </div>
                         </div>
                         
-                        <!-- Week Selector Dropdown -->
+                        <!-- Week Selector Dropdown Replaced with Targets Database Button -->
                         <div class="flex items-center space-x-2 md:ml-auto w-full md:w-auto mt-2 md:mt-0">
-                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Select Week:</label>
-                            <select id="wt-select-week" onchange="window.renderWeeklyTargets()" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white font-bold w-full md:w-48 shadow-sm">
-                            </select>
+                            <button onclick="window.openWeeklyTargetsDatabase()" class="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-lg transition-colors shadow-md shadow-blue-500/10 active:scale-95 w-full md:w-auto">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                                </svg>
+                                <span>Targets Database</span>
+                            </button>
+                            <select id="wt-select-week" class="hidden"></select>
                         </div>
                     </div>
                     
@@ -12579,6 +13142,140 @@
                 <button onclick="window.saveResult()"
                     class="bg-yellow-500 hover:bg-yellow-600 text-white font-black text-[10px] uppercase tracking-widest py-2 sm:py-2.5 px-6 rounded-lg transition-colors shadow-md active:scale-95">Save
                     Result</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weekly Targets Database Modal -->
+    <div id="weekly-targets-db-modal"
+        class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+        <div id="wtdb-backdrop"
+            class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+            onclick="closeModal('weekly-targets-db-modal')"></div>
+        <div id="wtdb-content"
+            class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-4xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col max-h-[85vh]">
+            <div
+                class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black text-slate-800 dark:text-slate-100">Weekly Targets Database</h2>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Historical records and analysis of weekly & monthly targets</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('weekly-targets-db-modal')"
+                    class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="sticky top-0 z-10 bg-white dark:bg-slate-800 flex space-x-2 md:space-x-4 mb-4 border-b border-slate-200 dark:border-slate-700 pb-3 pt-1 shrink-0 overflow-x-auto scrollbar-hide">
+                <button id="wtdb-tab-btn-list" onclick="window.switchWtdbTab('list')"
+                    class="px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-blue-600 text-white shadow-md whitespace-nowrap">Weekly List</button>
+                <button id="wtdb-tab-btn-month" onclick="window.switchWtdbTab('month')"
+                    class="px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap">Month-wise sorting & mixed trend</button>
+            </div>
+
+            <!-- TAB CONTENT: Weekly list with filters -->
+            <div id="wtdb-tab-content-list" class="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+                <!-- Filters Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                    <div class="flex flex-col gap-1 w-full">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Week Filter</label>
+                        <select id="wtdb-filter-week" onchange="window.renderWtdbList()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
+                    </div>
+                    <div class="flex flex-col gap-1 w-full">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Program Filter</label>
+                        <select id="wtdb-filter-prog" onchange="window.renderWtdbList()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
+                    </div>
+                    <div class="flex flex-col gap-1 w-full">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Subject Filter</label>
+                        <select id="wtdb-filter-sub" onchange="window.renderWtdbList()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
+                    </div>
+                    <div class="flex flex-col gap-1 w-full">
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Status Filter</label>
+                        <select id="wtdb-filter-status" onchange="window.renderWtdbList()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none">
+                            <option value="all">All</option>
+                            <option value="completed">Completed</option>
+                            <option value="non-completed">Non-Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Add Target from Database View Container -->
+                <div id="wtdb-add-target-container" class="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col sm:flex-row gap-3 items-end">
+                    <div class="flex-1 w-full space-y-1">
+                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Program</label>
+                        <select id="wtdb-add-prog" onchange="window.updateWtdbAddSubjectDropdown()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
+                    </div>
+                    <div class="flex-1 w-full space-y-1">
+                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Subject</label>
+                        <select id="wtdb-add-sub" onchange="window.updateWtdbAddChapterDropdown()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
+                    </div>
+                    <div class="flex-1 w-full space-y-1">
+                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Chapter</label>
+                        <select id="wtdb-add-ch" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
+                    </div>
+                    <button onclick="window.addWtdbTarget()" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all">Add Target</button>
+                </div>
+
+                <!-- Database List Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                <th class="py-3 px-4 w-12 text-center">Status</th>
+                                <th class="py-3 px-4">Week Range</th>
+                                <th class="py-3 px-4">Program</th>
+                                <th class="py-3 px-4">Subject</th>
+                                <th class="py-3 px-4">Chapter</th>
+                                <th class="py-3 px-4 w-12 text-center">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wtdb-targets-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-bold">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT: Month-wise and Line + Bar Trend -->
+            <div id="wtdb-tab-content-month" class="hidden flex-1 min-h-0 overflow-y-auto space-y-6 pr-1">
+                <!-- Mixed trend chart -->
+                <div class="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 text-center">Month-wise Target vs Accomplishment (Mixed Trend)</h3>
+                    <div class="h-64 w-full relative">
+                        <canvas id="weeklyMonthMixedChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Month-wise Sorted Target Summary -->
+                <div class="space-y-3">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Proportional Month-Wise Targets Sorting</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-100 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                    <th class="py-3 px-4">Month</th>
+                                    <th class="py-3 px-4 text-center">Total Targets Set (Proportional)</th>
+                                    <th class="py-3 px-4 text-center">Completed Targets (Day-wise / Proportional)</th>
+                                    <th class="py-3 px-4 text-center">Completion Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wtdb-months-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-bold">
+                                <!-- Populated dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
