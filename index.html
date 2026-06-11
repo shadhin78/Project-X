@@ -677,6 +677,8 @@
         };
 
         window.migrateLegacyData = function () {
+            let dataPurged = false;
+            
             if (!window.tracks) {
                 window.tracks = [];
             }
@@ -694,11 +696,13 @@
             if (!window.customPrograms) {
                 window.customPrograms = {};
             }
+            
             window.tracks.forEach(trackObj => {
                 const track = trackObj.id;
                 if (!Array.isArray(window.customPrograms[track])) {
                     window.customPrograms[track] = [];
                 }
+                
                 window.customPrograms[track] = window.customPrograms[track].map((p, idx) => {
                     if (typeof p === 'string') {
                         const id = p.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -718,9 +722,21 @@
                     }
                     return null;
                 }).filter(Boolean);
+
+                const origLength = window.customPrograms[track].length;
+                window.customPrograms[track] = window.customPrograms[track].filter(p => {
+                    const name = (p.name || '').trim();
+                    const id = (p.id || '').trim().toLowerCase();
+                    if (!name) return false;
+                    if (id.includes('onerror') || id.includes('onload') || id.includes('json') || id.includes('document-body') || id.includes('img-src')) return false;
+                    return true;
+                });
+                
+                if (window.customPrograms[track].length !== origLength) {
+                    dataPurged = true;
+                }
             });
 
-            // Also migrate syllabusStructure
             if (syllabusStructure) {
                 window.tracks.forEach(trackObj => {
                     const track = trackObj.id;
@@ -728,6 +744,19 @@
                         syllabusStructure[track] = [];
                     }
                     if (Array.isArray(syllabusStructure[track])) {
+                        const origLength = syllabusStructure[track].length;
+                        syllabusStructure[track] = syllabusStructure[track].filter(s => {
+                            const prog = (s.program || '').trim();
+                            if (!prog) return false;
+                            const id = prog.toLowerCase();
+                            if (id.includes('onerror') || id.includes('onload') || id.includes('json') || id.includes('document-body') || id.includes('img-src')) return false;
+                            return true;
+                        });
+                        
+                        if (syllabusStructure[track].length !== origLength) {
+                            dataPurged = true;
+                        }
+                        
                         syllabusStructure[track].forEach((s, idx) => {
                             if (s.priority === undefined) s.priority = 3;
                             if (s.order === undefined) s.order = idx;
@@ -737,6 +766,54 @@
                         });
                     }
                 });
+            }
+
+            if (window.successResults) {
+                const origLength = window.successResults.length;
+                window.successResults = window.successResults.filter(r => {
+                    const title = (r.title || '').trim();
+                    if (!title) return false;
+                    const id = title.toLowerCase();
+                    if (id.includes('onerror') || id.includes('onload') || id.includes('json') || id.includes('document-body') || id.includes('img-src')) return false;
+                    return true;
+                });
+                if (window.successResults.length !== origLength) {
+                    dataPurged = true;
+                }
+            }
+
+            if (window.passedItems) {
+                if (window.passedItems.programs) {
+                    const origLength = window.passedItems.programs.length;
+                    window.passedItems.programs = window.passedItems.programs.filter(p => {
+                        const id = p.trim().toLowerCase();
+                        if (!id) return false;
+                        if (id.includes('onerror') || id.includes('onload') || id.includes('json') || id.includes('document-body') || id.includes('img-src')) return false;
+                        return true;
+                    });
+                    if (window.passedItems.programs.length !== origLength) {
+                        dataPurged = true;
+                    }
+                }
+            }
+
+            if (window.paceGoals) {
+                const origLength = window.paceGoals.length;
+                window.paceGoals = window.paceGoals.filter(g => {
+                    const tgt = (g.target || '').trim();
+                    if (!tgt) return false;
+                    const id = tgt.toLowerCase();
+                    if (id.includes('onerror') || id.includes('onload') || id.includes('json') || id.includes('document-body') || id.includes('img-src')) return false;
+                    return true;
+                });
+                if (window.paceGoals.length !== origLength) {
+                    dataPurged = true;
+                }
+            }
+
+            if (dataPurged) {
+                console.log("Malicious data purged. Saving back to cloud.");
+                saveToCloud(true);
             }
 
             // Migrate old data for existing tasks to ensure all tracks are present
