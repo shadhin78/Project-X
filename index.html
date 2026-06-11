@@ -1393,131 +1393,56 @@
         window.openTrendsSettingsModal = function () {
             window.ensureConfigDefaults();
 
-            document.getElementById('settings-trend-start-date').value = window.dashboardConfig.trendStartDate || '';
-            document.getElementById('settings-trend-end-date').value = window.dashboardConfig.trendEndDate || '';
-            document.getElementById('settings-show-days-remaining').checked = window.dashboardConfig.showDaysRemaining || false;
-
-            // Tracks Paces Container
-            const trackContainer = document.getElementById('settings-track-paces-container');
-            if (trackContainer) {
-                let trackHtml = '';
-                window.tracks.forEach(track => {
-                    const isChecked = window.dashboardConfig.independentPaces.tracks[track.id] === true;
-                    const safeId = track.id.replace(/[^a-zA-Z0-9]/g, '_');
-                    trackHtml += `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${track.name}</span>
-                        <button type="button" onclick="window.togglePaceSwitch('track', '${track.id.replace(/'/g, "\\'")}')" 
-                                id="pace-toggle-track-${safeId}" data-checked="${isChecked}"
-                                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isChecked ? 'bg-emerald-500' : 'bg-rose-500'}">
-                            <span id="pace-handle-track-${safeId}" aria-hidden="true" 
-                                  class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChecked ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>`;
-                });
-                trackContainer.innerHTML = trackHtml || '<span class="text-xs text-slate-400">No tracks found.</span>';
-            }
-
-            // Programs Paces Container
-            const progContainer = document.getElementById('settings-program-paces-container');
-            if (progContainer) {
-                let progHtml = '';
-                const uniqueProgs = Array.from(new Set(window.getAllPrograms().map(p => p.name || p)));
-                uniqueProgs.forEach(progName => {
-                    const isChecked = window.dashboardConfig.independentPaces.programs[progName] === true;
-                    const safeId = progName.replace(/[^a-zA-Z0-9]/g, '_');
-                    progHtml += `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${progName}</span>
-                        <button type="button" onclick="window.togglePaceSwitch('program', '${progName.replace(/'/g, "\\'")}')" 
-                                id="pace-toggle-program-${safeId}" data-checked="${isChecked}"
-                                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isChecked ? 'bg-emerald-500' : 'bg-rose-500'}">
-                            <span id="pace-handle-program-${safeId}" aria-hidden="true" 
-                                  class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChecked ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>`;
-                });
-                progContainer.innerHTML = progHtml || '<span class="text-xs text-slate-400">No programs found.</span>';
-            }
-
-            // Subjects Paces Container
-            const subjectContainer = document.getElementById('settings-subject-paces-container');
-            if (subjectContainer) {
-                let subjectHtml = '';
-                const uniqueSubs = Array.from(new Set(window.getAllSubjects().map(s => s.subject)));
-                uniqueSubs.forEach(subjectName => {
-                    const isChecked = window.dashboardConfig.independentPaces.subjects[subjectName] === true;
-                    const safeId = subjectName.replace(/[^a-zA-Z0-9]/g, '_');
-                    subjectHtml += `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${subjectName}</span>
-                        <button type="button" onclick="window.togglePaceSwitch('subject', '${subjectName.replace(/'/g, "\\'")}')" 
-                                id="pace-toggle-subject-${safeId}" data-checked="${isChecked}"
-                                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isChecked ? 'bg-emerald-500' : 'bg-rose-500'}">
-                            <span id="pace-handle-subject-${safeId}" aria-hidden="true" 
-                                  class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChecked ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>`;
-                });
-                subjectContainer.innerHTML = subjectHtml || '<span class="text-xs text-slate-400">No subjects found.</span>';
+            // Populate Active Timelines Container
+            const timelineContainer = document.getElementById('settings-active-timeline-container');
+            if (timelineContainer) {
+                let html = '';
+                if (!window.paceGoals || window.paceGoals.length === 0) {
+                    html = '<span class="text-xs text-slate-400">No active pacing timelines found. Add a goal first to select it.</span>';
+                } else {
+                    window.paceGoals.forEach(goal => {
+                        const isChecked = window.dashboardConfig.activePaceGoalId === goal.id;
+                        const safeId = goal.id.replace(/[^a-zA-Z0-9]/g, '_');
+                        const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                        const deadline = parseDateSafe(goal.deadline);
+                        
+                        html += `
+                        <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${goal.target} (${goal.type.toUpperCase()})</span>
+                                <span class="text-[9px] text-slate-400 font-bold mt-0.5">
+                                    Timeline: ${startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${deadline.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                            </div>
+                            <button type="button" onclick="window.selectActivePaceGoal('${goal.id.replace(/'/g, "\\'")}')" 
+                                    id="pace-toggle-goal-${safeId}" data-checked="${isChecked}"
+                                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isChecked ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}">
+                                <span id="pace-handle-goal-${safeId}" aria-hidden="true" 
+                                      class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isChecked ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            </button>
+                        </div>`;
+                    });
+                }
+                timelineContainer.innerHTML = html;
             }
 
             openModal('edit-trends-pace-modal');
         };
 
-        window.saveTrendsSettings = function () {
-            const startStr = document.getElementById('settings-trend-start-date').value;
-            const endStr = document.getElementById('settings-trend-end-date').value;
-            const showDays = document.getElementById('settings-show-days-remaining').checked;
-
-            let dateChanged = false;
-            if (startStr && startStr !== window.dashboardConfig.trendStartDate) {
-                const parsed = new Date(startStr);
-                if (!isNaN(parsed.getTime())) {
-                    parsed.setHours(0, 0, 0, 0);
-                    PLAN_START_DATE = new Date(parsed.getTime());
-                    window.dashboardConfig.trendStartDate = startStr;
-                    dateChanged = true;
-                }
-            }
-            window.dashboardConfig.trendEndDate = endStr;
-            window.dashboardConfig.showDaysRemaining = showDays;
-
-            // Read Track paces
-            window.tracks.forEach(track => {
-                const btn = document.getElementById(`pace-toggle-track-${track.id.replace(/[^a-zA-Z0-9]/g, '_')}`);
-                if (btn) {
-                    window.dashboardConfig.independentPaces.tracks[track.id] = btn.getAttribute('data-checked') === 'true';
-                }
-            });
-
-            // Read Program paces
-            const uniqueProgs = Array.from(new Set(window.getAllPrograms().map(p => p.name || p)));
-            uniqueProgs.forEach(progName => {
-                const btn = document.getElementById(`pace-toggle-program-${progName.replace(/[^a-zA-Z0-9]/g, '_')}`);
-                if (btn) {
-                    window.dashboardConfig.independentPaces.programs[progName] = btn.getAttribute('data-checked') === 'true';
-                }
-            });
-
-            // Read Subject paces
-            const uniqueSubs = Array.from(new Set(window.getAllSubjects().map(s => s.subject)));
-            uniqueSubs.forEach(subjectName => {
-                const btn = document.getElementById(`pace-toggle-subject-${subjectName.replace(/[^a-zA-Z0-9]/g, '_')}`);
-                if (btn) {
-                    window.dashboardConfig.independentPaces.subjects[subjectName] = btn.getAttribute('data-checked') === 'true';
-                }
-            });
-
-            if (dateChanged) {
-                rebuildTaskDates(true);
+        window.selectActivePaceGoal = function (goalId) {
+            if (window.dashboardConfig.activePaceGoalId === goalId) {
+                window.dashboardConfig.activePaceGoalId = null; // Uncheck
             } else {
-                saveToCloud();
+                window.dashboardConfig.activePaceGoalId = goalId; // Select this one
             }
+            window.openTrendsSettingsModal();
+        };
 
+        window.saveTrendsSettings = function () {
+            saveToCloud();
             renderUI();
             closeModal('edit-trends-pace-modal');
-            showToast("Trends & pace settings saved!", "success");
+            showToast("Active pacing timeline updated!", "success");
         };
 
         function calculateIndependentEstFinish() {
@@ -1595,34 +1520,165 @@
             const barEstFinishVal = document.getElementById('trends-bar-est-finish');
 
             if (barStartVal) {
-                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate || "");
-                const startDateStr = !isNaN(trendStart.getTime()) ? trendStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--';
-                barStartVal.textContent = startDateStr;
-
-                const today = new Date(); today.setHours(0, 0, 0, 0);
-                if (!isNaN(trendStart.getTime())) {
-                    const daysPassed = Math.max(0, Math.floor((today - trendStart) / (1000 * 60 * 60 * 24))) + 1;
-                    barPassedVal.textContent = window.formatDaysPassed(daysPassed);
-                } else {
-                    barPassedVal.textContent = '--';
+                let activeGoalId = window.dashboardConfig.activePaceGoalId;
+                if (!activeGoalId && window.paceGoals && window.paceGoals.length > 0) {
+                    activeGoalId = window.paceGoals[0].id;
+                    window.dashboardConfig.activePaceGoalId = activeGoalId;
                 }
+                const activeGoal = activeGoalId ? window.paceGoals.find(g => g.id === activeGoalId) : null;
 
-                if (window.dashboardConfig.showDaysRemaining && window.dashboardConfig.trendEndDate) {
-                    const trendEnd = parseDateSafe(window.dashboardConfig.trendEndDate);
-                    if (!isNaN(trendEnd.getTime())) {
-                        const diff = trendEnd - today;
-                        const daysRemain = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-                        barRemainVal.textContent = `${daysRemain} Days`;
-                        barRemainContainer.classList.remove('hidden');
-                    } else {
-                        barRemainContainer.classList.add('hidden');
+                if (activeGoal) {
+                    const startDate = activeGoal.startDate ? parseDateSafe(activeGoal.startDate) : new Date(PLAN_START_DATE);
+                    const targetDate = parseDateSafe(activeGoal.deadline);
+                    startDate.setHours(0, 0, 0, 0);
+                    targetDate.setHours(23, 59, 59, 999);
+                    
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+                    // 1. Start Date
+                    barStartVal.textContent = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    // 2. Days Passed
+                    const daysPassed = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) + 1;
+                    barPassedVal.textContent = window.formatDaysPassed(Math.max(0, daysPassed));
+
+                    // 3. Days Remain
+                    const diff = targetDate - today;
+                    const daysRemain = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                    barRemainVal.textContent = `${daysRemain} Days`;
+                    barRemainContainer.classList.remove('hidden');
+
+                    // 4. Est Finish
+                    const subjectStats = window.lastSubjectStats || {};
+                    let total = 0; let completed = 0;
+
+                    if (activeGoal.type === 'global') {
+                        let targetedSubjects = new Set();
+                        const isManual = activeGoal.subjects || activeGoal.secondaryPaces;
+
+                        if (isManual) {
+                            if (activeGoal.subjects) activeGoal.subjects.forEach(s => targetedSubjects.add(s));
+                            if (activeGoal.secondaryPaces) {
+                                activeGoal.secondaryPaces.forEach(pid => {
+                                    const g = window.paceGoals.find(x => x.id === pid);
+                                    if (g) {
+                                        if (g.type === 'bundle') {
+                                            if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                            if (g.programs) {
+                                                window.tracks.map(t => t.id).forEach(track => {
+                                                    if (syllabusStructure[track]) {
+                                                        syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                                    }
+                                                });
+                                            }
+                                        } else if (g.type === 'subject') {
+                                            targetedSubjects.add(g.target);
+                                        } else if (g.type === 'program') {
+                                            window.tracks.map(t => t.id).forEach(track => {
+                                                if (syllabusStructure[track]) {
+                                                    syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            window.paceGoals.forEach(g => {
+                                if (g.id === activeGoal.id) return;
+                                if (!globalStartDate || !globalEndDate) return;
+
+                                const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                                const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
+                                gStart.setHours(0, 0, 0, 0);
+                                gEnd.setHours(23, 59, 59, 999);
+                                if (gEnd < globalStartDate || gStart > globalEndDate) return;
+
+                                if (g.type === 'bundle') {
+                                    if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                    if (g.programs) {
+                                        window.tracks.map(t => t.id).forEach(track => {
+                                            if (syllabusStructure[track]) {
+                                                syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                            }
+                                        });
+                                    }
+                                } else if (g.type === 'subject') {
+                                    targetedSubjects.add(g.target);
+                                } else if (g.type === 'program') {
+                                    window.tracks.map(t => t.id).forEach(track => {
+                                        if (syllabusStructure[track]) {
+                                            syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                        targetedSubjects.forEach(sub => {
+                            if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                        });
+                    } else if (activeGoal.type === 'bundle') {
+                        if (activeGoal.subjects) {
+                            activeGoal.subjects.forEach(sub => {
+                                if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                            });
+                        } else if (activeGoal.programs) {
+                            let programSubs = [];
+                            window.tracks.map(t => t.id).forEach(track => {
+                                if (syllabusStructure[track]) {
+                                    syllabusStructure[track].forEach(s => {
+                                        if (activeGoal.programs.includes(s.program)) programSubs.push(s.subject);
+                                    });
+                                }
+                            });
+                            programSubs.forEach(sub => {
+                                if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                            });
+                        }
+                    } else if (activeGoal.type === 'subject') {
+                        if (subjectStats[activeGoal.target]) { total = subjectStats[activeGoal.target].totalChapters; completed = subjectStats[activeGoal.target].effectiveChapters; }
+                    } else if (activeGoal.type === 'program') {
+                        const programSubs = [];
+                        window.tracks.map(t => t.id).forEach(track => {
+                            if (syllabusStructure[track]) {
+                                syllabusStructure[track].forEach(s => { if (s.program === activeGoal.target) programSubs.push(s.subject); });
+                            }
+                        });
+                        programSubs.forEach(sub => { if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; } });
                     }
-                } else {
-                    barRemainContainer.classList.add('hidden');
-                }
 
-                // Est Finish time [Days]
-                barEstFinishVal.textContent = calculateIndependentEstFinish();
+                    const remaining = Math.max(0, total - completed);
+                    let finishDisplay = '--';
+
+                    if (total === 0) {
+                        finishDisplay = 'No Target';
+                    } else if (remaining <= 0) {
+                        finishDisplay = 'Finished';
+                    } else {
+                        let curPaceVal = 0;
+                        if (daysPassed > 0) {
+                            curPaceVal = completed / daysPassed;
+                        }
+                        
+                        if (curPaceVal <= 0) {
+                            if (today < startDate) finishDisplay = 'Future';
+                            else if (today > targetDate) finishDisplay = 'Overdue';
+                            else finishDisplay = 'No Data';
+                        } else {
+                            const daysToFinish = remaining / curPaceVal;
+                            const projectedDate = new Date(today); projectedDate.setDate(today.getDate() + daysToFinish);
+                            const finishDateStr = projectedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                            finishDisplay = `${finishDateStr} (${Math.ceil(daysToFinish)} Days @ ${curPaceVal.toFixed(2)} Ch/Day)`;
+                        }
+                    }
+                    barEstFinishVal.textContent = finishDisplay;
+                } else {
+                    barStartVal.textContent = '--';
+                    barPassedVal.textContent = '--';
+                    barRemainVal.textContent = '--';
+                    barRemainContainer.classList.add('hidden');
+                    barEstFinishVal.textContent = '--';
+                }
             }
         };
 
@@ -5114,26 +5170,30 @@
                 const evalType = (overall && overall.evaluationType) || (subjects.length > 0 && subjects[0].evaluationType) || 'cgpa';
                 const isGrade = evalType === 'grade';
 
-                const subjectsWithScores = subjects.filter(s => {
-                    if (isGrade) {
-                        return s.grade && s.grade.trim() !== '';
-                    } else {
-                        return s.value && !isNaN(parseFloat(s.value));
+                const allProgramSubjects = window.getAllSubjects().filter(s => s.program === group.program);
+                const totalProgramSubjectsCount = allProgramSubjects.length;
+
+                let sumCgpa = 0;
+                allProgramSubjects.forEach(ps => {
+                    const res = subjects.find(s => s.subject === ps.subject);
+                    if (res) {
+                        if (isGrade) {
+                            if (res.grade && res.grade.trim() !== '' && res.grade !== 'F') {
+                                sumCgpa += window.mapGradeToNumeric(res.grade, 'grade');
+                            }
+                        } else {
+                            const val = parseFloat(res.value);
+                            if (res.value && !isNaN(val) && val > 0) {
+                                sumCgpa += val;
+                            }
+                        }
                     }
                 });
 
-                if (subjectsWithScores.length > 0) {
-                    if (isGrade) {
-                        const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + window.mapGradeToNumeric(s.grade, 'grade'), 0);
-                        const avgCgpa = sumCgpa / subjectsWithScores.length;
-                        estCgpa = window.formatCgpaMin2Dec(avgCgpa);
-                        estGrade = window.mapCgpaToGrade(avgCgpa, 'grade');
-                    } else {
-                        const sumCgpa = subjectsWithScores.reduce((sum, s) => sum + parseFloat(s.value), 0);
-                        const avgCgpa = sumCgpa / subjectsWithScores.length;
-                        estCgpa = window.formatCgpaMin2Dec(avgCgpa);
-                        estGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa');
-                    }
+                if (totalProgramSubjectsCount > 0) {
+                    const avgCgpa = sumCgpa / totalProgramSubjectsCount;
+                    estCgpa = window.formatCgpaMin2Dec(avgCgpa);
+                    estGrade = window.mapCgpaToGrade(avgCgpa, isGrade ? 'grade' : 'cgpa');
                 }
 
                 const fallbackMainTarget = window.getProgramMainTarget(group.program);
@@ -5311,18 +5371,45 @@
                     const targetCGPA = (currentOverall && currentOverall.targetCGPA) || mainTarget.targetCGPA;
                     const targetGrade = (currentOverall && currentOverall.targetGrade) || mainTarget.targetGrade;
                     const hasTgt = targetCGPA && targetCGPA !== 'none' && targetCGPA !== '';
+
+                    const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+                    const progSubsList = trackId ? (syllabusStructure[trackId] || []).filter(s => s.program === progName) : [];
+                    
+                    let allSubjectsAttempted = (progSubsList.length > 0);
+                    progSubsList.forEach(s => {
+                        const subRes = subjects.find(r => r.subject === s.subject);
+                        let attempted = false;
+                        if (subRes) {
+                            const evalType = subRes.evaluationType || 'cgpa';
+                            if (evalType === 'grade') {
+                                if (subRes.grade && subRes.grade.trim() !== '' && subRes.grade.trim().toUpperCase() !== 'F') {
+                                    attempted = true;
+                                }
+                            } else {
+                                const val = parseFloat(subRes.value);
+                                if (subRes.value && !isNaN(val) && val > 0) {
+                                    attempted = true;
+                                }
+                            }
+                        }
+                        if (!attempted) {
+                            allSubjectsAttempted = false;
+                        }
+                    });
                     
                     let goalMetLabel = '';
                     if (hasTgt) {
                         let isGoalMet = false;
-                        if (evalType === 'grade') {
-                            const currentGradeVal = window.mapGradeToNumeric(currentOverall.grade, 'grade');
-                            const targetGradeVal = window.mapGradeToNumeric(targetGrade, 'grade');
-                            isGoalMet = currentGradeVal >= targetGradeVal;
-                        } else {
-                            const currentCgpaVal = parseFloat(currentOverall.value) || 0;
-                            const targetCgpaVal = parseFloat(targetCGPA) || 0;
-                            isGoalMet = currentCgpaVal >= targetCgpaVal;
+                        if (allSubjectsAttempted) {
+                            if (evalType === 'grade') {
+                                const currentGradeVal = window.mapGradeToNumeric(currentOverall.grade, 'grade');
+                                const targetGradeVal = window.mapGradeToNumeric(targetGrade, 'grade');
+                                isGoalMet = currentGradeVal >= targetGradeVal;
+                            } else {
+                                const currentCgpaVal = parseFloat(currentOverall.value) || 0;
+                                const targetCgpaVal = parseFloat(targetCGPA) || 0;
+                                isGoalMet = currentCgpaVal >= targetCgpaVal;
+                            }
                         }
                         
                         if (isGoalMet) {
@@ -8594,9 +8681,34 @@
                         const targetGrade = (group && group.overall && group.overall.targetGrade) || mainTarget.targetGrade;
                         const hasTgt = targetCGPA && targetCGPA !== 'none' && targetCGPA !== '';
 
+                        const subs = (syllabusStructure[track.id] || []).filter(s => s.program === progName);
+                        
+                        // Check if all subjects in this program have been attempted
+                        let allSubjectsAttempted = (subs.length > 0);
+                        subs.forEach(s => {
+                            const subRes = group && group.subjects && group.subjects[s.subject];
+                            let attempted = false;
+                            if (subRes) {
+                                const evalType = subRes.evaluationType || 'cgpa';
+                                if (evalType === 'grade') {
+                                    if (subRes.grade && subRes.grade.trim() !== '' && subRes.grade.trim().toUpperCase() !== 'F') {
+                                        attempted = true;
+                                    }
+                                } else {
+                                    const val = parseFloat(subRes.value);
+                                    if (subRes.value && !isNaN(val) && val > 0) {
+                                        attempted = true;
+                                    }
+                                }
+                            }
+                            if (!attempted) {
+                                allSubjectsAttempted = false;
+                            }
+                        });
+
                         // 1. Program Level Goal
                         let isProgramGoalMet = false;
-                        if (hasTgt && group && group.overall) {
+                        if (allSubjectsAttempted && hasTgt && group && group.overall) {
                             const evalType = group.overall.evaluationType;
                             if (evalType === 'grade') {
                                 const currentGradeVal = window.mapGradeToNumeric(group.overall.grade, 'grade');
@@ -8618,7 +8730,6 @@
                         }
 
                         // 2. Subject Level Goal
-                        const subs = (syllabusStructure[track.id] || []).filter(s => s.program === progName);
                         subs.forEach(s => {
                             const subRes = group && group.subjects && group.subjects[s.subject];
                             const subTargetCgpa = (subRes && subRes.targetCGPA) || targetCGPA;
@@ -10816,52 +10927,10 @@
             </div>
 
             <div class="flex flex-col gap-4 mb-6 overflow-y-auto custom-scrollbar pr-2 flex-1">
-                <!-- Date Settings Section -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Start Date</label>
-                        <input type="date" id="settings-trend-start-date"
-                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-bold w-full">
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">End Date (Optional)</label>
-                        <input type="date" id="settings-trend-end-date"
-                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-bold w-full">
-                    </div>
-                </div>
-
-                <!-- Show Days Remaining Toggle -->
-                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                    <div class="flex flex-col">
-                        <span class="text-xs font-black text-slate-800 dark:text-slate-200">Show Days Remaining</span>
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Display remaining days until end date</span>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="settings-show-days-remaining" class="sr-only peer">
-                        <div class="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-                    </label>
-                </div>
-
-                <!-- Independent Pace: Tracks -->
+                <!-- Active Timelines Selection -->
                 <div class="flex flex-col gap-2 mt-2">
-                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">Independent Track Paces</h3>
-                    <div id="settings-track-paces-container" class="flex flex-col gap-2">
-                        <!-- Populated Dynamically -->
-                    </div>
-                </div>
-
-                <!-- Independent Pace: Programs -->
-                <div class="flex flex-col gap-2 mt-2">
-                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">Independent Program Paces</h3>
-                    <div id="settings-program-paces-container" class="flex flex-col gap-2">
-                        <!-- Populated Dynamically -->
-                    </div>
-                </div>
-
-                <!-- Independent Pace: Subjects -->
-                <div class="flex flex-col gap-2 mt-2">
-                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">Independent Subject Paces</h3>
-                    <div id="settings-subject-paces-container" class="flex flex-col gap-2">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">Active Pacing Timelines</h3>
+                    <div id="settings-active-timeline-container" class="flex flex-col gap-2">
                         <!-- Populated Dynamically -->
                     </div>
                 </div>
