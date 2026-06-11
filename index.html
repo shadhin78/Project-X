@@ -22,6 +22,24 @@
             messagingSenderId: "1011303841705",
             appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
         };
+        window.sanitizeAllData = function (val) {
+            if (typeof val === 'string') {
+                return val.replace(/<[^>]*>/g, '');
+            } else if (Array.isArray(val)) {
+                return val.map(window.sanitizeAllData);
+            } else if (val !== null && typeof val === 'object') {
+                if (val instanceof Date) return val;
+                if (typeof val.toDate === 'function') return val;
+                const cleaned = {};
+                for (const key in val) {
+                    if (Object.prototype.hasOwnProperty.call(val, key)) {
+                        cleaned[key] = window.sanitizeAllData(val[key]);
+                    }
+                }
+                return cleaned;
+            }
+            return val;
+        };
         window.appState = {};
         window.tracks = [];
         let db;
@@ -806,6 +824,10 @@
             if (!window.dashboardConfig) {
                 window.dashboardConfig = {};
             }
+            if (window.dashboardConfig.activePaceGoalId === undefined) {
+                const defaultGoal = (window.paceGoals && window.paceGoals.find(g => g.id === 'global-timeline')) || (window.paceGoals && window.paceGoals[0]);
+                window.dashboardConfig.activePaceGoalId = defaultGoal ? defaultGoal.id : null;
+            }
             if (!window.dashboardConfig.trendStartDate) {
                 window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
             }
@@ -1039,7 +1061,7 @@
                 if (isSyncing) return; // Prevent loop
 
                 if (docSnap.exists) {
-                    const data = docSnap.data();
+                    const data = window.sanitizeAllData(docSnap.data());
                     let newTasks = defaultTasks;
 
                     if (data.tracks) window.tracks = data.tracks;
@@ -9401,6 +9423,10 @@
 
         window.deletePaceGoal = function (id) {
             window.paceGoals = window.paceGoals.filter(g => g.id !== id);
+            if (window.dashboardConfig && window.dashboardConfig.activePaceGoalId === id) {
+                const defaultGoal = window.paceGoals.find(g => g.id === 'global-timeline') || window.paceGoals[0];
+                window.dashboardConfig.activePaceGoalId = defaultGoal ? defaultGoal.id : null;
+            }
             saveToCloud(); renderUI(); showToast("Pace Goal deleted.", "success");
         };
 
@@ -9747,7 +9773,7 @@
             try {
                 const stored = localStorage.getItem('studyMasterBackup');
                 if (stored) {
-                    const data = JSON.parse(stored);
+                    const data = window.sanitizeAllData(JSON.parse(stored));
                     if (data.tasks) {
                         tasks = data.tasks;
                         if (data.tracks) window.tracks = data.tracks;
