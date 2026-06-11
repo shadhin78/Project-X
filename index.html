@@ -763,6 +763,7 @@
 
             window.ensureConfigDefaults();
             window.normalizePriorities();
+            window.syncPassFreezeFromResults();
         };
 
         window.getAllSubjects = function () {
@@ -1498,139 +1499,70 @@
         };
 
         function calculateIndependentEstFinish() {
-            let totalTrackDays = 0;
-            let maxTrackDays = 0;
-            let totalProgDays = 0;
-            let maxProgDays = 0;
-            let totalSubDays = 0;
-            let maxSubDays = 0;
-
             const subjectStats = window.lastSubjectStats || {};
-
-            // 1. Calculate Track Est Days
-            window.tracks.forEach(track => {
-                let trackRemaining = 0;
-                if (syllabusStructure[track.id]) {
-                    syllabusStructure[track.id].forEach(s => {
-                        const stats = subjectStats[s.subject];
+            const uniqueSubs = Array.from(new Set(window.getAllSubjects().map(s => s.subject)));
+            
+            let totalRemaining = 0;
+            let totalPace = 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const msPerDay = 1000 * 60 * 60 * 24;
+            
+            uniqueSubs.forEach(subjectName => {
+                const sObj = window.getAllSubjects().find(s => s.subject === subjectName);
+                if (!sObj) return;
+                
+                // Find track ID for this subject
+                let trackId = null;
+                for (const tid in syllabusStructure) {
+                    if (syllabusStructure[tid].some(x => x.subject === subjectName)) {
+                        trackId = tid;
+                        break;
+                    }
+                }
+                
+                // Check if subject matches the current filter
+                let matchesFilter = false;
+                if (currentFilter === 'All') {
+                    matchesFilter = true;
+                } else {
+                    const isTrack = window.tracks.some(t => t.name === currentFilter || t.id === currentFilter);
+                    const isProgram = Array.from(new Set(window.getAllPrograms().map(p => p.name || p))).includes(currentFilter);
+                    
+                    if (isTrack) {
+                        matchesFilter = (trackId === currentFilter || (window.tracks.find(t => t.id === trackId)?.name === currentFilter));
+                    } else if (isProgram) {
+                        matchesFilter = (sObj.program === currentFilter);
+                    } else {
+                        matchesFilter = (subjectName === currentFilter);
+                    }
+                }
+                
+                if (matchesFilter) {
+                    // Check if independent pace is enabled
+                    const isTrackPaceEnabled = trackId && window.dashboardConfig.independentPaces?.tracks?.[trackId] === true;
+                    const isProgPaceEnabled = sObj.program && window.dashboardConfig.independentPaces?.programs?.[sObj.program] === true;
+                    const isSubPaceEnabled = window.dashboardConfig.independentPaces?.subjects?.[subjectName] === true;
+                    
+                    if (isTrackPaceEnabled || isProgPaceEnabled || isSubPaceEnabled) {
+                        const stats = subjectStats[subjectName];
                         if (stats) {
                             const rem = Math.max(0, stats.totalChapters - stats.effectiveChapters);
-                            trackRemaining += rem;
-                        }
-                    });
-                }
-                const isPaceEnabled = window.dashboardConfig.independentPaces?.tracks?.[track.id] === true;
-                if (isPaceEnabled) {
-                    const days = trackRemaining / 1.0;
-                    if (days > maxTrackDays) maxTrackDays = days;
-                    totalTrackDays += days;
-                }
-            });
-
-            // 2. Calculate Program Est Days
-            const allPrograms = window.getAllPrograms();
-            const uniqueProgs = Array.from(new Set(allPrograms.map(p => p.name || p)));
-            uniqueProgs.forEach(progName => {
-                let progRemaining = 0;
-                window.tracks.forEach(track => {
-                    if (syllabusStructure[track.id]) {
-                        syllabusStructure[track.id].forEach(s => {
-                            if ((s.program || "") === progName) {
-                                const stats = subjectStats[s.subject];
-                                if (stats) {
-                                    const rem = Math.max(0, stats.totalChapters - stats.effectiveChapters);
-                                    progRemaining += rem;
-                                }
-                            }
-                        });
-                    }
-                });
-                const isPaceEnabled = window.dashboardConfig.independentPaces?.programs?.[progName] === true;
-                if (isPaceEnabled) {
-                    const days = progRemaining / 1.0;
-                    if (days > maxProgDays) maxProgDays = days;
-                    totalProgDays += days;
-                }
-            });
-
-            // 3. Calculate Subject Est Days
-            const uniqueSubs = Array.from(new Set(window.getAllSubjects().map(s => s.subject)));
-            uniqueSubs.forEach(subjectName => {
-                const stats = subjectStats[subjectName];
-                if (stats) {
-                    const rem = Math.max(0, stats.totalChapters - stats.effectiveChapters);
-                    const isPaceEnabled = window.dashboardConfig.independentPaces?.subjects?.[subjectName] === true;
-                    if (isPaceEnabled) {
-                        const days = rem / 1.0;
-                        if (days > maxSubDays) maxSubDays = days;
-                        totalSubDays += days;
-                    }
-                }
-            });
-
-            // Return formatting
-            let trackDaysStr = maxTrackDays > 0 ? `${Math.ceil(maxTrackDays)}d` : '--';
-            let progDaysStr = maxProgDays > 0 ? `${Math.ceil(maxProgDays)}d` : '--';
-            let subDaysStr = maxSubDays > 0 ? `${Math.ceil(maxSubDays)}d` : '--';
-
-            // Check current filter
-            if (currentFilter !== 'All') {
-                // If filter is a Track
-                const selectedTrack = window.tracks.find(t => t.name === currentFilter || t.id === currentFilter);
-                if (selectedTrack) {
-                    let trackRemaining = 0;
-                    if (syllabusStructure[selectedTrack.id]) {
-                        syllabusStructure[selectedTrack.id].forEach(s => {
-                            const stats = subjectStats[s.subject];
-                            if (stats) {
-                                trackRemaining += Math.max(0, stats.totalChapters - stats.effectiveChapters);
-                            }
-                        });
-                    }
-                    const isPaceEnabled = window.dashboardConfig.independentPaces?.tracks?.[selectedTrack.id] === true;
-                    if (isPaceEnabled) {
-                        return `${Math.ceil(trackRemaining / 1.0)} Days (Track)`;
-                    }
-                }
-
-                // If filter is a Program
-                const isProgram = uniqueProgs.includes(currentFilter);
-                if (isProgram) {
-                    let progRemaining = 0;
-                    window.tracks.forEach(track => {
-                        if (syllabusStructure[track.id]) {
-                            syllabusStructure[track.id].forEach(s => {
-                                if (s.program === currentFilter) {
-                                    const stats = subjectStats[s.subject];
-                                    if (stats) {
-                                        progRemaining += Math.max(0, stats.totalChapters - stats.effectiveChapters);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                    const isPaceEnabled = window.dashboardConfig.independentPaces?.programs?.[currentFilter] === true;
-                    if (isPaceEnabled) {
-                        return `${Math.ceil(progRemaining / 1.0)} Days (Program)`;
-                    }
-                }
-
-                // If filter is a Subject
-                const isSubject = uniqueSubs.includes(currentFilter);
-                if (isSubject) {
-                    const stats = subjectStats[currentFilter];
-                    if (stats) {
-                        const rem = Math.max(0, stats.totalChapters - stats.effectiveChapters);
-                        const isPaceEnabled = window.dashboardConfig.independentPaces?.subjects?.[currentFilter] === true;
-                        if (isPaceEnabled) {
-                            return `${Math.ceil(rem / 1.0)} Days (Subject)`;
+                            totalRemaining += rem;
+                            totalPace += (stats.actualPace || 0);
                         }
                     }
                 }
+            });
+            
+            if (totalPace <= 0) {
+                return '--';
             }
-
-            if (maxTrackDays === 0 && maxProgDays === 0 && maxSubDays === 0) return '--';
-            return `Track: ${trackDaysStr} | Prog: ${progDaysStr} | Sub: ${subDaysStr}`;
+            
+            const daysNeeded = Math.ceil(totalRemaining / totalPace);
+            const projectedDate = new Date(today.getTime() + daysNeeded * msPerDay);
+            const finishDateStr = projectedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            return `${finishDateStr} (${daysNeeded} Days @ ${totalPace.toFixed(2)} Ch/Day)`;
         }
 
         window.updateTrendsBar = function () {
@@ -2533,8 +2465,12 @@
         }
 
         function updateMetrics() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const msPerDay = 1000 * 60 * 60 * 24;
+
             const subjectStats = {};
-            window.getAllSubjects().forEach(sub => { subjectStats[sub.subject] = { totalChapters: sub.chapters, tasksAssigned: 0, tasksCompleted: 0 }; });
+            window.getAllSubjects().forEach(sub => { subjectStats[sub.subject] = { totalChapters: sub.chapters, tasksAssigned: 0, tasksCompleted: 0, earliestCompletedDate: null }; });
 
             tasks.filter(t => t.type === 'study').forEach(task => {
                 window.tracks.forEach(track => {
@@ -2543,7 +2479,14 @@
                         task[key].forEach(subTask => {
                             if (subjectStats[subTask.subject]) {
                                 subjectStats[subTask.subject].tasksAssigned++;
-                                if (subTask.completed) subjectStats[subTask.subject].tasksCompleted++;
+                                if (subTask.completed) {
+                                    subjectStats[subTask.subject].tasksCompleted++;
+                                    let d = subTask.completedAt ? new Date(subTask.completedAt) : getTaskDate(task);
+                                    if (isNaN(d.getTime())) d = getTaskDate(task);
+                                    if (!subjectStats[subTask.subject].earliestCompletedDate || d < subjectStats[subTask.subject].earliestCompletedDate) {
+                                        subjectStats[subTask.subject].earliestCompletedDate = d;
+                                    }
+                                }
                             }
                         });
                     }
@@ -2561,6 +2504,18 @@
                     const ratio = stats.tasksAssigned > 0 ? stats.tasksCompleted / stats.tasksAssigned : 0;
                     stats.effectiveChapters = ratio * stats.totalChapters;
                 }
+
+                // Calculate subject actual pace
+                let actualPace = 0;
+                if (stats.earliestCompletedDate) {
+                    const start = new Date(stats.earliestCompletedDate);
+                    start.setHours(0, 0, 0, 0);
+                    if (start <= today) {
+                        const daysElapsed = Math.floor((today - start) / msPerDay) + 1;
+                        actualPace = stats.effectiveChapters / daysElapsed;
+                    }
+                }
+                stats.actualPace = actualPace;
             }
 
             window.lastSubjectStats = subjectStats; // Cache for the details modal
@@ -2587,10 +2542,6 @@
             if (pBar) pBar.style.width = `${percentage}%`;
 
             // 2. Accurate Aggregated Pace Engine (Top Boxes)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const msPerDay = 1000 * 60 * 60 * 24;
-
             if (!globalStartDate || !globalEndDate) {
                 // FALLBACK: Use actual pace based on 1st completed chapter across the entire system
                 let earliestDate = null;
@@ -3167,7 +3118,7 @@
                                     <span class="block text-[8px] uppercase tracking-widest font-black text-slate-500 opacity-80 mb-0.5">Cur Pace</span>
                                     <div class="font-black text-xs md:text-sm text-slate-700 dark:text-slate-300">${curPace} <span class="text-[8px] opacity-70">ch/d</span></div>
                                 </div>
-                                <div class="text-[9px] font-black text-emerald-500 mt-1.5 uppercase tracking-widest">${Math.max(0, daysElapsed)} Days Passed</div>
+                                <div class="text-[9px] font-black text-emerald-500 mt-1.5 uppercase tracking-widest">${window.formatDaysPassed(Math.max(0, daysElapsed))} Passed</div>
                             </div>
                             <div class="col-span-2 p-2.5 rounded-xl bg-slate-900 dark:bg-slate-900 border border-slate-800 flex justify-between items-center shadow-inner">
                                 <div class="flex flex-col">
@@ -4284,47 +4235,44 @@
             const todayObj = new Date();
             if (todayObj > chartEnd) chartEnd = new Date(todayObj);
 
-            const sYear = chartStart.getFullYear();
-            const sMonth = chartStart.getMonth();
-            const eYear = chartEnd.getFullYear();
-            const eMonth = chartEnd.getMonth();
-            const totalMonths = Math.max(1, (eYear - sYear) * 12 + (eMonth - sMonth) + 1);
+            // Set time boundaries to 00:00:00
+            chartStart.setHours(0, 0, 0, 0);
+            chartEnd.setHours(0, 0, 0, 0);
+            todayObj.setHours(0, 0, 0, 0);
 
-            const months = [];
-            for (let i = 0; i < totalMonths; i++) {
-                const d = new Date(sYear, sMonth + i, 1);
-                months.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
-            }
-
-            let studyData = Array(totalMonths).fill(0);
-            let revData = Array(totalMonths).fill(0);
-
+            // We build a list of days
+            const days = [];
+            let curr = new Date(chartStart.getTime());
+            
+            // Map of key -> count
+            const studyCounts = {};
+            const revCounts = {};
+            
             allEvents.forEach(e => {
                 let d = new Date(e.ts);
-                let mIdx = (d.getFullYear() - sYear) * 12 + (d.getMonth() - sMonth);
-
-                // Snap any historically early completions into the first month's baseline
-                if (mIdx < 0) mIdx = 0;
-
-                if (mIdx >= 0 && mIdx < totalMonths) {
-                    if (e.type === 'Chapter') studyData[mIdx]++;
-                    if (e.type === 'Revision') revData[mIdx]++;
-                }
+                d.setHours(0, 0, 0, 0);
+                let key = d.toDateString();
+                if (e.type === 'Chapter') studyCounts[key] = (studyCounts[key] || 0) + 1;
+                if (e.type === 'Revision') revCounts[key] = (revCounts[key] || 0) + 1;
             });
 
-            for (let i = 1; i < totalMonths; i++) {
-                studyData[i] += studyData[i - 1];
-                revData[i] += revData[i - 1];
-            }
-
-            const todayMidx = (todayObj.getFullYear() - sYear) * 12 + (todayObj.getMonth() - sMonth);
-
-            // Prevent future timelines from resolving negative and wiping out index 0 (breaking the chart)
-            const safeTodayMidx = Math.max(0, todayMidx);
-
-            for (let i = safeTodayMidx + 1; i < totalMonths; i++) {
-                studyData[i] = null;
-                revData[i] = null;
+            let studyData = [];
+            let revData = [];
+            
+            while (curr <= chartEnd) {
+                let key = curr.toDateString();
+                days.push(curr.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }));
+                
+                // If it is in the future, we set it to null so the line stops plotting
+                if (curr > todayObj) {
+                    studyData.push(null);
+                    revData.push(null);
+                } else {
+                    studyData.push(studyCounts[key] || 0);
+                    revData.push(revCounts[key] || 0);
+                }
+                
+                curr.setDate(curr.getDate() + 1);
             }
 
             container.innerHTML = `
@@ -4354,23 +4302,23 @@
                     window.globalHistoryChartInstance = new Chart(ctxChart.getContext('2d'), {
                         type: 'line',
                         data: {
-                            labels: months,
+                            labels: days,
                             datasets: [
                                 {
-                                    label: 'Study Chapters (Burn-up)',
+                                    label: 'Study Chapters',
                                     data: studyData,
                                     borderColor: '#3b82f6',
                                     backgroundColor: 'rgba(59, 130, 246, 0.15)',
                                     tension: 0.4, borderWidth: 3, fill: true,
-                                    pointBackgroundColor: '#3b82f6', pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
+                                    pointBackgroundColor: '#3b82f6', pointRadius: 2, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
                                 },
                                 {
-                                    label: 'Revision Chapters (Burn-up)',
+                                    label: 'Revision Chapters',
                                     data: revData,
                                     borderColor: '#8b5cf6',
                                     backgroundColor: 'rgba(139, 92, 246, 0.15)',
                                     tension: 0.4, borderWidth: 3, fill: true,
-                                    pointBackgroundColor: '#8b5cf6', pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
+                                    pointBackgroundColor: '#8b5cf6', pointRadius: 2, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff'
                                 }
                             ]
                         },
@@ -4382,8 +4330,8 @@
                                 tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#fff', bodyColor: '#cbd5e1', cornerRadius: 8, padding: 12, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } }
                             },
                             scales: {
-                                y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }, ticks: { font: { weight: 'bold' } } },
-                                x: { grid: { display: false, drawBorder: false }, ticks: { font: { weight: 'bold' } } }
+                                y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }, ticks: { font: { weight: 'bold' }, stepSize: 1 } },
+                                x: { grid: { display: false, drawBorder: false }, ticks: { font: { weight: 'bold' }, maxTicksLimit: window.innerWidth < 640 ? 6 : 12 } }
                             }
                         }
                     });
@@ -5336,6 +5284,32 @@
                         }
                     }
 
+                    // Check if Goal is Met
+                    const mainTarget = window.getProgramMainTarget(progName);
+                    const targetCGPA = (currentOverall && currentOverall.targetCGPA) || mainTarget.targetCGPA;
+                    const targetGrade = (currentOverall && currentOverall.targetGrade) || mainTarget.targetGrade;
+                    const hasTgt = targetCGPA && targetCGPA !== 'none' && targetCGPA !== '';
+                    
+                    let goalMetLabel = '';
+                    if (hasTgt) {
+                        let isGoalMet = false;
+                        if (evalType === 'grade') {
+                            const currentGradeVal = window.mapGradeToNumeric(currentOverall.grade, 'grade');
+                            const targetGradeVal = window.mapGradeToNumeric(targetGrade, 'grade');
+                            isGoalMet = currentGradeVal >= targetGradeVal;
+                        } else {
+                            const currentCgpaVal = parseFloat(currentOverall.value) || 0;
+                            const targetCgpaVal = parseFloat(targetCGPA) || 0;
+                            isGoalMet = currentCgpaVal >= targetCgpaVal;
+                        }
+                        
+                        if (isGoalMet) {
+                            goalMetLabel = ` <span class="text-xs font-black text-emerald-500 ml-1.5 whitespace-nowrap uppercase tracking-wider">[Goal Met]</span>`;
+                        } else {
+                            goalMetLabel = ` <span class="text-xs font-black text-rose-500 ml-1.5 whitespace-nowrap uppercase tracking-wider">[Not Met]</span>`;
+                        }
+                    }
+
                     html += `
                     <div class="bg-white dark:bg-slate-800 p-5 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-sm relative group hover:shadow-md hover:-translate-y-1 transition-all flex flex-col justify-between">
                         <div class="absolute top-3.5 right-3.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -5348,7 +5322,7 @@
                                 <span class="text-[8px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800/50">Program Card</span>
                                 <span class="text-[8px] font-bold text-slate-400 ml-auto mr-8">${dateStr}</span>
                             </div>
-                            <h4 class="font-black text-base text-slate-800 dark:text-slate-100 leading-tight mb-3 pr-12">${progName}</h4>
+                            <h4 class="font-black text-base text-slate-800 dark:text-slate-100 leading-tight mb-3 pr-12 flex items-center flex-wrap">${progName}${goalMetLabel}</h4>
                             <!-- Overall Program Score Banner -->
                             ${(() => {
                             if (!currentOverall || (!currentOverall.value && !currentOverall.grade)) return '';
@@ -6315,6 +6289,7 @@
                 }
             }
 
+            window.syncPassFreezeFromResults();
             saveToCloud();
             renderUI();
             closeModal('result-modal');
@@ -6324,6 +6299,7 @@
         window.deleteResult = function (id) {
             window.openConfirmModal("Delete Result", "Are you sure you want to delete this result?", () => {
                 window.successResults = window.successResults.filter(r => r.id !== id);
+                window.syncPassFreezeFromResults();
                 saveToCloud();
                 renderUI();
                 showToast("Result deleted", "success");
@@ -6333,6 +6309,7 @@
         window.deleteProgramGroup = function (programName) {
             window.openConfirmModal("Delete Program Card", `Are you sure you want to delete this program card and all its subject results?`, () => {
                 window.successResults = window.successResults.filter(r => !(r.type === 'cgpa' && r.title === programName));
+                window.syncPassFreezeFromResults();
                 saveToCloud();
                 renderUI();
                 showToast("Program card deleted", "success");
@@ -8562,6 +8539,100 @@
             showToast(name + (isChecked ? " frozen & marked passed!" : " unfrozen!"), "success");
         };
 
+        window.syncPassFreezeFromResults = function () {
+            if (!window.passedItems) window.passedItems = { programs: [], subjects: [] };
+            
+            const processedResults = window.getProcessedResults();
+            const programGroups = {};
+            processedResults.forEach(res => {
+                if (res.type === 'cgpa') {
+                    const progName = res.title;
+                    if (!programGroups[progName]) {
+                        programGroups[progName] = {
+                            overall: null,
+                            subjects: {}
+                        };
+                    }
+                    if (!res.subject) {
+                        programGroups[progName].overall = res;
+                    } else {
+                        programGroups[progName].subjects[res.subject] = res;
+                    }
+                }
+            });
+
+            // For each track and its custom programs
+            window.tracks.forEach(track => {
+                if (window.customPrograms[track.id]) {
+                    window.customPrograms[track.id].forEach(prog => {
+                        const progName = prog.name || prog;
+                        const group = programGroups[progName];
+                        const mainTarget = window.getProgramMainTarget(progName);
+                        const targetCGPA = (group && group.overall && group.overall.targetCGPA) || mainTarget.targetCGPA;
+                        const targetGrade = (group && group.overall && group.overall.targetGrade) || mainTarget.targetGrade;
+                        const hasTgt = targetCGPA && targetCGPA !== 'none' && targetCGPA !== '';
+
+                        // 1. Program Level Goal
+                        let isProgramGoalMet = false;
+                        if (hasTgt && group && group.overall) {
+                            const evalType = group.overall.evaluationType;
+                            if (evalType === 'grade') {
+                                const currentGradeVal = window.mapGradeToNumeric(group.overall.grade, 'grade');
+                                const targetGradeVal = window.mapGradeToNumeric(targetGrade, 'grade');
+                                isProgramGoalMet = currentGradeVal >= targetGradeVal;
+                            } else {
+                                const currentCgpaVal = parseFloat(group.overall.value) || 0;
+                                const targetCgpaVal = parseFloat(targetCGPA) || 0;
+                                isProgramGoalMet = currentCgpaVal >= targetCgpaVal;
+                            }
+                        }
+
+                        if (isProgramGoalMet) {
+                            if (!window.passedItems.programs.includes(progName)) {
+                                window.passedItems.programs.push(progName);
+                            }
+                        } else {
+                            window.passedItems.programs = window.passedItems.programs.filter(p => p !== progName);
+                        }
+
+                        // 2. Subject Level Goal
+                        const subs = (syllabusStructure[track.id] || []).filter(s => s.program === progName);
+                        subs.forEach(s => {
+                            const subRes = group && group.subjects && group.subjects[s.subject];
+                            const subTargetCgpa = (subRes && subRes.targetCGPA) || targetCGPA;
+                            const subTargetGrade = (subRes && subRes.targetGrade) || targetGrade;
+                            const hasSubTgt = subTargetCgpa && subTargetCgpa !== 'none' && subTargetCgpa !== '';
+
+                            let isSubjectGoalMet = false;
+                            if (isProgramGoalMet) {
+                                // If program goal is met, all its subjects are automatically passed/frozen
+                                isSubjectGoalMet = true;
+                            } else if (hasSubTgt && subRes) {
+                                const evalType = subRes.evaluationType || 'cgpa';
+                                if (evalType === 'grade') {
+                                    const currentGradeVal = window.mapGradeToNumeric(subRes.grade, 'grade');
+                                    const targetGradeVal = window.mapGradeToNumeric(subTargetGrade, 'grade');
+                                    isSubjectGoalMet = currentGradeVal >= targetGradeVal;
+                                } else {
+                                    const currentCgpaVal = parseFloat(subRes.value) || 0;
+                                    const targetCgpaVal = parseFloat(subTargetCgpa) || 0;
+                                    isSubjectGoalMet = currentCgpaVal >= targetCgpaVal;
+                                }
+                            }
+
+                            if (isSubjectGoalMet) {
+                                if (!window.passedItems.subjects.includes(s.subject)) {
+                                    window.passedItems.subjects.push(s.subject);
+                                }
+                            } else {
+                                window.passedItems.subjects = window.passedItems.subjects.filter(name => name !== s.subject);
+                            }
+                        });
+                    });
+                }
+            });
+        };
+
         window.syncPriorityInputsFromDOM = function () {
             // Tracks
             if (window.tracks) {
@@ -8802,14 +8873,29 @@
                     }
                 });
                 
-                // sort programs
+                // Collect all custom program objects globally
+                const actualProgs = [];
+                window.tracks.forEach(trackObj => {
+                    if (window.customPrograms[trackObj.id]) {
+                        window.customPrograms[trackObj.id].forEach(p => {
+                            actualProgs.push(p);
+                        });
+                    }
+                });
+                
+                // Sort actual program objects globally by priority, then order
+                actualProgs.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || (a.order ?? 999) - (b.order ?? 999));
+                
+                // Re-assign global priorities and orders sequentially
+                actualProgs.forEach((p, idx) => {
+                    p.priority = idx + 1;
+                    p.order = idx;
+                });
+
+                // Finally, sort each track's program array locally by their updated global priorities & orders
                 window.tracks.forEach(trackObj => {
                     if (Array.isArray(window.customPrograms[trackObj.id])) {
                         window.customPrograms[trackObj.id].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || (a.order ?? 999) - (b.order ?? 999));
-                        window.customPrograms[trackObj.id].forEach((p, idx) => {
-                            p.priority = idx + 1;
-                            p.order = idx;
-                        });
                     }
                 });
             } else if (category === 'subject') {
