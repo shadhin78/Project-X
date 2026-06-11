@@ -1154,8 +1154,28 @@
                     else window.subjectTimeLinks = {};
                     if (data.successResults) window.successResults = data.successResults;
                     else window.successResults = [];
-                    if (data.weeklyTargets) window.weeklyTargets = data.weeklyTargets;
-                    else window.weeklyTargets = [];
+                    if (data.weeklyTargetsDatabase) {
+                        window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                    } else {
+                        window.weeklyTargetsDatabase = {};
+                    }
+                    if (Array.isArray(data.weeklyTargets) && data.weeklyTargets.length > 0) {
+                        const defaultRange = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
+                        if (defaultRange) {
+                            const key = window.formatDateRangeKey ? window.formatDateRangeKey(defaultRange.start, defaultRange.end) : "Migration Week";
+                            if (!window.weeklyTargetsDatabase[key]) {
+                                window.weeklyTargetsDatabase[key] = data.weeklyTargets.map(t => {
+                                    return {
+                                        track: t.track || "",
+                                        program: t.program || "",
+                                        subject: t.subject || "",
+                                        chapter: t.chapter || "",
+                                        completed: t.completed || false
+                                    };
+                                });
+                            }
+                        }
+                    }
                     if (data.dashboardConfig) {
                         window.dashboardConfig = data.dashboardConfig;
                         if (!window.dashboardConfig.trendStartDate) {
@@ -1269,7 +1289,17 @@
                 subjectTimeLinks: window.subjectTimeLinks,
                 successResults: window.successResults,
                 dashboardConfig: window.dashboardConfig,
-                weeklyTargets: window.weeklyTargets || []
+                weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+                weeklyTargets: (function() {
+                    const range = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
+                    if (range && window.weeklyTargetsDatabase) {
+                        const key = window.formatDateRangeKey ? window.formatDateRangeKey(range.start, range.end) : null;
+                        if (key && window.weeklyTargetsDatabase[key]) {
+                            return window.weeklyTargetsDatabase[key];
+                        }
+                    }
+                    return [];
+                })()
             };
             window.appState = payload;
 
@@ -8654,19 +8684,26 @@
         };
 
         // --- Weekly Targets System Logic ---
-        window.weeklyTargets = [];
+        window.weeklyTargetsDatabase = {};
 
-        window.getWeeklyTargetRange = function () {
-            const today = new Date();
+        window.formatDateRangeKey = function (start, end) {
+            const opt = { day: '2-digit', month: 'short', year: 'numeric' };
+            const startStr = start.toLocaleDateString('en-GB', opt);
+            const endStr = end.toLocaleDateString('en-GB', opt);
+            return `${startStr} - ${endStr}`;
+        };
+
+        window.getWeeklyTargetRange = function (date = new Date()) {
+            const today = new Date(date);
             today.setHours(0, 0, 0, 0);
-            const day = today.getDay(); // 0 is Sunday, 6 is Saturday
+            const day = today.getDay(); // 0 is Sun, 6 is Sat
             const daysSinceSat = (day === 6) ? 0 : (day + 1);
             
             const startOfWeek = new Date(today.getTime() - (daysSinceSat * 24 * 60 * 60 * 1000));
-            startOfWeek.setHours(0, 0, 0, 0);
+            startOfWeek.setHours(0, 1, 0, 0); // Sat 00:01 AM
             
             const endOfWeek = new Date(startOfWeek.getTime() + (6 * 24 * 60 * 60 * 1000));
-            endOfWeek.setHours(23, 59, 59, 999);
+            endOfWeek.setHours(23, 59, 59, 999); // Fri 11:59 PM
             
             return { start: startOfWeek, end: endOfWeek, daysSinceSat: daysSinceSat };
         };
@@ -8757,6 +8794,14 @@
         };
 
         window.addWeeklyTarget = function () {
+            const range = window.getWeeklyTargetRange();
+            const currentWeekKey = window.formatDateRangeKey(range.start, range.end);
+            
+            const weekSelectEl = document.getElementById('wt-select-week');
+            if (weekSelectEl && weekSelectEl.value !== currentWeekKey) {
+                return showToast("You can only add targets to the current active week.", "error");
+            }
+
             const progSelectEl = document.getElementById('wt-select-prog');
             const subSelectEl = document.getElementById('wt-select-sub');
             const chSelectEl = document.getElementById('wt-select-ch');
@@ -8771,18 +8816,21 @@
             const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
             if (!trackId) return;
 
-            // Check if already exists in weekly targets
-            const exists = (window.weeklyTargets || []).some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+            if (!window.weeklyTargetsDatabase[currentWeekKey]) window.weeklyTargetsDatabase[currentWeekKey] = [];
+
+            // Check if already exists in weekly targets database for current week
+            const exists = window.weeklyTargetsDatabase[currentWeekKey].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
             if (exists) {
                 return showToast("This target is already in your weekly target list.", "error");
             }
 
-            if (!window.weeklyTargets) window.weeklyTargets = [];
-            window.weeklyTargets.push({
+            window.weeklyTargetsDatabase[currentWeekKey].push({
                 track: trackId,
                 program: progName,
                 subject: subject,
-                chapter: chapter
+                chapter: chapter,
+                completed: false
             });
 
             saveToCloud();
@@ -8791,8 +8839,12 @@
         };
 
         window.deleteWeeklyTarget = function (idx) {
-            if (window.weeklyTargets && window.weeklyTargets[idx]) {
-                window.weeklyTargets.splice(idx, 1);
+            const weekSelectEl = document.getElementById('wt-select-week');
+            if (!weekSelectEl) return;
+            const selectedWeekKey = weekSelectEl.value;
+
+            if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[selectedWeekKey] && window.weeklyTargetsDatabase[selectedWeekKey][idx]) {
+                window.weeklyTargetsDatabase[selectedWeekKey].splice(idx, 1);
                 saveToCloud();
                 renderUI();
                 showToast("Weekly target removed.", "success");
@@ -8800,26 +8852,79 @@
         };
 
         window.toggleWeeklyTargetCompletion = function (idx, isCompleted) {
-            if (!window.weeklyTargets || !window.weeklyTargets[idx]) return;
-            const target = window.weeklyTargets[idx];
+            const weekSelectEl = document.getElementById('wt-select-week');
+            if (!weekSelectEl) return;
+            const selectedWeekKey = weekSelectEl.value;
+
+            if (!window.weeklyTargetsDatabase || !window.weeklyTargetsDatabase[selectedWeekKey] || !window.weeklyTargetsDatabase[selectedWeekKey][idx]) return;
+            
+            const target = window.weeklyTargetsDatabase[selectedWeekKey][idx];
+            target.completed = isCompleted;
+            
             const found = window.findTaskChapter(target.track, target.subject, target.chapter);
             if (found) {
                 found.subTask.completed = isCompleted;
                 recalculateTotals();
-                saveToCloud();
-                renderUI();
-                showToast("Chapter completion state synchronized!", "success");
-            } else {
-                showToast("Could not locate chapter in tasks database.", "error");
             }
+
+            saveToCloud();
+            renderUI();
+            showToast("Chapter completion state synchronized!", "success");
         };
 
         window.renderWeeklyTargets = function () {
             const listContainer = document.getElementById('weekly-targets-list');
             const progDropdown = document.getElementById('wt-select-prog');
-            if (!listContainer || !progDropdown) return;
+            const weekSelectEl = document.getElementById('wt-select-week');
+            if (!listContainer || !progDropdown || !weekSelectEl) return;
 
-            // 1. Update drop downs if they are empty (or initial state)
+            // 1. Calculate current week range
+            const currentRange = window.getWeeklyTargetRange();
+            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+
+            // 2. Collect all weeks in database + current week
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+            const allWeeksSet = new Set(Object.keys(window.weeklyTargetsDatabase));
+            allWeeksSet.add(currentWeekKey);
+            const allWeeks = Array.from(allWeeksSet).sort((a, b) => {
+                const parseStart = (wkStr) => {
+                    const parts = wkStr.split(' - ');
+                    return parts[0] ? new Date(parts[0]) : new Date(0);
+                };
+                return parseStart(b) - parseStart(a);
+            });
+
+            // 3. Update week selector options if count/keys mismatch
+            const currentSelectedWeek = weekSelectEl.value || currentWeekKey;
+            if (weekSelectEl.options.length !== allWeeks.length) {
+                weekSelectEl.innerHTML = '';
+                allWeeks.forEach(wk => {
+                    weekSelectEl.innerHTML += `<option value="${wk}">${wk}</option>`;
+                });
+                weekSelectEl.value = allWeeks.includes(currentSelectedWeek) ? currentSelectedWeek : currentWeekKey;
+            }
+
+            const activeWeekKey = weekSelectEl.value;
+            
+            // 4. Update Header displays
+            document.getElementById('wt-selected-week-range').textContent = `[ ${activeWeekKey} ]`;
+            
+            const todayDate = new Date();
+            const weekday = todayDate.toLocaleDateString('en-GB', { weekday: 'long' });
+            const formattedToday = todayDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            document.getElementById('wt-today-display').textContent = `Today: ${weekday}, ${formattedToday}`;
+
+            // 5. If selected week is not current, hide add form, else show
+            const addFormContainer = document.getElementById('wt-add-form-container');
+            if (addFormContainer) {
+                if (activeWeekKey !== currentWeekKey) {
+                    addFormContainer.classList.add('hidden');
+                } else {
+                    addFormContainer.classList.remove('hidden');
+                }
+            }
+
+            // 6. Update Programs / Subjects / Chapters selectors
             const activeProgs = [];
             window.tracks.forEach(track => {
                 if (window.customPrograms[track.id]) {
@@ -8843,16 +8948,15 @@
                 }
             }
 
-            // 2. Render target items list
+            // 7. Render targets list
             listContainer.innerHTML = '';
-            if (!window.weeklyTargets) window.weeklyTargets = [];
+            const targetsList = window.weeklyTargetsDatabase[activeWeekKey] || [];
 
-            let totalTargets = window.weeklyTargets.length;
+            let totalTargets = targetsList.length;
             let completedTargets = 0;
 
-            window.weeklyTargets.forEach((target, idx) => {
-                const found = window.findTaskChapter(target.track, target.subject, target.chapter);
-                const isCompleted = found ? found.subTask.completed : false;
+            targetsList.forEach((target, idx) => {
+                const isCompleted = target.completed || false;
                 if (isCompleted) completedTargets++;
 
                 const statusColor = isCompleted 
@@ -8885,37 +8989,51 @@
             if (totalTargets === 0) {
                 listContainer.innerHTML = `
                 <div class="col-span-full py-8 text-center text-[10px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                    No weekly targets set. Add chapters above to start tracking!
+                    No weekly targets set for this week.
                 </div>`;
             }
 
-            // 3. Compute and render Weekly target pacing metrics
-            const range = window.getWeeklyTargetRange();
-            const daysSinceSat = range.daysSinceSat;
-            const daysLeft = 7 - daysSinceSat; // Saturday through Friday
+            // 8. Pacing metrics calculations
             const remainingTargets = totalTargets - completedTargets;
-
-            const reqPace = daysLeft > 0 ? (remainingTargets / daysLeft) : 0;
-            const actPace = completedTargets / (daysSinceSat + 1);
-
-            document.getElementById('wt-req-pace').textContent = `${reqPace.toFixed(2)} Ch/Day`;
-            document.getElementById('wt-act-pace').textContent = `${actPace.toFixed(2)} Ch/Day`;
-
             const estFinishEl = document.getElementById('wt-est-finish');
-            if (remainingTargets === 0) {
-                estFinishEl.textContent = 'Goal Met';
-                estFinishEl.className = 'text-xs font-black text-emerald-600 dark:text-emerald-400';
-            } else if (actPace === 0) {
-                estFinishEl.textContent = 'Infinite';
-                estFinishEl.className = 'text-xs font-black text-red-600 dark:text-red-400';
-            } else {
-                const daysNeeded = remainingTargets / actPace;
-                const estDate = new Date();
-                estDate.setDate(estDate.getDate() + Math.ceil(daysNeeded));
+
+            if (activeWeekKey === currentWeekKey) {
+                const daysSinceSat = currentRange.daysSinceSat;
+                const daysLeft = 7 - daysSinceSat;
                 
-                const opt = { day: 'numeric', month: 'short', year: 'numeric' };
-                estFinishEl.textContent = estDate.toLocaleDateString('en-GB', opt);
-                estFinishEl.className = 'text-xs font-black text-purple-600 dark:text-purple-400';
+                const reqPace = daysLeft > 0 ? (remainingTargets / daysLeft) : 0;
+                const actPace = completedTargets / (daysSinceSat + 1);
+
+                document.getElementById('wt-req-pace').textContent = `${reqPace.toFixed(2)} Ch/Day`;
+                document.getElementById('wt-act-pace').textContent = `${actPace.toFixed(2)} Ch/Day`;
+
+                if (remainingTargets === 0) {
+                    estFinishEl.textContent = 'Goal Met';
+                    estFinishEl.className = 'text-xs font-black text-emerald-600 dark:text-emerald-400';
+                } else if (actPace === 0) {
+                    estFinishEl.textContent = 'Infinite';
+                    estFinishEl.className = 'text-xs font-black text-red-600 dark:text-red-400';
+                } else {
+                    const daysNeeded = remainingTargets / actPace;
+                    const estDate = new Date();
+                    estDate.setDate(estDate.getDate() + Math.ceil(daysNeeded));
+                    
+                    const opt = { day: 'numeric', month: 'short', year: 'numeric' };
+                    estFinishEl.textContent = estDate.toLocaleDateString('en-GB', opt);
+                    estFinishEl.className = 'text-xs font-black text-purple-600 dark:text-purple-400';
+                }
+            } else {
+                document.getElementById('wt-req-pace').textContent = `0.00 Ch/Day`;
+                const actPace = completedTargets / 7;
+                document.getElementById('wt-act-pace').textContent = `${actPace.toFixed(2)} Ch/Day`;
+
+                if (remainingTargets === 0) {
+                    estFinishEl.textContent = 'Goal Met';
+                    estFinishEl.className = 'text-xs font-black text-emerald-600 dark:text-emerald-400';
+                } else {
+                    estFinishEl.textContent = 'Not Met';
+                    estFinishEl.className = 'text-xs font-black text-rose-600 dark:text-rose-400';
+                }
             }
         };
 
@@ -10695,20 +10813,33 @@
             <!-- Weekly Targets Section -->
             <div id="weekly-targets-section" class="mt-8 md:mt-10 bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm space-y-6">
                 <!-- Header and Metrics -->
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 dark:border-slate-700 pb-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                            </svg>
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-5 border-b border-slate-100 dark:border-slate-700/60 pb-5">
+                    <div class="flex flex-col md:flex-row md:items-center gap-4 w-full">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Weekly Targets Setup</h3>
+                                <div class="flex flex-wrap items-center gap-2 mt-1">
+                                    <span id="wt-selected-week-range" class="text-[10px] text-blue-600 dark:text-blue-400 font-black tracking-wider uppercase bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800">[ Loading Week... ]</span>
+                                    <span id="wt-today-display" class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Today: Thursday, 11 Jun 2026</span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Weekly Targets Setup</h3>
-                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Define chapter targets to accomplish this week (Saturday - Friday)</p>
+                        
+                        <!-- Week Selector Dropdown -->
+                        <div class="flex items-center space-x-2 md:ml-auto w-full md:w-auto mt-2 md:mt-0">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Select Week:</label>
+                            <select id="wt-select-week" onchange="window.renderWeeklyTargets()" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white font-bold w-full md:w-48 shadow-sm">
+                            </select>
                         </div>
                     </div>
+                    
                     <!-- Metrics panel -->
-                    <div class="grid grid-cols-3 gap-2 sm:gap-4 w-full md:w-auto shrink-0">
+                    <div class="grid grid-cols-3 gap-2 sm:gap-4 w-full xl:w-auto shrink-0">
                         <div class="bg-slate-50 dark:bg-slate-900/50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800/80 text-center min-w-[80px] sm:min-w-[100px]">
                             <span class="block text-[8px] font-black uppercase tracking-wider text-slate-400">Req. Pace</span>
                             <span id="wt-req-pace" class="text-xs font-black text-blue-600 dark:text-blue-400">0.00 Ch/D</span>
@@ -10725,20 +10856,20 @@
                 </div>
 
                 <!-- Input form to add a target -->
-                <div class="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col sm:flex-row gap-3 items-end">
+                <div id="wt-add-form-container" class="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col sm:flex-row gap-3 items-end">
                     <div class="flex-1 w-full space-y-1">
                         <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Program</label>
-                        <select id="wt-select-prog" onchange="window.updateWeeklyTargetSubjectDropdown()" class="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"></select>
+                        <select id="wt-select-prog" onchange="window.updateWeeklyTargetSubjectDropdown()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"></select>
                     </div>
                     <div class="flex-1 w-full space-y-1">
                         <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Subject</label>
-                        <select id="wt-select-sub" onchange="window.updateWeeklyTargetChapterDropdown()" class="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"></select>
+                        <select id="wt-select-sub" onchange="window.updateWeeklyTargetChapterDropdown()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"></select>
                     </div>
                     <div class="flex-1 w-full space-y-1">
                         <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Chapter</label>
-                        <select id="wt-select-ch" class="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"></select>
+                        <select id="wt-select-ch" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"></select>
                     </div>
-                    <button onclick="window.addWeeklyTarget()" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md shadow-blue-500/20 active:scale-95 transition-all">Add Target</button>
+                    <button onclick="window.addWeeklyTarget()" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md shadow-blue-500/20 active:scale-95 transition-all">Add Target</button>
                 </div>
 
                 <!-- Targets List -->
@@ -10751,58 +10882,69 @@
             </div>
 
             <!-- Create Daily Action Section -->
-            <div id="add-daily-action-section" class="mt-8 md:mt-10 bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm space-y-6">
-                <div class="flex items-center space-x-3 border-b border-slate-100 dark:border-slate-700 pb-4">
-                    <div class="p-2.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl">
+            <details id="add-daily-action-section" class="mt-8 md:mt-10 bg-white dark:bg-slate-800 rounded-2xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm group overflow-hidden">
+                <summary class="cursor-pointer p-5 md:p-8 outline-none select-none list-none flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/80 transition-colors [&::-webkit-details-marker]:hidden">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Create Daily Action Tracker</h3>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Click to configure and add new daily habits or trackers</p>
+                        </div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 text-slate-400 group-open:rotate-180 transition-all duration-300 shrink-0 border border-slate-200/50 dark:border-slate-600/30">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </div>
-                    <div>
-                        <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Create Daily Action Tracker</h3>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Create a new habit or action to track daily alongside studying</p>
+                </summary>
+                <div class="p-5 md:p-8 space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                        <div class="flex flex-col gap-1.5 w-full">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Action Title</label>
+                            <input type="text" id="add-act-title"
+                                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
+                                placeholder="Action Title">
+                        </div>
+                        <div class="flex flex-col gap-1.5 w-full">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Question / Description</label>
+                            <input type="text" id="add-act-desc"
+                                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
+                                placeholder="Description (e.g. Read 10 pages?)">
+                        </div>
+                        <div class="flex flex-col gap-1.5 w-full">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Theme Color</label>
+                            <select id="add-act-color"
+                                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
+                                <option value="indigo">Indigo</option>
+                                <option value="emerald">Emerald</option>
+                                <option value="orange">Orange</option>
+                                <option value="purple">Purple</option>
+                                <option value="rose">Rose</option>
+                                <option value="cyan">Cyan</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1.5 w-full">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Icon</label>
+                            <select id="add-act-icon"
+                                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
+                                <option value="generic">List / Default</option>
+                                <option value="book">Graduation Cap / Academic</option>
+                                <option value="briefcase">Briefcase / Professional</option>
+                                <option value="gym">Heart / Gym & Health</option>
+                                <option value="freelance">Lightning / Work & Code</option>
+                            </select>
+                        </div>
+                        <div class="col-span-full pt-2 flex justify-end">
+                            <button onclick="window.appendNewAction()"
+                                class="w-full sm:w-auto px-6 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest py-3 rounded-lg transition-all active:scale-95 shadow-md shadow-blue-500/10">Create Action</button>
+                        </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
-                    <div class="flex flex-col gap-1.5 w-full">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Action Title</label>
-                        <input type="text" id="add-act-title"
-                            class="bg-white dark:bg-slate-855 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
-                            placeholder="Action Title">
-                    </div>
-                    <div class="flex flex-col gap-1.5 w-full">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Question / Description</label>
-                        <input type="text" id="add-act-desc"
-                            class="bg-white dark:bg-slate-855 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full"
-                            placeholder="Description (e.g. Read 10 pages?)">
-                    </div>
-                    <div class="flex flex-col gap-1.5 w-full">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Theme Color</label>
-                        <select id="add-act-color"
-                            class="bg-white dark:bg-slate-855 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
-                            <option value="indigo">Indigo</option>
-                            <option value="emerald">Emerald</option>
-                            <option value="orange">Orange</option>
-                            <option value="purple">Purple</option>
-                            <option value="rose">Rose</option>
-                            <option value="cyan">Cyan</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1.5 w-full">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Icon</label>
-                        <select id="add-act-icon"
-                            class="bg-white dark:bg-slate-855 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full">
-                            <option value="generic">List / Default</option>
-                            <option value="book">Graduation Cap / Academic</option>
-                            <option value="briefcase">Briefcase / Professional</option>
-                            <option value="gym">Heart / Gym & Health</option>
-                            <option value="freelance">Lightning / Work & Code</option>
-                        </select>
-                    </div>
-                    <button onclick="window.appendNewAction()"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] md:text-[11px] uppercase tracking-widest py-3 rounded-xl transition-all active:scale-95 shadow-md shadow-blue-500/10">Create Action</button>
-                </div>
-            </div>
+            </details>
         </div>
         </div>
 
@@ -11224,22 +11366,31 @@
             </div>
 
             <!-- Pass/Freeze Section -->
-            <div id="outcome-pass-freeze-section" class="mt-8 md:mt-12 bg-white dark:bg-slate-800 p-5 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col scroll-mt-24 md:scroll-mt-32">
-                <div class="flex items-center space-x-3 mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
-                    <div class="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <details id="outcome-pass-freeze-section" class="mt-8 md:mt-12 bg-white dark:bg-slate-800 rounded-2xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col scroll-mt-24 md:scroll-mt-32 group overflow-hidden">
+                <summary class="cursor-pointer p-5 md:p-8 outline-none select-none list-none flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/80 transition-colors [&::-webkit-details-marker]:hidden">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Pass / Freeze Configuration</h3>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Click to view program or subject freeze settings</p>
+                        </div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 text-slate-400 group-open:rotate-180 transition-all duration-300 shrink-0 border border-slate-200/50 dark:border-slate-600/30">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </div>
-                    <div>
-                        <h3 class="text-base md:text-lg font-black dark:text-white leading-tight">Pass / Freeze Configuration</h3>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Mark entire programs or specific subjects as "Passed". This freezes them, compressing their UI in the Task List and instantly satisfying their pacing requirements.</p>
+                </summary>
+                <div class="p-5 md:p-8">
+                    <div id="outcome-pass-container">
+                        <!-- Loaded dynamically via js window.renderPassConfig() -->
                     </div>
                 </div>
-                <div id="outcome-pass-container">
-                    <!-- Loaded dynamically via js window.renderPassConfig() -->
-                </div>
-            </div>
+            </details>
         </div>
         </div>
 
