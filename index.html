@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AntyGravity</title>
+    <title>Project X</title>
     <!-- PWA Configurations -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AntyGravity">
+    <meta name="apple-mobile-web-app-title" content="Project X">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11203,19 +11203,21 @@
             const sidebar = document.getElementById('sidebar-container');
             const backdrop = document.getElementById('sidebar-backdrop');
             if (sidebar) {
-                const isOpen = !sidebar.classList.contains('hidden');
+                const isOpen = sidebar.classList.contains('translate-x-0');
                 if (isOpen) {
-                    sidebar.classList.add('hidden');
-                    sidebar.classList.remove('flex');
-                    sidebar.classList.add('-translate-x-full');
                     sidebar.classList.remove('translate-x-0');
-                    if (backdrop) backdrop.classList.add('hidden');
+                    sidebar.classList.add('-translate-x-full');
+                    if (backdrop) {
+                        backdrop.classList.add('opacity-0', 'pointer-events-none');
+                        backdrop.classList.remove('opacity-100');
+                    }
                 } else {
-                    sidebar.classList.remove('hidden');
-                    sidebar.classList.add('flex');
                     sidebar.classList.remove('-translate-x-full');
                     sidebar.classList.add('translate-x-0');
-                    if (backdrop) backdrop.classList.remove('hidden');
+                    if (backdrop) {
+                        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+                        backdrop.classList.add('opacity-100');
+                    }
                 }
             }
         };
@@ -11224,13 +11226,12 @@
             const sidebar = document.getElementById('sidebar-container');
             const backdrop = document.getElementById('sidebar-backdrop');
             if (sidebar) {
-                sidebar.classList.add('hidden');
-                sidebar.classList.remove('flex');
-                sidebar.classList.add('-translate-x-full');
                 sidebar.classList.remove('translate-x-0');
+                sidebar.classList.add('-translate-x-full');
             }
             if (backdrop) {
-                backdrop.classList.add('hidden');
+                backdrop.classList.add('opacity-0', 'pointer-events-none');
+                backdrop.classList.remove('opacity-100');
             }
         };
 
@@ -11468,13 +11469,13 @@
             }
 
             window.addEventListener('appinstalled', (evt) => {
-                console.log('[PWA] AntyGravity was installed successfully!');
+                console.log('[PWA] Project X was installed successfully!');
                 if (installBtn) {
                     installBtn.classList.add('hidden');
                     installBtn.classList.remove('flex');
                 }
                 if (typeof showToast === 'function') {
-                    showToast('AntyGravity Installed Successfully!', 'success');
+                    showToast('Project X Installed Successfully!', 'success');
                 }
             });
 
@@ -11626,10 +11627,12 @@
             </div>
         </div>
 
+        <!-- Sidebar Backdrop -->
+        <div id="sidebar-backdrop" onclick="window.closeMobileSidebar()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
         <!-- Sidebar (Left) -->
-        <div id="sidebar-container" class="hidden md:flex flex-col fixed md:relative inset-y-0 left-0 z-50 w-72 h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
-            <!-- Sidebar Backdrop -->
-            <div id="sidebar-backdrop" onclick="window.closeMobileSidebar()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[-1] md:hidden hidden"></div>
+        <div id="sidebar-container" class="flex flex-col fixed md:relative inset-y-0 left-0 z-50 w-72 h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+            
 
             <div class="flex flex-col h-full min-h-0 justify-between p-5 md:p-6 overflow-y-auto custom-scrollbar">
                 <!-- Sidebar Top Section -->
@@ -11661,7 +11664,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
                                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg>
-                        Install AntyGravity
+                        Install Project X
                     </button>
 
                     <!-- Navigation List -->
