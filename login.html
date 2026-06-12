@@ -45,7 +45,7 @@
                 Private Access System
             </span>
             <h1 class="text-3xl md:text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400">
-                AntyGravity Dashboard
+                Project X
             </h1>
             <p class="text-slate-500 font-bold text-xs md:text-sm tracking-wide mt-2">
                 Sign in to access your tracking workspace
@@ -59,7 +59,7 @@
                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                 </svg>
-                <span id="error-message">Access denied. This application is private.</span>
+                <span id="error-message">Access denied. Project X is private.</span>
             </div>
 
             <!-- Form -->
@@ -108,7 +108,7 @@
             // Show error banner if redirected with error
             const params = new URLSearchParams(window.location.search);
             if (params.get('error') === 'denied') {
-                showError("Access denied. This application is private.");
+                showError("Access denied. Project X is private.");
             }
 
             function showError(msg) {
@@ -172,7 +172,7 @@
                     if (user.email !== 'ris2k29@gmail.com') {
                         // User logged in but email is not authorized
                         await firebase.auth().signOut();
-                        showError("Access denied. This application is private.");
+                        showError("Access denied. Project X is private.");
                         btnSubmit.disabled = false;
                         spinner.classList.add('hidden');
                     } else {

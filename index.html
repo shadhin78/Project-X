@@ -21,15 +21,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
-        // --- Firebase Configuration ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
-            authDomain: "project-x-787898.firebaseapp.com",
-            projectId: "project-x-787898",
-            storageBucket: "project-x-787898.firebasestorage.app",
-            messagingSenderId: "1011303841705",
-            appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
-        };
         window.sanitizeAllData = function (val) {
             if (typeof val === 'string') {
                 return val.replace(/<[^>]*>/g, '');
