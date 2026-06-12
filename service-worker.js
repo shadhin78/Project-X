@@ -7,7 +7,9 @@ const ASSETS_TO_CACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js'
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
 ];
 
 // Install Event - Pre-cache assets
@@ -47,8 +49,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Skip caching for external API endpoints
-  if (url.hostname.includes('googleapis')) {
+  // Skip caching for Firebase dynamic endpoints or firestore calls
+  if (
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('firestore') ||
+    url.hostname.includes('googleapis')
+  ) {
     return;
   }
 

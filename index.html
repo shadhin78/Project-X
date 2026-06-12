@@ -16,7 +16,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+            authDomain: "project-x-787898.firebaseapp.com",
+            projectId: "project-x-787898",
+            storageBucket: "project-x-787898.firebasestorage.app",
+            messagingSenderId: "1011303841705",
+            appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+        };
         window.sanitizeAllData = function (val) {
             if (typeof val === 'string') {
                 return val.replace(/<[^>]*>/g, '');
@@ -37,7 +49,8 @@
         };
         window.appState = {};
         window.tracks = [];
-
+        let db;
+        let isSyncing = false;
         let isAppInitialized = false;
         let tasks = [];
         let progressChart;
@@ -1126,7 +1139,145 @@
         tasks = defaultTasks;
         recalculateTotals();
 
+        function initializeFirebase() {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                console.log("Firebase Connected");
 
+                // Enable offline database persistence for PWA support
+                db.enablePersistence({ synchronizeTabs: true })
+                    .then(() => console.log("Firestore offline persistence enabled."))
+                    .catch((err) => {
+                        if (err.code === 'failed-precondition') {
+                            console.warn("Firestore persistence failed: Multiple tabs open.");
+                        } else if (err.code === 'unimplemented') {
+                            console.warn("Firestore persistence failed: Browser not supported.");
+                        } else {
+                            console.error("Firestore persistence error:", err);
+                        }
+                    });
+
+                loadFromCloud();
+            } catch (e) { console.error("Firebase init error:", e); }
+        }
+
+        function loadFromCloud() {
+            if (!db) return;
+            db.collection('studyPlan').doc('globalData').onSnapshot((docSnap) => {
+                if (isSyncing) return; // Prevent loop
+
+                if (docSnap.exists) {
+                    const data = window.sanitizeAllData(docSnap.data());
+                    let newTasks = defaultTasks;
+
+                    if (data.tracks) window.tracks = data.tracks;
+                    if (data.customPrograms) window.customPrograms = data.customPrograms;
+                    if (data.customActions) window.customActions = data.customActions;
+                    if (data.programVisibility) window.programVisibility = data.programVisibility;
+                    if (data.paceGoals) window.paceGoals = data.paceGoals;
+                    else window.paceGoals = [];
+                    if (data.passedItems) window.passedItems = data.passedItems;
+                    else window.passedItems = { programs: [], subjects: [] };
+                    if (data.revisionData) window.revisionData = data.revisionData;
+                    else window.revisionData = { active: [], progress: {} };
+                    if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
+                    else window.subjectTimeLinks = {};
+                    if (data.successResults) window.successResults = data.successResults;
+                    else window.successResults = [];
+                    if (data.weeklyTargetsDatabase) {
+                        window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                    } else {
+                        window.weeklyTargetsDatabase = {};
+                    }
+                    if (Array.isArray(data.weeklyTargets) && data.weeklyTargets.length > 0) {
+                        const defaultRange = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
+                        if (defaultRange) {
+                            const key = window.formatDateRangeKey ? window.formatDateRangeKey(defaultRange.start, defaultRange.end) : "Migration Week";
+                            if (!window.weeklyTargetsDatabase[key]) {
+                                window.weeklyTargetsDatabase[key] = data.weeklyTargets.map(t => {
+                                    return {
+                                        track: t.track || "",
+                                        program: t.program || "",
+                                        subject: t.subject || "",
+                                        chapter: t.chapter || "",
+                                        completed: t.completed || false
+                                    };
+                                });
+                            }
+                        }
+                    }
+                    if (data.dashboardConfig) {
+                        window.dashboardConfig = data.dashboardConfig;
+                        if (!window.dashboardConfig.trendStartDate) {
+                            window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
+                        } else {
+                            const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                            if (!isNaN(trendStart.getTime())) {
+                                trendStart.setHours(0, 0, 0, 0);
+                                PLAN_START_DATE = trendStart;
+                            }
+                        }
+                    }
+
+                    if (data.customSyllabus) {
+                        syllabusStructure = data.customSyllabus;
+                        window.tracks.forEach(trackObj => {
+                            const track = trackObj.id;
+                            if (syllabusStructure[track]) {
+                                syllabusStructure[track].forEach(s => {
+                                    if (!s.program) {
+                                        s.program = trackObj.name + " Prog";
+                                    }
+                                });
+                            }
+                        });
+                        recalculateTotals();
+                        if (isInitialLoad) window.switchSysTab('chapter');
+                    }
+
+                    window.migrateLegacyData();
+                    window.sortAllCustomData();
+
+                    if (data.tasks && data.tasks.length > 0) {
+                        newTasks = data.tasks.map(t => {
+                            const formatted = { ...t };
+                            window.customActions.forEach(a => { formatted[a.id] = formatted[a.id] === true; });
+                            return formatted;
+                        });
+
+                        const lastTask = newTasks[newTasks.length - 1];
+                        if (lastTask && lastTask.id) {
+                            const newEndDate = new Date(PLAN_START_DATE.getTime());
+                            newEndDate.setDate(newEndDate.getDate() + (lastTask.id - 1));
+                            PLAN_END_DATE = newEndDate;
+                        }
+                    } else { if (isInitialLoad) saveToCloud(true); }
+
+                    tasks = newTasks;
+
+                    // Always backup to localStorage
+                    window.appState = data;
+                    localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
+                    console.log("Cloud Sync Success");
+
+                    if (isInitialLoad) { renderUI(); isInitialLoad = false; }
+                    else {
+                        requestAnimationFrame(() => {
+                            const scrollPos = window.scrollY; // Preserve scroll position
+                            renderUI();
+                            window.scrollTo(0, scrollPos); // Seamlessly restore scroll
+                            showSync('saved');
+                        });
+                    }
+                } else {
+                    if (isInitialLoad) saveToCloud(true);
+                }
+            }, (error) => {
+                console.error("Sync Error:", error);
+                if (isInitialLoad) { renderUI(); isInitialLoad = false; }
+            });
+        }
 
         const showSync = (state) => {
             const el = document.getElementById('sync-status');
@@ -1188,12 +1339,29 @@
             localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
             console.log("Offline Backup Saved");
 
-            // Show a visual "Saved" indicator to keep UI feedback smooth
-            showSync('saving');
-            if (saveTimeout) clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                showSync('saved');
-            }, 300);
+            const executeSave = () => {
+                if (!db) return;
+                isSyncing = true;
+                showSync('saving');
+
+                db.collection('studyPlan').doc('globalData').set(window.appState)
+                    .then(() => {
+                        console.log("Cloud Sync Success");
+                        showSync('saved');
+                    })
+                    .catch((error) => {
+                        console.error("Sync Error:", error);
+                        showSync('error');
+                    })
+                    .finally(() => {
+                        // Small buffer after write
+                        setTimeout(() => { isSyncing = false; }, 300);
+                        if (needsSave) { needsSave = false; saveTimeout = setTimeout(executeSave, 800); }
+                    });
+            };
+
+            if (immediate) { if (saveTimeout) clearTimeout(saveTimeout); executeSave(); }
+            else { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(executeSave, 800); }
         }
 
         window.saveHeaderConfigFromForm = function () {
@@ -11108,22 +11276,11 @@
                         if (data.tracks) window.tracks = data.tracks;
                         if (data.customPrograms) window.customPrograms = data.customPrograms;
                         if (data.customActions) window.customActions = data.customActions;
-                        if (data.programVisibility) window.programVisibility = data.programVisibility;
                         if (data.paceGoals) window.paceGoals = data.paceGoals;
-                        else window.paceGoals = [];
                         if (data.passedItems) window.passedItems = data.passedItems;
-                        else window.passedItems = { programs: [], subjects: [] };
                         if (data.revisionData) window.revisionData = data.revisionData;
-                        else window.revisionData = { active: [], progress: {} };
                         if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
-                        else window.subjectTimeLinks = {};
                         if (data.successResults) window.successResults = data.successResults;
-                        else window.successResults = [];
-                        if (data.weeklyTargetsDatabase) {
-                            window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
-                        } else {
-                            window.weeklyTargetsDatabase = {};
-                        }
                         if (data.dashboardConfig) {
                             window.dashboardConfig = data.dashboardConfig;
                             if (window.dashboardConfig.trendStartDate) {
@@ -11136,24 +11293,7 @@
                         }
                         if (data.customSyllabus) {
                             syllabusStructure = data.customSyllabus;
-                            window.tracks.forEach(trackObj => {
-                                const track = trackObj.id;
-                                if (syllabusStructure[track]) {
-                                    syllabusStructure[track].forEach(s => {
-                                        if (!s.program) {
-                                            s.program = trackObj.name + " Prog";
-                                        }
-                                    });
-                                }
-                            });
                             recalculateTotals();
-                        }
-
-                        const lastTask = tasks[tasks.length - 1];
-                        if (lastTask && lastTask.id) {
-                            const newEndDate = new Date(PLAN_START_DATE.getTime());
-                            newEndDate.setDate(newEndDate.getDate() + (lastTask.id - 1));
-                            PLAN_END_DATE = newEndDate;
                         }
                     }
                 }
@@ -11163,8 +11303,7 @@
             window.sortAllCustomData();
 
             renderUI();
-            window.switchSysTab('chapter');
-            isInitialLoad = false;
+            initializeFirebase();
             window.switchPage('dashboard');
 
             // --- Progressive Web App (PWA) Logic ---
