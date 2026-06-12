@@ -1138,13 +1138,13 @@
         window.handleLogout = function () {
             if (typeof firebase !== 'undefined' && firebase.auth) {
                 firebase.auth().signOut().then(() => {
-                    window.location.href = '/login';
+                    window.location.href = '/login.html';
                 }).catch(err => {
                     console.error("Logout error:", err);
-                    window.location.href = '/login';
+                    window.location.href = '/login.html';
                 });
             } else {
-                window.location.href = '/login';
+                window.location.href = '/login.html';
             }
         };
 
@@ -11257,10 +11257,49 @@
             let config;
             try {
                 const res = await fetch('/api/config');
+                if (!res.ok) throw new Error("API config endpoint not available");
                 config = await res.json();
             } catch (err) {
-                console.error("Failed to load Firebase configuration:", err);
-                return;
+                console.warn("API config failed, trying static .env fallback...", err);
+                try {
+                    const res = await fetch('/.env');
+                    if (!res.ok) throw new Error(".env file not available");
+                    const envText = await res.text();
+                    const env = {};
+                    envText.split(/\r?\n/).forEach(line => {
+                        const trimmed = line.trim();
+                        if (trimmed && !trimmed.startsWith('#')) {
+                            const parts = trimmed.split('=');
+                            const key = parts[0].trim();
+                            const val = parts.slice(1).join('=').trim();
+                            env[key] = val;
+                        }
+                    });
+
+                    config = {
+                        apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                        authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                        projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                        storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                        messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+                        appId: env.NEXT_PUBLIC_FIREBASE_APP_ID
+                    };
+
+                    if (!config.apiKey) throw new Error("No API key found in .env");
+                    console.log("Loaded Firebase config from static .env fallback successfully!");
+                } catch (fallbackErr) {
+                    console.error("Failed to load Firebase configuration:", fallbackErr);
+                    const loadingTextEl = document.querySelector('#auth-loading div.animate-pulse');
+                    if (loadingTextEl) {
+                        loadingTextEl.innerHTML = "Failed to load Firebase configuration.<br><span class='text-[10px] text-rose-400 font-bold font-sans normal-case'>Please ensure your local dev server is running (npm run dev).</span>";
+                        loadingTextEl.classList.remove('animate-pulse');
+                    }
+                    const spinnerEl = document.querySelector('#auth-loading div.animate-spin');
+                    if (spinnerEl) {
+                        spinnerEl.classList.add('hidden');
+                    }
+                    return;
+                }
             }
 
             try {
@@ -11280,13 +11319,13 @@
             // Route guard
             firebase.auth().onAuthStateChanged((user) => {
                 if (!user) {
-                    window.location.href = '/login';
+                    window.location.href = '/login.html';
                     return;
                 }
 
                 if (user.email !== 'ris2k29@gmail.com') {
                     firebase.auth().signOut().then(() => {
-                        window.location.href = '/login?error=denied';
+                        window.location.href = '/login.html?error=denied';
                     });
                     return;
                 }
@@ -11318,14 +11357,14 @@
                                         PLAN_START_DATE = trendStart;
                                     }
                                 }
-                             }
-                             if (data.customSyllabus) {
-                                 syllabusStructure = data.customSyllabus;
-                                 recalculateTotals();
-                             }
+                            }
+                            if (data.customSyllabus) {
+                                syllabusStructure = data.customSyllabus;
+                                recalculateTotals();
+                            }
                         }
                     }
-                } catch (e) {}
+                } catch (e) { }
 
                 window.migrateLegacyData();
                 window.sortAllCustomData();
@@ -11470,10 +11509,12 @@
     class="bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 pb-20 font-sans overflow-x-hidden touch-action-manipulation">
 
     <!-- Full-screen Loading Overlay -->
-    <div id="auth-loading" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0f172a] text-white">
+    <div id="auth-loading"
+        class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0f172a] text-white">
         <div class="flex flex-col items-center space-y-4">
             <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading Application...</div>
+            <div class="text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading
+                Application...</div>
         </div>
     </div>
 
@@ -11549,8 +11590,10 @@
                 </button>
                 <button id="btn-logout" onclick="window.handleLogout()"
                     class="snap-start shrink-0 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 px-3 sm:px-4 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] sm:text-[10px] md:text-xs text-rose-600 dark:text-rose-400 hover:border-rose-500 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                     Logout
                 </button>
