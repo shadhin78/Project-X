@@ -1153,6 +1153,7 @@
                     if (data.tracks) window.tracks = data.tracks;
                     if (data.customPrograms) window.customPrograms = data.customPrograms;
                     if (data.customActions) window.customActions = data.customActions;
+                    if (data.programVisibility) window.programVisibility = data.programVisibility;
                     if (data.paceGoals) window.paceGoals = data.paceGoals;
                     else window.paceGoals = [];
                     if (data.passedItems) window.passedItems = data.passedItems;
@@ -1295,6 +1296,7 @@
                 paceGoals: window.paceGoals,
                 passedItems: window.passedItems,
                 revisionData: window.revisionData,
+                programVisibility: window.programVisibility || {},
                 subjectTimeLinks: window.subjectTimeLinks,
                 successResults: window.successResults,
                 dashboardConfig: window.dashboardConfig,
@@ -1845,6 +1847,7 @@
             renderTrendCharts();
             window.renderResults();
             window.renderWeeklyTargets();
+            if (window.renderOutcomeProgramToggles) window.renderOutcomeProgramToggles();
 
             // Dynamic Form & Manage UI Syncs
             window.populateTrackDropdowns();
@@ -2232,9 +2235,26 @@
                 let isDetailsOpen = window.subjectDetailsState[safeSubId] !== undefined ? window.subjectDetailsState[safeSubId] : (subjectsToRender.length === 1);
                 let openAttr = isDetailsOpen ? 'open' : '';
 
+                const isProgramVisible = !window.programVisibility || window.programVisibility[group.program] !== false;
                 let blockHtml = '';
 
-                if (isFrozen) {
+                if (!isProgramVisible) {
+                    blockHtml = `
+                        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-850 p-3 rounded-xl shadow-sm mb-3 opacity-60">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${window.getProgramColor(group.program)}"></div>
+                                <h4 class="text-xs font-black text-slate-650 dark:text-slate-400 truncate">${displaySubName} <span class="text-[9px] font-bold text-slate-400 uppercase">- ${group.program} (Compressed)</span></h4>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <span class="text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">${progressPct}%</span>
+                                <button onclick="window.toggleOutcomeProgram('${group.program.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-600 rounded" title="Spread Program Everywhere">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>`;
+                } else if (isFrozen) {
                     blockHtml = `
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800/50 p-4 md:p-5 rounded-[1.25rem] shadow-sm mb-4">
                             <div class="flex items-center space-x-3 md:space-x-4 w-full">
@@ -2469,6 +2489,19 @@
             }
 
             if (!taskObj) return;
+
+            // Synchronize to weeklyTargetsDatabase if this subtask is a weekly target!
+            if (window.weeklyTargetsDatabase) {
+                Object.keys(window.weeklyTargetsDatabase).forEach(weekKey => {
+                    const targets = window.weeklyTargetsDatabase[weekKey] || [];
+                    targets.forEach(t => {
+                        if (t.track === type && t.subject === taskObj.subject && t.chapter === taskObj.chapter) {
+                            t.completed = isCompleted;
+                            t.completedAt = isCompleted ? nowIso : null;
+                        }
+                    });
+                });
+            }
 
             // 1. Optimistic UI update: Immediate Card State styling (zero-lag)
             const cardEl = document.getElementById(`single-task-${taskObj.id}-${studyDayId}`);
@@ -3584,7 +3617,11 @@
                     window.customPrograms[track].forEach(p => {
                         const pName = p.name || p;
                         progCum[pName] = Array(totalMonths).fill(0);
-                        if (window.chartVisibility.prog[pName] === undefined) window.chartVisibility.prog[pName] = true;
+                        if (window.programVisibility && window.programVisibility[pName] !== undefined) {
+                            window.chartVisibility.prog[pName] = window.programVisibility[pName];
+                        } else if (window.chartVisibility.prog[pName] === undefined) {
+                            window.chartVisibility.prog[pName] = true;
+                        }
                     });
                 }
             });
@@ -3609,42 +3646,60 @@
             const daysInMonth = new Date(todayObj.getFullYear(), currentMonth + 1, 0).getDate();
             let latestActiveMonth = -1;
 
+            // 1. Scan completed chapters from tasks and weekly targets to get their actual completion date (earliest)
+            const completedChaptersMap = new Map();
+
+            // Scan all tasks (ignoring PLAN_START_DATE limit for completion trends)
             tasks.forEach(t => {
                 const taskDate = getTaskDate(t);
+                window.tracks.forEach(track => {
+                    const key = track.id + 'Tasks';
+                    if (t.type === 'study' && Array.isArray(t[key])) {
+                        t[key].forEach(b => {
+                            if (b.completed) {
+                                const compDate = b.completedAt ? parseDateSafe(b.completedAt) : taskDate;
+                                const uniqueKey = `${track.id}|${b.subject}|${b.chapter}`;
+                                if (!completedChaptersMap.has(uniqueKey) || completedChaptersMap.get(uniqueKey) > compDate) {
+                                    completedChaptersMap.set(uniqueKey, compDate);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Scan weekly targets database
+            if (window.weeklyTargetsDatabase) {
+                Object.keys(window.weeklyTargetsDatabase).forEach(weekKey => {
+                    const targets = window.weeklyTargetsDatabase[weekKey] || [];
+                    targets.forEach(t => {
+                        if (t.completed) {
+                            let compDate = t.completedAt ? parseDateSafe(t.completedAt) : null;
+                            if (!compDate) {
+                                const parts = weekKey.split(' - ');
+                                if (parts[0]) compDate = parseDateSafe(parts[0]);
+                            }
+                            if (!compDate || isNaN(compDate.getTime())) {
+                                compDate = new Date();
+                            }
+                            const uniqueKey = `${t.track}|${t.subject}|${t.chapter}`;
+                            if (!completedChaptersMap.has(uniqueKey) || completedChaptersMap.get(uniqueKey) > compDate) {
+                                completedChaptersMap.set(uniqueKey, compDate);
+                            }
+                        }
+                    });
+                });
+            }
+
+            // 2. Scan tasks for custom action calculations
+            tasks.forEach(t => {
+                const taskDate = getTaskDate(t);
+                if (taskDate < PLAN_START_DATE) return; // Sync baseline start date!
                 const tYear = taskDate.getFullYear();
                 const tMonth = taskDate.getMonth();
                 const rawMidx = (tYear - sYear) * 12 + (tMonth - sMonth);
 
                 if (rawMidx < totalMonths) {
-                    if (t.type === 'study') {
-                        window.tracks.forEach(track => {
-                            const key = track.id + 'Tasks';
-                            if (Array.isArray(t[key])) {
-                                t[key].forEach(b => {
-                                    if (b.completed) {
-                                        const compDate = b.completedAt ? parseDateSafe(b.completedAt) : taskDate;
-                                        const cYear = compDate.getFullYear();
-                                        const cMonth = compDate.getMonth();
-                                        const cMidx = (cYear - sYear) * 12 + (cMonth - sMonth);
-
-                                        if (cMidx < totalMonths) {
-                                            const mIdxStudy = cMidx < 0 ? 0 : cMidx;
-                                            if (syllabusStructure[track.id]) {
-                                                const sObj = syllabusStructure[track.id].find(s => s.subject === b.subject);
-                                                if (sObj && sObj.program && progCum[sObj.program]) {
-                                                    progCum[sObj.program][mIdxStudy]++;
-                                                }
-                                            }
-                                            if (subData[b.subject]) {
-                                                subData[b.subject][mIdxStudy]++;
-                                            }
-                                            latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
-                                        }
-                                    }
-                                });
-                            }
-                        });
-                    }
                     if (rawMidx >= 0) {
                         window.customActions.forEach(a => { if (t[a.id]) actCum[a.id][rawMidx]++; });
                     }
@@ -3652,6 +3707,29 @@
                 if (tYear === todayObj.getFullYear() && tMonth === currentMonth) {
                     const dIdx = taskDate.getDate() - 1;
                     window.customActions.forEach(a => { if (t[a.id]) actDaily[a.id][dIdx] = 1; });
+                }
+            });
+
+            // 3. Populate subject and program completion trends
+            completedChaptersMap.forEach((compDate, uniqueKey) => {
+                const [trackId, subject, chapter] = uniqueKey.split('|');
+                const cYear = compDate.getFullYear();
+                const cMonth = compDate.getMonth();
+                const cMidx = (cYear - sYear) * 12 + (cMonth - sMonth);
+
+                if (cMidx < totalMonths) {
+                    const mIdxStudy = cMidx < 0 ? 0 : cMidx;
+                    
+                    if (syllabusStructure[trackId]) {
+                        const sObj = syllabusStructure[trackId].find(s => s.subject === subject);
+                        if (sObj && sObj.program && progCum[sObj.program]) {
+                            progCum[sObj.program][mIdxStudy]++;
+                        }
+                    }
+                    if (subData[subject]) {
+                        subData[subject][mIdxStudy]++;
+                    }
+                    latestActiveMonth = Math.max(latestActiveMonth, mIdxStudy);
                 }
             });
 
@@ -3704,9 +3782,17 @@
                 }
 
                 let runningTotal = 0;
+                let validDaysCountThisMonth = 0;
                 for (let i = 0; i < currentDay; i++) {
-                    runningTotal += actDaily[a.id][i];
-                    actDaily[a.id][i] = Math.round((runningTotal / (i + 1)) * 100);
+                    const dayDate = new Date(todayObj.getFullYear(), todayObj.getMonth(), i + 1);
+                    dayDate.setHours(0, 0, 0, 0);
+                    if (dayDate >= PLAN_START_DATE) {
+                        validDaysCountThisMonth++;
+                        runningTotal += actDaily[a.id][i] || 0;
+                        actDaily[a.id][i] = Math.round((runningTotal / validDaysCountThisMonth) * 100);
+                    } else {
+                        actDaily[a.id][i] = null;
+                    }
                 }
 
                 for (let i = currentDay; i < daysInMonth; i++) actDaily[a.id][i] = null;
@@ -3770,11 +3856,19 @@
                 const msgBar = document.getElementById('daily-actions-msg-bar');
                 if (msgBar) {
                     let elapsedDays = todayObj.getDate();
+                    if (PLAN_START_DATE.getFullYear() === todayObj.getFullYear() && PLAN_START_DATE.getMonth() === todayObj.getMonth()) {
+                        elapsedDays = todayObj.getDate() - PLAN_START_DATE.getDate() + 1;
+                    } else if (PLAN_START_DATE > todayObj) {
+                        elapsedDays = 0;
+                    }
+                    if (elapsedDays < 0) elapsedDays = 0;
+
                     let totalPossible = window.customActions.length * elapsedDays;
                     let completedCount = 0;
                     
                     tasks.forEach(t => {
                         const taskDate = getTaskDate(t);
+                        if (taskDate < PLAN_START_DATE) return; // Skip if before start date
                         if (taskDate.getFullYear() === todayObj.getFullYear() && taskDate.getMonth() === todayObj.getMonth()) {
                             window.customActions.forEach(a => {
                                 if (t[a.id]) completedCount++;
@@ -3808,6 +3902,7 @@
                     while (true) {
                         const dStr = formatDate(checkDate);
                         const tObj = tasks.find(t => t.date === dStr);
+                        if (checkDate < PLAN_START_DATE) break; // Streak cannot start before PLAN_START_DATE
                         let hasAction = false;
                         window.customActions.forEach(a => { if (tObj && tObj[a.id]) hasAction = true; });
                         if (hasAction) {
@@ -3949,6 +4044,10 @@
 
         window.toggleDataset = function (chartKey, dsKey) {
             window.chartVisibility[chartKey][dsKey] = !window.chartVisibility[chartKey][dsKey];
+            if (chartKey === 'prog') {
+                if (!window.programVisibility) window.programVisibility = {};
+                window.programVisibility[dsKey] = window.chartVisibility.prog[dsKey];
+            }
             const chart = chartKey === 'prog' ? window.mainChartPrograms : (chartKey === 'monthly' ? window.monthlyChartActions : window.yearlyChartActions);
             if (chart) {
                 const searchVal = chartKey === 'prog' ? dsKey : window.customActions.find(a => a.id === dsKey)?.title;
@@ -3957,6 +4056,10 @@
                 chart.update();
             }
             window.updateLegends();
+            if (chartKey === 'prog') {
+                saveToCloud();
+                renderUI();
+            }
         };
 
         window.toggleSubDataset = function (k) {
@@ -4104,11 +4207,18 @@
             let idx = tasks.findIndex(t => t.date === todayStr);
             if (idx === -1) idx = tasks.length - 1;
 
+            const cutoffDate = new Date(PLAN_START_DATE);
+            cutoffDate.setHours(0, 0, 0, 0);
+
             const fill = (elId, key) => {
                 const el = document.getElementById(elId); if (!el) return;
                 let html = '<div class="grid grid-cols-4 gap-1.5 md:gap-2 overflow-y-auto custom-scrollbar flex-1 pr-1 pb-1 content-start mt-2" style="max-height: 180px; min-height: 150px;">';
-                for (let i = idx; i >= Math.max(0, idx - 179); i--) {
-                    const t = tasks[i]; const val = t[key];
+                for (let i = idx; i >= 0; i--) {
+                    const t = tasks[i];
+                    const tDate = getTaskDate(t);
+                    if (tDate < cutoffDate) break; // Stop rendering if before PLAN_START_DATE
+                    
+                    const val = t[key];
                     const bgClass = val ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.4)] border-transparent' : 'bg-gradient-to-br from-red-400 to-red-500 text-white shadow-[0_2px_8px_rgba(239,68,68,0.4)] border-transparent';
                     html += `<button onclick="toggleModalDay(${t.id}, '${key}')" class="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl border active:scale-90 transition-all duration-300 hover:scale-105 ${bgClass} w-full aspect-square focus:outline-none"><span class="text-[7px] md:text-[8px] uppercase font-black opacity-90 mb-0.5">${t.date.split(' ')[0]}</span><span class="text-xs md:text-sm font-black leading-none">${t.date.split(' ')[1]}</span></button>`;
                 }
@@ -4156,11 +4266,24 @@
             const todayStr = formatDate(new Date());
             let idx = tasks.findIndex(t => t.date === todayStr); if (idx === -1) idx = tasks.length - 1;
 
-            let total = 0; tasks.forEach((t, i) => { if (i <= idx && t[typeKey]) total++; });
-            let streak = 0; for (let i = idx; i >= 0; i--) { if (tasks[i][typeKey]) streak++; else break; }
+            let total = 0;
+            let possibleDays = 0;
+            tasks.forEach((t, i) => {
+                if (i <= idx && getTaskDate(t) >= PLAN_START_DATE) {
+                    possibleDays++;
+                    if (t[typeKey]) total++;
+                }
+            });
+
+            let streak = 0;
+            for (let i = idx; i >= 0; i--) {
+                if (getTaskDate(tasks[i]) < PLAN_START_DATE) break;
+                if (tasks[i][typeKey]) streak++;
+                else break;
+            }
 
             safeSetText('am-total', total); safeSetText('am-streak', streak + ' Days');
-            const pct = Math.round((total / (idx + 1)) * 100) || 0;
+            const pct = possibleDays > 0 ? Math.round((total / possibleDays) * 100) : 0;
             safeSetText('am-percent', pct + '%');
             const valClass = `text-base sm:text-2xl md:text-5xl font-black drop-shadow-sm mt-0.5 sm:mt-1 ${cMap.text}`;
             safeSetClass('am-total', valClass);
@@ -4208,7 +4331,9 @@
             if (grid) {
                 let gHtml = '';
                 for (let i = idx; i >= Math.max(0, idx - 179); i--) {
-                    const t = tasks[i]; const done = t[typeKey];
+                    const t = tasks[i];
+                    if (getTaskDate(t) < PLAN_START_DATE) break;
+                    const done = t[typeKey];
                     const btnClass = done ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-[0_2px_8px_rgba(34,197,94,0.4)] border-transparent' : 'bg-gradient-to-br from-red-400 to-red-500 text-white shadow-[0_2px_8px_rgba(239,68,68,0.4)] border-transparent';
                     gHtml += `<button onclick="toggleModalDay(${t.id}, '${typeKey}')" class="flex flex-col items-center justify-center p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl ${btnClass} transition-all duration-300 w-full aspect-square shrink-0 hover:scale-105 active:scale-90 focus:outline-none snap-start"><span class="text-[6px] sm:text-[7px] md:text-[9px] uppercase font-black opacity-90 mb-0.5">${t.date.split(' ')[0]}</span><span class="text-[9px] sm:text-[11px] md:text-sm font-black leading-none">${t.date.split(' ')[1]}</span></button>`;
                 }
@@ -5618,6 +5743,30 @@
                         }
                     }
 
+                    // Check compression
+                    const isProgramVisible = !window.programVisibility || window.programVisibility[progName] !== false;
+                    if (!isProgramVisible) {
+                        const dispScore = currentOverall.evaluationType === 'grade' 
+                            ? (currentOverall.grade || '—') 
+                            : (window.formatCgpaMin2Dec(currentOverall.value) || '—');
+                        html += `
+                        <div class="bg-slate-50 dark:bg-slate-900/30 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-850 shadow-sm relative group hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between opacity-60">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${window.getProgramColor(progName)}"></div>
+                                <h4 class="text-xs font-black text-slate-650 dark:text-slate-400 truncate">${progName} <span class="text-[9px] font-bold text-slate-400 uppercase">- Program Card (Compressed)</span>${goalMetLabel}</h4>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <span class="text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">${dispScore}</span>
+                                <button onclick="window.toggleOutcomeProgram('${progName.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 rounded transition-colors" title="Spread Program Everywhere">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>`;
+                        return;
+                    }
+
                     html += `
                     <div class="bg-white dark:bg-slate-800 p-5 rounded-[1.25rem] border border-slate-200 dark:border-slate-700 shadow-sm relative group hover:shadow-md hover:-translate-y-1 transition-all flex flex-col justify-between">
                         <div class="absolute top-3.5 right-3.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -6636,8 +6785,7 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const msPerDay = 1000 * 60 * 60 * 24;
-            const cutoffDate = new Date(today.getTime() - (180 * msPerDay));
+            const cutoffDate = new Date(PLAN_START_DATE.getTime());
 
             let hasData = false;
 
@@ -8703,6 +8851,61 @@
             saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
         };
 
+        // --- Outcomes Program Visibility Logic ---
+        window.renderOutcomeProgramToggles = function () {
+            const bar = document.getElementById('outcome-programs-toggle-bar');
+            if (!bar) return;
+
+            if (!window.programVisibility) {
+                window.programVisibility = {};
+                window.getAllPrograms().forEach(pObj => {
+                    const pName = pObj.name || pObj;
+                    window.programVisibility[pName] = true;
+                });
+            }
+
+            let html = '';
+            window.getAllPrograms().forEach(pObj => {
+                const pName = pObj.name || pObj;
+                const active = window.programVisibility[pName] !== false;
+                const color = window.getProgramColor(pName);
+                
+                const activeStyle = active 
+                    ? `background-color: ${color}; color: white; border-color: ${color};`
+                    : `background-color: transparent; border-color: #cbd5e1; color: #64748b; opacity: 0.6;`;
+
+                html += `
+                <button onclick="window.toggleOutcomeProgram('${pName.replace(/'/g, "\\'")}')" 
+                    class="px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all duration-300 active:scale-95 flex items-center gap-1.5 shadow-sm" 
+                    style="${activeStyle}">
+                    <span class="w-1.5 h-1.5 rounded-full ${active ? 'bg-white' : 'bg-slate-400'}"></span>
+                    <span>${pName}</span>
+                </button>`;
+            });
+
+            bar.innerHTML = html;
+        };
+
+        window.toggleOutcomeProgram = function (pName) {
+            if (!window.programVisibility) window.programVisibility = {};
+            window.programVisibility[pName] = !window.programVisibility[pName];
+            
+            // Sync with chart visibility as well!
+            if (window.chartVisibility && window.chartVisibility.prog) {
+                window.chartVisibility.prog[pName] = window.programVisibility[pName];
+                // Update chart
+                if (window.mainChartPrograms) {
+                    const ds = window.mainChartPrograms.data.datasets.find(d => d.label === pName);
+                    if (ds) ds.hidden = !window.programVisibility[pName];
+                    window.mainChartPrograms.update();
+                }
+            }
+
+            // Save and re-render everything
+            saveToCloud();
+            renderUI();
+        };
+
         // --- Freeze & Pass System Logic ---
         window.renderPassConfig = function () {
             const container = document.getElementById('outcome-pass-container');
@@ -8887,9 +9090,7 @@
             const currentWeekKey = window.formatDateRangeKey(range.start, range.end);
             
             const weekSelectEl = document.getElementById('wt-select-week');
-            if (weekSelectEl && weekSelectEl.value !== currentWeekKey) {
-                return showToast("You can only add targets to the current active week.", "error");
-            }
+            const targetWeekKey = weekSelectEl ? weekSelectEl.value : currentWeekKey;
 
             const progSelectEl = document.getElementById('wt-select-prog');
             const subSelectEl = document.getElementById('wt-select-sub');
@@ -8906,20 +9107,26 @@
             if (!trackId) return;
 
             if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
-            if (!window.weeklyTargetsDatabase[currentWeekKey]) window.weeklyTargetsDatabase[currentWeekKey] = [];
+            if (!window.weeklyTargetsDatabase[targetWeekKey]) window.weeklyTargetsDatabase[targetWeekKey] = [];
 
-            // Check if already exists in weekly targets database for current week
-            const exists = window.weeklyTargetsDatabase[currentWeekKey].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
+            // Check if already exists in weekly targets database for selected week
+            const exists = window.weeklyTargetsDatabase[targetWeekKey].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
             if (exists) {
                 return showToast("This target is already in your weekly target list.", "error");
             }
 
-            window.weeklyTargetsDatabase[currentWeekKey].push({
+            // Sync baseline completion status from daily tasks
+            const foundTask = window.findTaskChapter(trackId, subject, chapter);
+            const isCompletedBefore = foundTask ? (foundTask.subTask.completed || false) : false;
+            const completedAtBefore = foundTask ? (foundTask.subTask.completedAt || null) : null;
+
+            window.weeklyTargetsDatabase[targetWeekKey].push({
                 track: trackId,
                 program: progName,
                 subject: subject,
                 chapter: chapter,
-                completed: false
+                completed: isCompletedBefore,
+                completedAt: completedAtBefore
             });
 
             saveToCloud();
@@ -8949,16 +9156,55 @@
             
             const target = window.weeklyTargetsDatabase[selectedWeekKey][idx];
             target.completed = isCompleted;
+            target.completedAt = isCompleted ? new Date().toISOString() : null; // Sync date
             
             const found = window.findTaskChapter(target.track, target.subject, target.chapter);
             if (found) {
                 found.subTask.completed = isCompleted;
+                found.subTask.completedAt = target.completedAt; // Sync date
                 recalculateTotals();
             }
 
             saveToCloud();
             renderUI();
             showToast("Chapter completion state synchronized!", "success");
+        };
+
+        window.navigateWeek = function (mode) {
+            const weekSelectEl = document.getElementById('wt-select-week');
+            if (!weekSelectEl) return;
+
+            const presentRange = window.getWeeklyTargetRange();
+            const presentWeekKey = window.formatDateRangeKey(presentRange.start, presentRange.end);
+            
+            const pastRange = window.getWeeklyTargetRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+            const pastWeekKey = window.formatDateRangeKey(pastRange.start, pastRange.end);
+            
+            const futureRange = window.getWeeklyTargetRange(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+            const futureWeekKey = window.formatDateRangeKey(futureRange.start, futureRange.end);
+
+            let targetKey = presentWeekKey;
+            if (mode === 'past') targetKey = pastWeekKey;
+            else if (mode === 'future') targetKey = futureWeekKey;
+
+            // Make sure the option exists in the selector
+            let optionExists = false;
+            for (let i = 0; i < weekSelectEl.options.length; i++) {
+                if (weekSelectEl.options[i].value === targetKey) {
+                    optionExists = true;
+                    break;
+                }
+            }
+
+            if (!optionExists) {
+                const opt = document.createElement('option');
+                opt.value = targetKey;
+                opt.textContent = targetKey;
+                weekSelectEl.appendChild(opt);
+            }
+
+            weekSelectEl.value = targetKey;
+            window.renderWeeklyTargets();
         };
 
         window.renderWeeklyTargets = function () {
@@ -8971,10 +9217,20 @@
             const currentRange = window.getWeeklyTargetRange();
             const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
 
-            // 2. Collect all weeks in database + current week
+            // 2. Collect all weeks in database + current week + past/future navigation weeks
             if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+            
+            const pastRange = window.getWeeklyTargetRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+            const pastWeekKey = window.formatDateRangeKey(pastRange.start, pastRange.end);
+            
+            const futureRange = window.getWeeklyTargetRange(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+            const futureWeekKey = window.formatDateRangeKey(futureRange.start, futureRange.end);
+
             const allWeeksSet = new Set(Object.keys(window.weeklyTargetsDatabase));
+            allWeeksSet.add(pastWeekKey);
             allWeeksSet.add(currentWeekKey);
+            allWeeksSet.add(futureWeekKey);
+
             const allWeeks = Array.from(allWeeksSet).sort((a, b) => {
                 const parseStart = (wkStr) => {
                     const parts = wkStr.split(' - ');
@@ -9003,14 +9259,23 @@
             const formattedToday = todayDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             document.getElementById('wt-today-display').textContent = `Today: ${weekday}, ${formattedToday}`;
 
-            // 5. If selected week is not current, hide add form, else show
+            const btnPast = document.getElementById('wt-btn-past');
+            const btnPresent = document.getElementById('wt-btn-present');
+            const btnFuture = document.getElementById('wt-btn-future');
+
+            const activeClass = "bg-blue-600 text-white shadow";
+            const inactiveClass = "text-slate-650 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600/50";
+
+            if (btnPast && btnPresent && btnFuture) {
+                btnPast.className = `px-2.5 py-1.5 text-[9px] font-black rounded-lg transition-all ${activeWeekKey === pastWeekKey ? activeClass : inactiveClass}`;
+                btnPresent.className = `px-2.5 py-1.5 text-[9px] font-black rounded-lg transition-all ${activeWeekKey === currentWeekKey ? activeClass : inactiveClass}`;
+                btnFuture.className = `px-2.5 py-1.5 text-[9px] font-black rounded-lg transition-all ${activeWeekKey === futureWeekKey ? activeClass : inactiveClass}`;
+            }
+
+            // 5. Keep add form container visible for all weeks
             const addFormContainer = document.getElementById('wt-add-form-container');
             if (addFormContainer) {
-                if (activeWeekKey !== currentWeekKey) {
-                    addFormContainer.classList.add('hidden');
-                } else {
-                    addFormContainer.classList.remove('hidden');
-                }
+                addFormContainer.classList.remove('hidden');
             }
 
             // 6. Update Programs / Subjects / Chapters selectors
@@ -9045,7 +9310,8 @@
             let completedTargets = 0;
 
             targetsList.forEach((target, idx) => {
-                const isCompleted = target.completed || false;
+                const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
+                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
                 if (isCompleted) completedTargets++;
 
                 const statusColor = isCompleted 
@@ -9059,7 +9325,7 @@
                     <div class="flex items-center space-x-3 min-w-0">
                         <input type="checkbox" 
                             onchange="window.toggleWeeklyTargetCompletion(${idx}, this.checked)" 
-                            class="form-checkbox h-4.5 w-4.5 text-blue-600 dark:text-blue-500 rounded border-slate-350 focus:ring-blue-550 transition-all cursor-pointer" 
+                            class="form-checkbox h-4.5 w-4.5 text-emerald-500 dark:text-emerald-500 rounded border-slate-350 focus:ring-emerald-500 transition-all cursor-pointer" 
                             ${isCompleted ? 'checked' : ''}>
                         <div class="min-w-0">
                             <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}</span>
@@ -9175,7 +9441,7 @@
             const subFilter = document.getElementById('wtdb-filter-sub');
             const addProgSelect = document.getElementById('wtdb-add-prog');
 
-            if (!weekFilter || !progFilter || !subFilter || !addProgSelect) return;
+            if (!weekFilter || !progFilter || !subFilter) return;
 
             const currentRange = window.getWeeklyTargetRange();
             const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
@@ -9210,14 +9476,14 @@
 
             const prevProgVal = progFilter.value;
             progFilter.innerHTML = '<option value="all">All Programs</option>';
-            addProgSelect.innerHTML = '';
+            if (addProgSelect) addProgSelect.innerHTML = '';
             activeProgs.forEach(p => {
                 progFilter.innerHTML += `<option value="${p}">${p}</option>`;
-                addProgSelect.innerHTML += `<option value="${p}">${p}</option>`;
+                if (addProgSelect) addProgSelect.innerHTML += `<option value="${p}">${p}</option>`;
             });
             if (prevProgVal) progFilter.value = prevProgVal;
             
-            window.updateWtdbAddSubjectDropdown();
+            if (addProgSelect) window.updateWtdbAddSubjectDropdown();
 
             const prevSubVal = subFilter.value;
             subFilter.innerHTML = '<option value="all">All Subjects</option>';
@@ -9228,7 +9494,9 @@
         };
 
         window.updateWtdbAddSubjectDropdown = function () {
-            const progName = document.getElementById('wtdb-add-prog').value;
+            const addProgEl = document.getElementById('wtdb-add-prog');
+            if (!addProgEl) return;
+            const progName = addProgEl.value;
             const subSelect = document.getElementById('wtdb-add-sub');
             if (!subSelect) return;
             subSelect.innerHTML = '';
@@ -9252,8 +9520,12 @@
         };
 
         window.updateWtdbAddChapterDropdown = function () {
-            const progName = document.getElementById('wtdb-add-prog').value;
-            const subject = document.getElementById('wtdb-add-sub').value;
+            const addProgEl = document.getElementById('wtdb-add-prog');
+            if (!addProgEl) return;
+            const progName = addProgEl.value;
+            const subSelect = document.getElementById('wtdb-add-sub');
+            if (!subSelect) return;
+            const subject = subSelect.value;
             const chSelect = document.getElementById('wtdb-add-ch');
             if (!chSelect) return;
             chSelect.innerHTML = '';
@@ -9301,12 +9573,18 @@
                 return showToast("This target is already in the list for the selected week.", "error");
             }
 
+            // Sync baseline completion status from daily tasks
+            const foundTask = window.findTaskChapter(trackId, subject, chapter);
+            const isCompletedBefore = foundTask ? (foundTask.subTask.completed || false) : false;
+            const completedAtBefore = foundTask ? (foundTask.subTask.completedAt || null) : null;
+
             window.weeklyTargetsDatabase[targetWeek].push({
                 track: trackId,
                 program: progName,
                 subject: subject,
                 chapter: chapter,
-                completed: false
+                completed: isCompletedBefore,
+                completedAt: completedAtBefore
             });
 
             saveToCloud();
@@ -9330,10 +9608,12 @@
             
             const target = window.weeklyTargetsDatabase[weekKey][idx];
             target.completed = isCompleted;
+            target.completedAt = isCompleted ? new Date().toISOString() : null; // Sync date
             
             const found = window.findTaskChapter(target.track, target.subject, target.chapter);
             if (found) {
                 found.subTask.completed = isCompleted;
+                found.subTask.completedAt = target.completedAt; // Sync date
                 recalculateTotals();
             }
 
@@ -9365,7 +9645,8 @@
                     if (pFilter !== 'all' && target.program !== pFilter) return;
                     if (sFilter !== 'all' && target.subject !== sFilter) return;
                     
-                    const isCompleted = target.completed || false;
+                    const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
+                    const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
                     if (statFilter === 'completed' && !isCompleted) return;
                     if (statFilter === 'non-completed' && isCompleted) return;
 
@@ -9376,7 +9657,7 @@
                     const row = `
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                         <td class="py-3 px-4 text-center">
-                            <input type="checkbox" onchange="window.toggleWtdbTargetCompletion('${weekKey}', ${idx}, this.checked)" class="form-checkbox h-4 w-4 text-blue-600 rounded cursor-pointer" ${isCompleted ? 'checked' : ''}>
+                            <input type="checkbox" onchange="window.toggleWtdbTargetCompletion('${weekKey}', ${idx}, this.checked)" class="form-checkbox h-4 w-4 text-emerald-500 rounded cursor-pointer" ${isCompleted ? 'checked' : ''}>
                         </td>
                         <td class="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 text-[10px]">${weekKey}</td>
                         <td class="py-3 px-4 uppercase text-[10px] text-slate-400">${target.program}</td>
@@ -9443,16 +9724,36 @@
 
                     // 2. Distribute completed count
                     if (t.completed) {
+                        const compDateDirect = t.completedAt ? parseDateSafe(t.completedAt) : null;
+                        if (compDateDirect) {
+                            const compMonthKey = getMonthKey(compDateDirect);
+                            if (!monthsData[compMonthKey]) {
+                                monthsData[compMonthKey] = { set: 0, completed: 0, rawMonth: compDateDirect };
+                            }
+                            monthsData[compMonthKey].completed += 1;
+                            return;
+                        }
+
                         const found = window.findTaskChapter(t.track, t.subject, t.chapter);
                         if (found && found.subTask && found.subTask.completed) {
+                            const compDate = found.subTask.completedAt ? parseDateSafe(found.subTask.completedAt) : null;
+                            if (compDate) {
+                                const compMonthKey = getMonthKey(compDate);
+                                if (!monthsData[compMonthKey]) {
+                                    monthsData[compMonthKey] = { set: 0, completed: 0, rawMonth: compDate };
+                                }
+                                monthsData[compMonthKey].completed += 1;
+                                return;
+                            }
+
                             const taskObj = tasks[found.taskIndex];
                             if (taskObj && taskObj.date) {
                                 // Match the task date string against the week's days
                                 const foundDate = weekDays.find(d => formatDate(d) === taskObj.date);
-                                const compDate = foundDate || start;
-                                const compMonthKey = getMonthKey(compDate);
+                                const compDateFallback = foundDate || start;
+                                const compMonthKey = getMonthKey(compDateFallback);
                                 if (!monthsData[compMonthKey]) {
-                                    monthsData[compMonthKey] = { set: 0, completed: 0, rawMonth: compDate };
+                                    monthsData[compMonthKey] = { set: 0, completed: 0, rawMonth: compDateFallback };
                                 }
                                 monthsData[compMonthKey].completed += 1;
                                 return;
@@ -9497,16 +9798,13 @@
                 order: 2
             };
             const completedDataset = {
-                type: 'line',
+                type: 'bar',
                 label: 'Targets Completed',
                 data: monthsList.map(m => m.completed),
+                backgroundColor: 'rgba(16, 185, 129, 0.65)',
                 borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                borderWidth: 3,
-                tension: 0.4,
-                fill: false,
-                pointBackgroundColor: '#10b981',
-                pointRadius: 4,
+                borderWidth: 2,
+                borderRadius: 6,
                 order: 1
             };
 
@@ -11390,8 +11688,20 @@
                         </div>
                         
                         <!-- Week Selector Dropdown Replaced with Targets Database Button -->
-                        <div class="flex items-center space-x-2 md:ml-auto w-full md:w-auto mt-2 md:mt-0">
-                            <button onclick="window.openWeeklyTargetsDatabase()" class="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-lg transition-colors shadow-md shadow-blue-500/10 active:scale-95 w-full md:w-auto">
+                        <div class="flex items-center space-x-2 md:ml-auto w-full md:w-auto mt-2 md:mt-0 flex-wrap gap-2 justify-end">
+                            <!-- Arrow navigation buttons -->
+                            <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shrink-0">
+                                <button id="wt-btn-past" onclick="window.navigateWeek('past')" class="px-2.5 py-1.5 text-[9px] font-black rounded-lg transition-all text-slate-650 dark:text-slate-355 hover:bg-slate-200 dark:hover:bg-slate-600/50 flex items-center space-x-1">
+                                    <span>&lt;- Past 1 Week</span>
+                                </button>
+                                <button id="wt-btn-present" onclick="window.navigateWeek('present')" class="px-2.5 py-1.5 text-[9px] font-black rounded-lg transition-all text-slate-650 dark:text-slate-355 hover:bg-slate-200 dark:hover:bg-slate-600/50">
+                                    <span>Present Week</span>
+                                </button>
+                                <button id="wt-btn-future" onclick="window.navigateWeek('future')" class="px-2.5 py-1.5 text-[9px] font-black rounded-lg transition-all text-slate-650 dark:text-slate-355 hover:bg-slate-200 dark:hover:bg-slate-600/50 flex items-center space-x-1">
+                                    <span>Future Week -&gt;</span>
+                                </button>
+                            </div>
+                            <button onclick="window.openWeeklyTargetsDatabase()" class="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-lg transition-colors shadow-md shadow-blue-500/10 active:scale-95 shrink-0">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
                                 </svg>
@@ -11897,7 +12207,8 @@
                         class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path>
                     </svg> <span class="hidden sm:block">Add Result</span></button>
-            </div>
+            <!-- Outcome Programs Toggle Bar -->
+            <div id="outcome-programs-toggle-bar" class="flex flex-wrap items-center gap-2 mb-6"></div>
 
             <div id="results-trend-container"
                 class="hidden mb-6 md:mb-8 w-full bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
@@ -13181,7 +13492,7 @@
                 <button id="wtdb-tab-btn-list" onclick="window.switchWtdbTab('list')"
                     class="px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-blue-600 text-white shadow-md whitespace-nowrap">Weekly List</button>
                 <button id="wtdb-tab-btn-month" onclick="window.switchWtdbTab('month')"
-                    class="px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap">Month-wise sorting & mixed trend</button>
+                    class="px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl transition-all bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap">Month-wise sorting & bar trend</button>
             </div>
 
             <!-- TAB CONTENT: Weekly list with filters -->
@@ -13210,23 +13521,6 @@
                     </div>
                 </div>
 
-                <!-- Add Target from Database View Container -->
-                <div id="wtdb-add-target-container" class="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col sm:flex-row gap-3 items-end">
-                    <div class="flex-1 w-full space-y-1">
-                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Program</label>
-                        <select id="wtdb-add-prog" onchange="window.updateWtdbAddSubjectDropdown()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
-                    </div>
-                    <div class="flex-1 w-full space-y-1">
-                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Subject</label>
-                        <select id="wtdb-add-sub" onchange="window.updateWtdbAddChapterDropdown()" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
-                    </div>
-                    <div class="flex-1 w-full space-y-1">
-                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400">Chapter</label>
-                        <select id="wtdb-add-ch" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"></select>
-                    </div>
-                    <button onclick="window.addWtdbTarget()" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all">Add Target</button>
-                </div>
-
                 <!-- Database List Table -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -13251,7 +13545,7 @@
             <div id="wtdb-tab-content-month" class="hidden flex-1 min-h-0 overflow-y-auto space-y-6 pr-1">
                 <!-- Mixed trend chart -->
                 <div class="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50">
-                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 text-center">Month-wise Target vs Accomplishment (Mixed Trend)</h3>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 text-center">Month-wise Target vs Accomplishment (Bar Trend)</h3>
                     <div class="h-64 w-full relative">
                         <canvas id="weeklyMonthMixedChart"></canvas>
                     </div>
