@@ -18,6 +18,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
         // --- Firebase Configuration ---
@@ -1140,27 +1141,21 @@
         recalculateTotals();
 
         function initializeFirebase() {
-            try {
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                console.log("Firebase Connected");
-
-                // Enable offline database persistence for PWA support
-                db.enablePersistence({ synchronizeTabs: true })
-                    .then(() => console.log("Firestore offline persistence enabled."))
-                    .catch((err) => {
-                        if (err.code === 'failed-precondition') {
-                            console.warn("Firestore persistence failed: Multiple tabs open.");
-                        } else if (err.code === 'unimplemented') {
-                            console.warn("Firestore persistence failed: Browser not supported.");
-                        } else {
-                            console.error("Firestore persistence error:", err);
-                        }
-                    });
-
-                loadFromCloud();
-            } catch (e) { console.error("Firebase init error:", e); }
+            // Deprecated. Initialization is now handled asynchronously in DOMContentLoaded.
         }
+
+        window.handleLogout = function () {
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                firebase.auth().signOut().then(() => {
+                    window.location.href = '/login';
+                }).catch(err => {
+                    console.error("Logout error:", err);
+                    window.location.href = '/login';
+                });
+            } else {
+                window.location.href = '/login';
+            }
+        };
 
         function loadFromCloud() {
             if (!db) return;
@@ -11263,59 +11258,105 @@
             }
         };
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             if (isAppInitialized) return;
             isAppInitialized = true;
 
+            // Fetch config and initialize Firebase
+            let config;
             try {
-                const stored = localStorage.getItem('studyMasterBackup');
-                if (stored) {
-                    const data = window.sanitizeAllData(JSON.parse(stored));
-                    if (data.tasks) {
-                        tasks = data.tasks;
-                        if (data.tracks) window.tracks = data.tracks;
-                        if (data.customPrograms) window.customPrograms = data.customPrograms;
-                        if (data.customActions) window.customActions = data.customActions;
-                        if (data.paceGoals) window.paceGoals = data.paceGoals;
-                        if (data.passedItems) window.passedItems = data.passedItems;
-                        if (data.revisionData) window.revisionData = data.revisionData;
-                        if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
-                        if (data.successResults) window.successResults = data.successResults;
-                        if (data.dashboardConfig) {
-                            window.dashboardConfig = data.dashboardConfig;
-                            if (window.dashboardConfig.trendStartDate) {
-                                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
-                                if (!isNaN(trendStart.getTime())) {
-                                    trendStart.setHours(0, 0, 0, 0);
-                                    PLAN_START_DATE = trendStart;
+                const res = await fetch('/api/config');
+                config = await res.json();
+            } catch (err) {
+                console.error("Failed to load Firebase configuration:", err);
+                return;
+            }
+
+            try {
+                firebase.initializeApp(config);
+                db = firebase.firestore();
+                console.log("Firebase Connected");
+
+                db.enablePersistence({ synchronizeTabs: true })
+                    .then(() => console.log("Firestore offline persistence enabled."))
+                    .catch((err) => {
+                        console.warn("Firestore persistence failed:", err.code);
+                    });
+            } catch (e) {
+                console.error("Firebase init error:", e);
+            }
+
+            // Route guard
+            firebase.auth().onAuthStateChanged((user) => {
+                if (!user) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                if (user.email !== 'ris2k29@gmail.com') {
+                    firebase.auth().signOut().then(() => {
+                        window.location.href = '/login?error=denied';
+                    });
+                    return;
+                }
+
+                // Authorized
+                console.log("Admin authorized:", user.email);
+
+                // Run original DOMContentLoaded setup logic
+                try {
+                    const stored = localStorage.getItem('studyMasterBackup');
+                    if (stored) {
+                        const data = window.sanitizeAllData(JSON.parse(stored));
+                        if (data.tasks) {
+                            tasks = data.tasks;
+                            if (data.tracks) window.tracks = data.tracks;
+                            if (data.customPrograms) window.customPrograms = data.customPrograms;
+                            if (data.customActions) window.customActions = data.customActions;
+                            if (data.paceGoals) window.paceGoals = data.paceGoals;
+                            if (data.passedItems) window.passedItems = data.passedItems;
+                            if (data.revisionData) window.revisionData = data.revisionData;
+                            if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
+                            if (data.successResults) window.successResults = data.successResults;
+                            if (data.dashboardConfig) {
+                                window.dashboardConfig = data.dashboardConfig;
+                                if (window.dashboardConfig.trendStartDate) {
+                                    const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                                    if (!isNaN(trendStart.getTime())) {
+                                        trendStart.setHours(0, 0, 0, 0);
+                                        PLAN_START_DATE = trendStart;
+                                    }
                                 }
-                            }
-                        }
-                        if (data.customSyllabus) {
-                            syllabusStructure = data.customSyllabus;
-                            recalculateTotals();
+                             }
+                             if (data.customSyllabus) {
+                                 syllabusStructure = data.customSyllabus;
+                                 recalculateTotals();
+                             }
                         }
                     }
-                }
-            } catch (e) { }
+                } catch (e) {}
 
-            window.migrateLegacyData();
-            window.sortAllCustomData();
+                window.migrateLegacyData();
+                window.sortAllCustomData();
 
-            renderUI();
-            initializeFirebase();
-            window.switchPage('dashboard');
+                // Reveal app UI
+                const loadingEl = document.getElementById('auth-loading');
+                const wrapperEl = document.getElementById('app-wrapper');
+                if (loadingEl) loadingEl.classList.add('hidden');
+                if (wrapperEl) wrapperEl.classList.remove('hidden');
+
+                renderUI();
+                loadFromCloud();
+                window.switchPage('dashboard');
+            });
 
             // --- Progressive Web App (PWA) Logic ---
             let deferredPrompt = null;
             const installBtn = document.getElementById('pwa-install-btn');
 
             window.addEventListener('beforeinstallprompt', (e) => {
-                // Prevent Chrome 67 and earlier from automatically showing the prompt
                 e.preventDefault();
-                // Stash the event so it can be triggered later.
                 deferredPrompt = e;
-                // Update UI to notify the user they can install the PWA
                 if (installBtn) {
                     installBtn.classList.remove('hidden');
                     installBtn.classList.add('flex');
@@ -11326,9 +11367,7 @@
             if (installBtn) {
                 installBtn.addEventListener('click', async () => {
                     if (!deferredPrompt) return;
-                    // Show the install prompt
                     deferredPrompt.prompt();
-                    // Wait for the user to respond to the prompt
                     const { outcome } = await deferredPrompt.userChoice;
                     console.log(`[PWA] User response to install prompt: ${outcome}`);
                     if (outcome === 'accepted') {
@@ -11350,13 +11389,10 @@
                 }
             });
 
-            // Service Worker Registration
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('./service-worker.js')
                     .then((reg) => {
                         console.log('[PWA] Service Worker registered successfully:', reg.scope);
-
-                        // Check for updates
                         reg.addEventListener('updatefound', () => {
                             const newWorker = reg.installing;
                             newWorker.addEventListener('statechange', () => {
@@ -11441,7 +11477,16 @@
 
 <body
     class="bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 pb-20 font-sans overflow-x-hidden touch-action-manipulation">
-    <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-8">
+
+    <!-- Full-screen Loading Overlay -->
+    <div id="auth-loading" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0f172a] text-white">
+        <div class="flex flex-col items-center space-y-4">
+            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div class="text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading Application...</div>
+        </div>
+    </div>
+
+    <div id="app-wrapper" class="max-w-7xl mx-auto p-3 sm:p-4 md:p-8 hidden">
         <!-- Header -->
         <header
             class="mb-6 md:mb-10 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6 text-center md:text-left">
@@ -11510,6 +11555,13 @@
                 <button id="btn-nav-outcome" onclick="window.switchPage('outcome')"
                     class="snap-start shrink-0 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 px-3 sm:px-4 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] sm:text-[10px] md:text-xs text-slate-600 dark:text-slate-300 hover:border-yellow-400 active:scale-95 transition-all">
                     Outcome
+                </button>
+                <button id="btn-logout" onclick="window.handleLogout()"
+                    class="snap-start shrink-0 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 px-3 sm:px-4 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[9px] sm:text-[10px] md:text-xs text-rose-600 dark:text-rose-400 hover:border-rose-500 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
                 </button>
 
                 <div id="loading-message"

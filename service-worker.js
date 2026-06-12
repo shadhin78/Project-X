@@ -3,12 +3,14 @@ const CACHE_NAME = 'antygravity-cache-v1.0.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './login.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
 ];
 
