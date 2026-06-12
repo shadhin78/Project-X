@@ -3976,6 +3976,10 @@
                     if (window.activeSingleSubjectTrend) {
                         isHidden = (k !== window.activeSingleSubjectTrend);
                     }
+                    const parentSub = window.getAllSubjects().find(s => s.subject === k);
+                    if (parentSub && window.programVisibility && window.programVisibility[parentSub.program] === false) {
+                        isHidden = true;
+                    }
                     return {
                         label: getDynamicChartLabel(k), data: subData[k], borderColor: getSubjectColor(k), backgroundColor: 'transparent', tension: 0.4, borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: getSubjectColor(k), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointHoverBackgroundColor: getSubjectColor(k), pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, hidden: isHidden, subjectKey: k
                     };
@@ -4129,8 +4133,12 @@
                 sLeg.innerHTML = filteredSubs.map(s => {
                     const k = s.subject; const val = window.latestChartStats.subjects ? window.latestChartStats.subjects[k] : 0; const active = window.chartVisibility.subjects[k]; const color = getSubjectColor(k);
                     const label = getDynamicCleanLabel(k, 12);
-                    const activeStyle = (window.activeSingleSubjectTrend || active) ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%);`;
-                    return `<div onclick="${window.activeSingleSubjectTrend ? '' : `toggleSubDataset('${k}')`}" class="${window.activeSingleSubjectTrend ? '' : 'cursor-pointer'} flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
+                    const isProgVisible = !window.programVisibility || window.programVisibility[s.program] !== false;
+                    const isSubjectActive = (window.activeSingleSubjectTrend || (active && isProgVisible));
+                    const activeStyle = isSubjectActive ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%); line-through;`;
+                    const onClickStr = (window.activeSingleSubjectTrend || !isProgVisible) ? '' : `toggleSubDataset('${k}')`;
+                    const cursorClass = (window.activeSingleSubjectTrend || !isProgVisible) ? '' : 'cursor-pointer';
+                    return `<div onclick="${onClickStr}" class="${cursorClass} flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
                 }).join('');
             }
         };
@@ -5988,6 +5996,44 @@
                 rLeg.innerHTML =
                     getResultsLegend('actual', '#06b6d4', 'Actual CGPA', latestProgramCgpa) +
                     getResultsLegend('target', '#f59e0b', 'Target CGPA', overallTargetCgpaVal);
+            }
+
+            // Calculate and render track average results
+            const trackAveragesContainer = document.getElementById('track-averages-container');
+            if (trackAveragesContainer) {
+                let trackHtml = '';
+                const trackColors = ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#06b6d4', '#a855f7', '#f97316'];
+                
+                window.tracks.forEach((t, idx) => {
+                    const tc = trackColors[idx % trackColors.length];
+                    const trackProgs = window.customPrograms[t.id] || [];
+                    const N = trackProgs.length;
+                    
+                    let sumCgpa = 0.00;
+                    trackProgs.forEach(pObj => {
+                        const pName = pObj.name || pObj;
+                        // Find latest overall result for this program in activeResults
+                        const progOveralls = activeResults.filter(r => r.type === 'cgpa' && !r.subject && r.title === pName);
+                        if (progOveralls.length > 0) {
+                            progOveralls.sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
+                            sumCgpa += parseFloat(progOveralls[0].value) || 0.00;
+                        }
+                    });
+                    
+                    const avgCgpa = N > 0 ? sumCgpa / N : 0.00;
+                    const avgCgpaStr = avgCgpa.toFixed(2);
+                    const avgGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa') || 'F';
+                    const gradeColor = avgGrade === 'F' ? 'text-rose-400' : 'text-emerald-400';
+                    
+                    trackHtml += `
+                    <div class="flex items-center space-x-1.5 md:space-x-2 px-2.5 md:px-3 py-1.5 md:px-3.5 md:py-2 bg-slate-900/60 dark:bg-slate-900/90 rounded-lg md:rounded-xl border border-slate-700/60 dark:border-slate-700/80 shadow-sm select-none">
+                        <div class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0 shadow-md" style="background-color: ${tc}; box-shadow: 0 0 8px ${tc}"></div>
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-wider whitespace-nowrap">${t.name || t.id} Avg:</span>
+                        <span class="text-[9px] md:text-[11px] font-black text-white whitespace-nowrap">${avgCgpaStr} <span class="${gradeColor}">(${avgGrade})</span></span>
+                    </div>`;
+                });
+                
+                trackAveragesContainer.innerHTML = trackHtml;
             }
 
             // Trend Chart Rendering
@@ -12232,6 +12278,7 @@
 
                 <div class="mt-4 md:mt-6 flex flex-col gap-3">
                     <div id="results-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                    <div id="track-averages-container" class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex flex-wrap justify-center gap-2.5"></div>
                 </div>
             </div>
 
