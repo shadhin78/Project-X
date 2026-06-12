@@ -1,6 +1,6 @@
 {
-  "name": "AntyGravity",
-  "short_name": "AntyGravity",
+  "name": "Project X",
+  "short_name": "Project X",
   "description": "Dynamic Multi-Track Execution & Tracking Dashboard",
   "start_url": "index.html",
   "scope": "./",

@@ -4,13 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AntyGravity</title>
+    <title>Project X</title>
+    <!-- SEO & Metadata -->
+    <meta name="description" content="Dynamic Multi-Track Execution & Tracking Dashboard">
+    
+    <!-- Open Graph (Facebook / LinkedIn) Meta Tags -->
+    <meta property="og:title" content="Project X">
+    <meta property="og:description" content="Dynamic Multi-Track Execution & Tracking Dashboard">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="icons/icon-512.png">
+    
+    <!-- Twitter / X Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Project X">
+    <meta name="twitter:description" content="Dynamic Multi-Track Execution & Tracking Dashboard">
+    <meta name="twitter:image" content="icons/icon-512.png">
+
     <!-- PWA Configurations -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AntyGravity">
+    <meta name="apple-mobile-web-app-title" content="Project X">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11340,13 +11355,13 @@
             }
 
             window.addEventListener('appinstalled', (evt) => {
-                console.log('[PWA] AntyGravity was installed successfully!');
+                console.log('[PWA] Project X was installed successfully!');
                 if (installBtn) {
                     installBtn.classList.add('hidden');
                     installBtn.classList.remove('flex');
                 }
                 if (typeof showToast === 'function') {
-                    showToast('AntyGravity Installed Successfully!', 'success');
+                    showToast('Project X Installed Successfully!', 'success');
                 }
             });
 
@@ -11455,7 +11470,7 @@
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg>
-                        Install AntyGravity
+                        Install Project X
                     </button>
                 </div>
                 <h1 id="dash-main-title"

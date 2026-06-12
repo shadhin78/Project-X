@@ -1,4 +1,4 @@
-const CACHE_NAME = 'antygravity-cache-v1.0.0';
+const CACHE_NAME = 'project-x-cache-v1.1.0';
 
 const ASSETS_TO_CACHE = [
   './',
