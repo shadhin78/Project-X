@@ -1362,6 +1362,7 @@
             window.dashboardConfig.subTitle = subTitle;
 
             safeSetText('dash-top-tag', window.dashboardConfig.topTag);
+            safeSetText('dash-top-tag-mobile', window.dashboardConfig.topTag);
             safeSetText('dash-main-title', window.dashboardConfig.mainTitle);
             safeSetText('dash-sub-title', window.dashboardConfig.subTitle);
             document.title = `${window.dashboardConfig.topTag} - ${window.dashboardConfig.mainTitle}`;
@@ -1817,6 +1818,7 @@
             if (dashContent) dashContent.classList.remove('hidden');
 
             safeSetText('dash-top-tag', window.dashboardConfig.topTag);
+            safeSetText('dash-top-tag-mobile', window.dashboardConfig.topTag);
             safeSetText('dash-main-title', window.dashboardConfig.mainTitle);
             safeSetText('dash-sub-title', window.dashboardConfig.subTitle);
 
@@ -11239,8 +11241,10 @@
                 if (el) {
                     if (p === pageId) {
                         el.classList.remove('hidden');
+                        el.classList.add('animate-page-enter');
                     } else {
                         el.classList.add('hidden');
+                        el.classList.remove('animate-page-enter');
                     }
                 }
             });
@@ -11258,7 +11262,7 @@
             pages.forEach(p => {
                 const btn = document.getElementById(`btn-nav-${p}`);
                 if (btn) {
-                    const baseClass = "w-full border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2.5";
+                    const baseClass = "w-full border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3";
                     if (p === pageId) {
                         btn.className = `${baseClass} ${buttons[p].active}`;
                     } else {
@@ -11497,6 +11501,34 @@
         });
     </script>
     <style>
+        @keyframes pageEnter {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.99);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .animate-page-enter {
+            animation: pageEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes auraPulse {
+            0%, 100% {
+                opacity: 0.65;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.95;
+                transform: scale(1.04);
+            }
+        }
+        .animate-aura {
+            animation: auraPulse 4s ease-in-out infinite;
+        }
+
         * {
             -webkit-tap-highlight-color: transparent;
             box-sizing: border-box;
@@ -11575,15 +11607,23 @@
 
     <div id="app-wrapper" class="flex flex-col md:flex-row h-screen w-screen overflow-hidden hidden bg-slate-50 dark:bg-[#0f172a]">
         <!-- Mobile Header -->
-        <div class="md:hidden flex items-center justify-between bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 shrink-0">
-            <div class="flex items-center gap-2">
-                <div id="dash-top-tag-mobile" class="inline-block px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-md shadow-md">Project X</div>
-            </div>
-            <button id="mobile-sidebar-toggle" onclick="window.toggleMobileSidebar()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path>
+        <div class="md:hidden flex items-center justify-between bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3.5 shrink-0">
+            <!-- Three Dot Menu Button on the Left -->
+            <button id="mobile-sidebar-toggle" onclick="window.toggleMobileSidebar()" class="p-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-xl transition-all active:scale-90 shadow-sm shrink-0">
+                <svg class="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                    <circle cx="12" cy="18" r="1.5" fill="currentColor" />
                 </svg>
             </button>
+            <div class="flex items-center gap-2">
+                <div class="relative group">
+                    <div class="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 opacity-75 blur-md animate-pulse"></div>
+                    <div class="relative px-3.5 py-1.5 bg-slate-950 border border-white/10 rounded-lg shadow-md">
+                        <span id="dash-top-tag-mobile" class="text-[10px] font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-300">Project X</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Sidebar (Left) -->
@@ -11593,14 +11633,20 @@
 
             <div class="flex flex-col h-full min-h-0 justify-between p-5 md:p-6 overflow-y-auto custom-scrollbar">
                 <!-- Sidebar Top Section -->
-                <div class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div id="dash-top-tag"
-                            class="inline-block px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md">
-                            Project X</div>
+                <div class="space-y-8 pt-4">
+                    <div class="flex items-center justify-between gap-4">
+                        <!-- Branding Tag with Aura Glow -->
+                        <div class="relative group flex-1">
+                            <div class="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-500 to-violet-600 opacity-70 blur-xl animate-aura"></div>
+                            <div class="relative px-5 py-3.5 bg-slate-950/80 border border-white/10 backdrop-blur-md rounded-2xl shadow-2xl flex items-center justify-center">
+                                <span id="dash-top-tag" class="text-sm md:text-base font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-blue-400 drop-shadow-sm">
+                                    Project X
+                                </span>
+                            </div>
+                        </div>
                         
                         <!-- Close button for mobile -->
-                        <button onclick="window.closeMobileSidebar()" class="md:hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <button onclick="window.closeMobileSidebar()" class="md:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 rounded-xl transition-all active:scale-95 shrink-0">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
@@ -11619,33 +11665,40 @@
                     </button>
 
                     <!-- Navigation List -->
-                    <nav class="flex flex-col gap-2">
+                    <nav class="flex flex-col gap-2.5 mt-8 border-t border-slate-100 dark:border-slate-800/60 pt-6">
                         <button id="btn-nav-dashboard" onclick="window.switchPage('dashboard'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                             Dashboard
                         </button>
                         <button id="btn-nav-daily-actions" onclick="window.switchPage('daily-actions'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             Daily Actions
                         </button>
                         <button id="btn-nav-global-filter" onclick="window.switchPage('global-filter'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
                             Global Filter
                         </button>
                         <button id="btn-nav-subjects" onclick="window.switchPage('subjects'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                             Subjects
                         </button>
                         <button id="btn-nav-paces-management" onclick="window.switchPage('paces-management'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                             Pace Management
                         </button>
                         <button id="btn-nav-master-config" onclick="window.switchPage('master-config'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                             Master Config
                         </button>
                         <button id="btn-nav-outcome" onclick="window.switchPage('outcome'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center gap-2">
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg>
                             Outcome
                         </button>
                     </nav>
