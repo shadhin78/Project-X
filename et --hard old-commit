@@ -1,0 +1,312 @@
+
+[33mcommit 128f321830fbaaed8ec1742ffa860bdc93a344e6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 18:38:17 2026 +0600
+
+    feat: implement Google Authentication with email whitelisting and Firestore security rules
+
+[33mcommit c8bfb8d4c6ae3d703e670ddafb9a5bbf51e480c7[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 18:14:34 2026 +0600
+
+    chore: rename application to Project X and update PWA metadata and SEO tags
+
+[33mcommit dbaf00537310d8faf883d0a7bffcec2d38c0a3c2[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 18:07:00 2026 +0600
+
+    feat: implement PWA functionality with service worker, manifest, and install prompt support
+
+[33mcommit ba428d6456a545917f5652843f3c1194dea1e80f[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 17:37:56 2026 +0600
+
+    feat: implement program visibility filtering for subjects and add track-based CGPA average rendering
+
+[33mcommit 1c823e8a18402d5c44ce0ec53a050dfa7ec72ad6[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 17:26:22 2026 +0600
+
+    fix: correct structural nesting by closing div and removing extraneous container wrapper
+
+[33mcommit 1a5c3f35ddd6b34eaaa4aa0c18b03a680eaa4b68[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 17:06:49 2026 +0600
+
+    feat: add program visibility toggling and synchronize weekly target completion status
+
+[33mcommit e970c1c3efa2f995c8fbc07263d9c091a82c05bd[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 12 01:08:51 2026 +0600
+
+    feat: add dynamic program color utility and implement daily actions streak and consistency tracking UI
+
+[33mcommit 2530a280cc3075a5d7b2fccdc268b75914c9e8db[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 20:56:45 2026 +0600
+
+    feat: migrate weekly targets from array to a keyed database object to support multi-week tracking
+
+[33mcommit 04eb371a5855664c2576a4d753dfe021226ae796[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 20:17:03 2026 +0600
+
+    feat: implement weekly targets management system and sync chapter completion status
+
+[33mcommit 2087a96f7b33621c8f8e243247e732a0819bcdcb[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 19:31:04 2026 +0600
+
+    fix: sanitize legacy data and purge malicious entries during migration
+
+[33mcommit 7cfbeb6417c330376e21ce17ae3e02a8a33676bf[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 19:25:58 2026 +0600
+
+    refactor: replace track, program, and subject pace settings with a single active timeline selection UI
+
+[33mcommit 09b166e12fa6e865dffe8beedb441f4521bf663e[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 18:20:38 2026 +0600
+
+    checkout: temporary commit for worktree checkout
+
+[33mcommit 19284762976295d57daeacfcb801b47157e854c1[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 18:19:55 2026 +0600
+
+    feat: add recursive data sanitization utility and implement default active pace goal logic
+
+[33mcommit aaebbdfa83ae81bbb4a0a07c4711e27cdcf46449[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 11:12:23 2026 +0600
+
+    refactor: reimplement independent estimated finish logic to use dynamic pacing and projected dates
+
+[33mcommit 75f96a0302f2c982845828efd4944047588816da[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 11 09:43:37 2026 +0600
+
+    feat: implement subject-based pace tracking with cascading toggle switches in settings
+
+[33mcommit 33612420633764a8ac5de34d55708a100d7b4b25[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 10 23:32:53 2026 +0600
+
+    feat: implement trend settings, pace management, and priority normalization for dashboard configuration
+
+[33mcommit e06b388d240aa8104822369cad9d7bacfb6a9237[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 10 21:48:54 2026 +0600
+
+    feat: implement dynamic trend start date management and overhaul subject progress UI rendering
+
+[33mcommit 90ad587d064c2c7cabf8e7de536228f9c7b9dd88[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 10 20:26:37 2026 +0600
+
+    feat: implement dynamic page navigation and content switching system
+
+[33mcommit 1610d95977af80777b781d553384367af8c76602[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri Jun 5 12:43:58 2026 +0600
+
+    feat: add support for single-subject trend filtering and refactor UI trigger buttons
+
+[33mcommit d1d8e88e25f82c2959be64e255ab73b2c8dfbca3[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 23:06:37 2026 +0600
+
+    feat: add pace candle chart modal and register chart resize handler
+
+[33mcommit 9dfd0f11cafb8951691d995cb9cb39968d6cae34[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 23:02:19 2026 +0600
+
+    feat: add display of days passed to subject and global pace sections
+
+[33mcommit 839ef65adc5583ceea38f70e664ed88ce75dab9d[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 20:49:22 2026 +0600
+
+    refactor: implement flexible CGPA decimal formatting and fix study task completion date tracking
+
+[33mcommit 21f8a33e7b60cdbe5d708a8b5d040f1edf8a5d9c[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 20:16:16 2026 +0600
+
+    feat: support evaluation-specific CGPA/grade mapping, add input validation, and refine UI calculation logic
+
+[33mcommit 92d685eb50438d56cbca4ee4b1e6dce2b9eb4ab5[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 14:17:08 2026 +0600
+
+    feat: implement real-time overall score estimation and add 'none' status handling for targets
+
+[33mcommit 75b655ec06adf5366247d5d76c9e4b6dc77ef6ea[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 08:39:43 2026 +0600
+
+    feat: implement helper to retrieve program targets and integrate automatic prefilling into UI components
+
+[33mcommit 55c6e520fc042fb38184b6108ecb8269a162e54e[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 00:36:17 2026 +0600
+
+    style: normalize indentation and whitespace in index.html
+
+[33mcommit 52ec87a201a5ba3948e1c7f836eb7c773e30a86a[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu Jun 4 00:15:55 2026 +0600
+
+    feat: add subject-wise analytics view and target badge synchronization in program progression modal
+
+[33mcommit 599168ae39921e184cfc4bf5eeb7276091d806e8[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 3 23:57:46 2026 +0600
+
+    feat: implement automated grade-to-CGPA conversion utilities and remove date-based filtering from trend charts
+
+[33mcommit 92e43778921fbd08403d42c90e3ef8b2c3d8ecff[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 3 20:53:58 2026 +0600
+
+    feat: implement program progression trend analysis with chart visualization and grade mapping utilities
+
+[33mcommit 83f36c672a861b6a1ff7076df3984764f682f6e1[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 3 13:35:32 2026 +0600
+
+    refactor: remove danger zone reset button from dashboard settings
+
+[33mcommit 12c7851a98f9ea06b0846c2177d9612a43ac951c[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 3 12:41:22 2026 +0600
+
+    refactor: implement program-based grouping and dynamic visibility controls for dashboard results.
+
+[33mcommit 313f3e8e5992aec507eeff943f1f80f798405dc9[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 3 12:10:27 2026 +0600
+
+    feat: implement dynamic subject grid for multi-result submission and update result editing workflow
+
+[33mcommit ea8d8d44e572d89ba9d9169c81e466d189d8f100[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Wed Jun 3 11:58:56 2026 +0600
+
+    feat: enhance CGPA tracking by adding subject-specific data, dynamic dropdowns, and a split-series chart visualization.
+
+[33mcommit 901bacde579e65fe69226d5958bf0077442ae3a9[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Tue Jun 2 23:17:42 2026 +0600
+
+    refactor: generalize task structure and syllabus processing to support dynamic track configurations
+
+[33mcommit 04810bea7d4ebfe9d8101466a483281ca1e00036[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Tue Jun 2 15:46:08 2026 +0600
+
+    refactor: abstract track-specific logic into dynamic window.tracks configuration and universal helper methods
+
+[33mcommit e75b452bf54a523c21e3c3cc046a42d016277c8d[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 10:07:55 2026 +0600
+
+    feat: update trend chart to use global date overrides and restrict rendering to the active tab
+
+[33mcommit 2d4e5fc1631596dc45ad8b6418eb3fd49c1e57eb[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 09:42:00 2026 +0600
+
+    feat: integrate priority configuration into the system tab navigation and clean up redundant UI elements
+
+[33mcommit 6dffab3f93a06d1e4aad914e2a21e70d02713dde[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 09:33:12 2026 +0600
+
+    feat: add render throttling and UI layout optimizations for priority configuration section
+
+[33mcommit 3fb2d5e42aa2e6d922cb6953958ec55a00fe580e[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 09:26:03 2026 +0600
+
+    refactor: decouple priority configuration section from tab system to persist independently on the interface
+
+[33mcommit 2c7264e9fb98f6cbba63cf29eadb3300ab26dbee[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 09:19:58 2026 +0600
+
+    refactor: prevent focus loss during priority re-renders and centralize DOM state synchronization
+
+[33mcommit 857652f9d175a3421f264ded9fc8b2156385bc31[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 09:15:24 2026 +0600
+
+    refactor: enhance date parsing robustness and add conditional save logic to task date updates
+
+[33mcommit 358901f395db523480b25e89e016151ff3c2046e[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 22 09:05:38 2026 +0600
+
+    feat: update priority tab rendering and hide details marker for progress dropdowns
+
+[33mcommit fb1ed966ba15fe7a66ae72070c15002eeef1dca6[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu May 21 21:40:45 2026 +0600
+
+    feat: implement data migration and priority-based sorting for programs, subjects, and custom actions
+
+[33mcommit 5ddccc920ecf6cc026fe372cd7d585c8412b367e[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu May 21 21:05:38 2026 +0600
+
+    chore: remove project files and Capacitor configuration
+
+[33mcommit 8852a620f331f274af51d7873b42835ec65cfe22[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu May 21 21:05:25 2026 +0600
+
+    refactor: remove all PWA configuration, assets, and service worker registration code
+
+[33mcommit c17e992d04bba611de9cd676fd2723a1a4d5ef62[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Thu May 21 20:54:47 2026 +0600
+
+    chore: initialize project workspace and install Capacitor and Ionic dependencies
+
+[33mcommit 2a1a8ce5da42db1db59060df863fbf17cdd3dc89[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Mon May 18 23:00:10 2026 +0600
+
+    refactor: adjust pace calculation to use inclusive day counting for elapsed time
+
+[33mcommit bd8334a8ce24cc328bbb62b3a598d6e1f7e18d67[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Sat May 16 20:28:33 2026 +0600
+
+    chore: update Firebase configuration to new project settings
+
+[33mcommit b8d7b12ea1cae8aef730adf142f75e7bb971398c[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 15 16:58:16 2026 +0600
+
+    feat: replace local storage persistence with real-time Firebase Firestore cloud synchronization
+
+[33mcommit 2bc727a0d07b5a1d82e5ce06aaa59499ae041fd4[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 15 16:17:07 2026 +0600
+
+    refactor: replace Firebase integration with local storage for data persistence
+
+[33mcommit c7699ae4b0960cbe6b662cd770cc87c6f4b81919[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 15 15:47:44 2026 +0600
+
+    feat: initialize Study Dashboard with core Firebase and UI framework structure
+
+[33mcommit 02b5f7707322662068d508326715450d6006b6e6[m
+Author: shadhin <mdshadhin01998560@gmail.com>
+Date:   Fri May 15 15:44:56 2026 +0600
+
+    first commit
