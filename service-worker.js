@@ -1,4 +1,4 @@
-const CACHE_NAME = 'project-x-cache-v1.1.1';
+const CACHE_NAME = 'antygravity-cache-v1.0.0';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -9,7 +9,6 @@ const ASSETS_TO_CACHE = [
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
 ];
 
@@ -52,8 +51,8 @@ self.addEventListener('fetch', (event) => {
 
   // Skip caching for Firebase dynamic endpoints or firestore calls
   if (
-    url.hostname.includes('firebase') || 
-    url.hostname.includes('firestore') || 
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis')
   ) {
     return;
