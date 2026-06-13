@@ -1254,11 +1254,31 @@
             }
         };
 
+        window.onScheduleTrackChange = function(selectedProgram) {
+            const trackSelect = document.getElementById('schedule-input-track');
+            const programSelect = document.getElementById('schedule-input-program');
+            if (!trackSelect || !programSelect) return;
+            
+            const selectedTrackId = trackSelect.value;
+            let programHtml = '<option value="">None (Optional)</option>';
+            
+            if (selectedTrackId) {
+                const programs = window.customPrograms ? (window.customPrograms[selectedTrackId] || []) : [];
+                programs.forEach(p => {
+                    const pName = (typeof p === 'string') ? p : (p.name || '');
+                    if (pName) programHtml += `<option value="${pName}">${pName}</option>`;
+                });
+            }
+            programSelect.innerHTML = programHtml;
+            if (selectedProgram) {
+                programSelect.value = selectedProgram;
+            } else {
+                programSelect.value = '';
+            }
+        };
+
         window.openAddScheduleModal = function() {
             window.editingScheduleBlockId = null;
-            
-            const daySelect = document.getElementById('schedule-input-day');
-            if (daySelect) daySelect.value = 'Daily';
             
             const startInput = document.getElementById('schedule-input-start');
             if (startInput) startInput.value = '09:00';
@@ -1269,15 +1289,19 @@
             const taskInput = document.getElementById('schedule-input-task');
             if (taskInput) taskInput.value = '';
             
-            const select = document.getElementById('schedule-input-subject');
-            if (select) {
-                let optionsHtml = '';
-                const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
-                const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
-                uniqueSubjects.forEach(sub => {
-                    optionsHtml += `<option value="${sub}">${sub}</option>`;
+            const trackSelect = document.getElementById('schedule-input-track');
+            const programSelect = document.getElementById('schedule-input-program');
+            if (trackSelect) {
+                let trackHtml = '<option value="">None (Optional)</option>';
+                (window.tracks || []).forEach(t => {
+                    trackHtml += `<option value="${t.id}">${t.name}</option>`;
                 });
-                select.innerHTML = optionsHtml || '<option value="">No Subjects Available</option>';
+                trackSelect.innerHTML = trackHtml;
+                trackSelect.value = '';
+            }
+            if (programSelect) {
+                programSelect.innerHTML = '<option value="">None (Optional)</option>';
+                programSelect.value = '';
             }
             
             window.selectScheduleColor('#6366f1', document.querySelector('#schedule-color-picker button[data-color="#6366f1"]'));
@@ -1299,9 +1323,6 @@
             
             window.editingScheduleBlockId = blockId;
             
-            const daySelect = document.getElementById('schedule-input-day');
-            if (daySelect) daySelect.value = 'Daily';
-            
             const startInput = document.getElementById('schedule-input-start');
             if (startInput) startInput.value = block.startTime || '09:00';
             
@@ -1311,17 +1332,17 @@
             const taskInput = document.getElementById('schedule-input-task');
             if (taskInput) taskInput.value = block.task || '';
             
-            const select = document.getElementById('schedule-input-subject');
-            if (select) {
-                let optionsHtml = '';
-                const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
-                const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
-                uniqueSubjects.forEach(sub => {
-                    optionsHtml += `<option value="${sub}">${sub}</option>`;
+            const trackSelect = document.getElementById('schedule-input-track');
+            if (trackSelect) {
+                let trackHtml = '<option value="">None (Optional)</option>';
+                (window.tracks || []).forEach(t => {
+                    trackHtml += `<option value="${t.id}">${t.name}</option>`;
                 });
-                select.innerHTML = optionsHtml || '<option value="">No Subjects Available</option>';
-                select.value = block.subject || '';
+                trackSelect.innerHTML = trackHtml;
+                trackSelect.value = block.track || '';
             }
+            
+            window.onScheduleTrackChange(block.program || '');
             
             const color = block.color || '#6366f1';
             const pickerBtn = document.querySelector(`#schedule-color-picker button[data-color="${color}"]`);
@@ -1349,26 +1370,26 @@
         };
 
         window.submitAddScheduleBlock = function() {
-            const daySelect = document.getElementById('schedule-input-day');
             const startInput = document.getElementById('schedule-input-start');
             const endInput = document.getElementById('schedule-input-end');
             const taskInput = document.getElementById('schedule-input-task');
-            const subjectSelect = document.getElementById('schedule-input-subject');
+            const trackSelect = document.getElementById('schedule-input-track');
+            const programSelect = document.getElementById('schedule-input-program');
             
-            if (!startInput || !endInput || !taskInput || !subjectSelect) return;
+            if (!startInput || !endInput || !taskInput) return;
             
-            const day = daySelect ? daySelect.value : 'Daily';
             const startTime = startInput.value;
             const endTime = endInput.value;
             const task = taskInput.value.trim();
-            const subject = subjectSelect.value;
+            const track = trackSelect ? trackSelect.value : '';
+            const program = programSelect ? programSelect.value : '';
             
             if (!startTime || !endTime) {
                 showToast("Please fill in start and end times.", "error");
                 return;
             }
             if (!task) {
-                showToast("Please enter a task description.", "error");
+                showToast("Please enter a work name.", "error");
                 return;
             }
             if (startTime >= endTime) {
@@ -1385,7 +1406,8 @@
                     block.startTime = startTime;
                     block.endTime = endTime;
                     block.task = task;
-                    block.subject = subject;
+                    block.track = track;
+                    block.program = program;
                     block.color = window.selectedScheduleColor;
                 }
                 window.editingScheduleBlockId = null;
@@ -1397,7 +1419,8 @@
                     startTime: startTime,
                     endTime: endTime,
                     task: task,
-                    subject: subject,
+                    track: track,
+                    program: program,
                     color: window.selectedScheduleColor
                 };
                 window.scheduleBlocks.push(newBlock);
@@ -1412,10 +1435,9 @@
         window.renderSchedulePage = function() {
             const bar = document.getElementById('schedule-visual-timeline-bar');
             const legend = document.getElementById('schedule-visual-legend');
-            const timelineList = document.getElementById('schedule-timeline-list');
+            const grid = document.getElementById('schedule-timeline-grid');
+            const hoursSummaryList = document.getElementById('schedule-hours-summary-list');
             const badge = document.getElementById('schedule-slots-count-badge');
-            
-            if (!timelineList) return;
             
             const blocks = window.scheduleBlocks || [];
             
@@ -1426,11 +1448,6 @@
             
             // Sort blocks chronologically
             const dailyBlocks = blocks.filter(b => b.day === 'Daily').sort((a, b) => a.startTime.localeCompare(b.startTime));
-            
-            // Render slot count badge
-            if (badge) {
-                badge.textContent = `${dailyBlocks.length} Slot${dailyBlocks.length === 1 ? '' : 's'}`;
-            }
             
             // Helper convert time to minutes from midnight
             const timeToMinutes = (t) => {
@@ -1476,7 +1493,7 @@
                         const pct = (duration / 1440) * 100;
                         const color = block.color || '#6366f1';
                         
-                        // Show short text label if space permits (e.g. duration > 45 mins)
+                        // Show short text label if space permits
                         const labelHtml = duration >= 60 ? `
                             <span class="text-[7px] md:text-[8px] font-black text-white truncate px-1 select-none pointer-events-none">${block.task}</span>
                         ` : '';
@@ -1485,7 +1502,7 @@
                             <div class="h-full border-r border-black/10 transition-all hover:brightness-95 cursor-pointer flex items-center justify-center overflow-hidden relative"
                                  style="width: ${pct}%; background-color: ${color};"
                                  onclick="window.openEditScheduleModal('${block.id}')"
-                                 title="${block.subject || 'General'} (${block.startTime} - ${block.endTime}): ${block.task}">
+                                 title="${block.track || block.program || 'Work'} (${block.startTime} - ${block.endTime}): ${block.task}">
                                  ${labelHtml}
                             </div>
                         `;
@@ -1514,87 +1531,163 @@
             
             // Build visual legend
             if (legend) {
-                const uniqueSubjects = [];
-                const subjectColors = {};
+                const uniqueLabels = [];
+                const labelColors = {};
                 dailyBlocks.forEach(b => {
-                    const sub = b.subject || 'General';
-                    if (!uniqueSubjects.includes(sub)) {
-                        uniqueSubjects.push(sub);
-                        subjectColors[sub] = b.color || '#6366f1';
+                    const label = b.track || b.program || 'Work';
+                    if (!uniqueLabels.includes(label)) {
+                        uniqueLabels.push(label);
+                        labelColors[label] = b.color || '#6366f1';
                     }
                 });
                 
-                if (uniqueSubjects.length === 0) {
-                    legend.innerHTML = `<span class="opacity-50 font-bold text-[9px] uppercase tracking-wide">No planned subject categories today</span>`;
+                if (uniqueLabels.length === 0) {
+                    legend.innerHTML = `<span class="opacity-50 font-bold text-[9px] uppercase tracking-wide">No planned schedule categories today</span>`;
                 } else {
-                    legend.innerHTML = uniqueSubjects.map(sub => `
+                    legend.innerHTML = uniqueLabels.map(lbl => `
                         <div class="flex items-center space-x-1.5 border border-slate-100 dark:border-slate-800/80 px-2.5 py-1 rounded-lg bg-slate-50/50 dark:bg-slate-900/30">
-                            <span class="w-2 h-2 rounded-full" style="background-color: ${subjectColors[sub]};"></span>
-                            <span class="uppercase tracking-widest text-[8px] font-black">${sub}</span>
+                            <span class="w-2 h-2 rounded-full" style="background-color: ${labelColors[lbl]};"></span>
+                            <span class="uppercase tracking-widest text-[8px] font-black">${lbl}</span>
                         </div>
                     `).join('');
                 }
             }
             
-            // Build chronological timeline list
-            if (dailyBlocks.length === 0) {
-                timelineList.innerHTML = `
-                    <div class="flex flex-col items-center justify-center py-12 text-center text-slate-400 dark:text-slate-500">
-                        <span class="text-3xl">📅</span>
-                        <h4 class="text-xs font-black uppercase tracking-wider mt-3">No Slots Planned</h4>
-                        <p class="text-[10px] opacity-75 mt-1 max-w-xs">Your daily schedule is empty. Add routine blocks to plan your typical day.</p>
-                    </div>
-                `;
-                timelineList.classList.remove('border-l');
-            } else {
-                timelineList.classList.add('border-l');
-                let timelineHtml = '';
-                dailyBlocks.forEach(block => {
-                    const color = block.color || '#6366f1';
-                    const hex = color.replace('#', '');
-                    const r = parseInt(hex.substring(0, 2), 16) || 99;
-                    const g = parseInt(hex.substring(2, 4), 16) || 102;
-                    const b = parseInt(hex.substring(4, 6), 16) || 241;
-                    const bgRgba = `rgba(${r}, ${g}, ${b}, 0.08)`;
-                    
-                    timelineHtml += `
-                        <div class="relative pl-8 animate-fade-in group">
-                            <!-- Timeline dot indicator -->
-                            <div class="absolute left-[-6px] top-4 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800 transition-all group-hover:scale-125 shadow-sm z-10" style="background-color: ${color};"></div>
-                            
-                            <!-- Timeline block card -->
-                            <div class="p-4 bg-slate-50/70 hover:bg-slate-100/40 dark:bg-slate-900/30 dark:hover:bg-slate-800/40 border border-slate-100/60 dark:border-slate-800/80 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm transition-all duration-300 cursor-pointer"
-                                 onclick="window.openEditScheduleModal('${block.id}')">
-                                 
-                                 <div class="space-y-1">
-                                     <div class="flex items-center gap-2.5">
-                                         <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                             ${block.startTime} - ${block.endTime}
-                                         </span>
-                                         <span class="inline-block text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider" style="background-color: ${bgRgba}; color: ${color};">
-                                             ${block.subject || 'General'}
-                                         </span>
-                                     </div>
-                                     <h4 class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight">${block.task}</h4>
-                                 </div>
-                                 
-                                 <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
-                                     <button onclick="event.stopPropagation(); window.openEditScheduleModal('${block.id}')" class="p-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-slate-500 dark:text-slate-350 transition-colors shadow-sm" title="Edit">
-                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                         </svg>
-                                     </button>
-                                     <button onclick="event.stopPropagation(); window.deleteScheduleBlock('${block.id}')" class="p-1.5 bg-white dark:bg-slate-800 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-600 border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-slate-500 dark:text-slate-350 hover:border-transparent transition-colors shadow-sm" title="Delete">
-                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                         </svg>
-                                     </button>
-                                 </div>
-                            </div>
+            // Segment blocks into 1-hour slots
+            const segments = [];
+            dailyBlocks.forEach(block => {
+                const startMin = timeToMinutes(block.startTime);
+                const endMin = timeToMinutes(block.endTime);
+                
+                if (endMin <= startMin) return;
+                
+                let currentStart = startMin;
+                while (currentStart < endMin) {
+                    const currentEnd = Math.min(currentStart + 60, endMin);
+                    segments.push({
+                        id: block.id,
+                        task: block.task,
+                        track: block.track,
+                        program: block.program,
+                        color: block.color || '#6366f1',
+                        startTime: minutesToTime(currentStart),
+                        endTime: minutesToTime(currentEnd),
+                        duration: currentEnd - currentStart
+                    });
+                    currentStart = currentEnd;
+                }
+            });
+            
+            // Sort segments chronologically
+            segments.sort((a, b) => a.startTime.localeCompare(b.startTime));
+            
+            // Render slot count badge
+            if (badge) {
+                badge.textContent = `${segments.length} Box${segments.length === 1 ? '' : 'es'}`;
+            }
+            
+            // Build timeline grid
+            if (grid) {
+                if (segments.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full flex flex-col items-center justify-center py-12 text-center text-slate-400 dark:text-slate-500">
+                            <span class="text-3xl">📅</span>
+                            <h4 class="text-xs font-black uppercase tracking-wider mt-3">No Slots Planned</h4>
+                            <p class="text-[10px] opacity-75 mt-1 max-w-xs">Your daily schedule is empty. Add routine blocks to plan your typical day.</p>
                         </div>
                     `;
+                } else {
+                    let gridHtml = '';
+                    segments.forEach(seg => {
+                        const color = seg.color;
+                        let metaHtml = '';
+                        if (seg.track || seg.program) {
+                            const trackLabel = seg.track ? `<span class="truncate block text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">${seg.track}</span>` : '';
+                            const progLabel = seg.program ? `<span class="truncate block text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">${seg.program}</span>` : '';
+                            metaHtml = `
+                                <div class="mt-2 pt-1.5 border-t border-dashed border-slate-100 dark:border-slate-800/80">
+                                    ${trackLabel}
+                                    ${progLabel}
+                                </div>
+                            `;
+                        }
+                        
+                        gridHtml += `
+                            <div class="aspect-square bg-slate-50/70 dark:bg-slate-900/30 hover:bg-slate-100/40 dark:hover:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl flex flex-col hover:shadow-sm transition-all relative overflow-hidden group cursor-pointer"
+                                 onclick="window.openEditScheduleModal('${seg.id}')">
+                                <!-- Colored top indicator edge -->
+                                <div class="absolute left-0 top-0 right-0 h-1.5" style="background-color: ${color}"></div>
+                                
+                                <!-- Upper 1/4: Time -->
+                                <div class="h-[25%] flex items-center justify-center border-b border-slate-200/50 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/30 pt-2">
+                                    <span class="text-xs sm:text-sm font-black text-slate-600 dark:text-slate-300 tracking-tight">${seg.startTime} - ${seg.endTime}</span>
+                                </div>
+                                
+                                <!-- Lower 3/4: Work name + meta + actions -->
+                                <div class="h-[75%] flex flex-col justify-between p-4 overflow-hidden">
+                                    <div class="space-y-1.5 overflow-hidden">
+                                        <h4 class="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 tracking-tight leading-snug line-clamp-3" title="${seg.task}">${seg.task}</h4>
+                                        ${metaHtml}
+                                    </div>
+                                    
+                                    <!-- Actions float hover -->
+                                    <div class="flex items-center gap-1.5 self-end opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                        <button onclick="event.stopPropagation(); window.openEditScheduleModal('${seg.id}')" class="p-1 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-800 rounded-lg text-slate-500 hover:text-blue-500 transition-colors shadow-sm" title="Edit">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                            </svg>
+                                        </button>
+                                        <button onclick="event.stopPropagation(); window.deleteScheduleBlock('${seg.id}')" class="p-1 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-800 rounded-lg text-slate-500 hover:text-red-500 transition-colors shadow-sm" title="Delete">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    grid.innerHTML = gridHtml;
+                }
+            }
+            
+            // Build hours summary list
+            if (hoursSummaryList) {
+                const workTotals = {};
+                const workColors = {};
+                
+                dailyBlocks.forEach(b => {
+                    const name = b.task || 'Untitled Work';
+                    const startMin = timeToMinutes(b.startTime);
+                    const endMin = timeToMinutes(b.endTime);
+                    const hours = (endMin - startMin) / 60;
+                    if (hours > 0) {
+                        workTotals[name] = (workTotals[name] || 0) + hours;
+                        workColors[name] = b.color || '#6366f1';
+                    }
                 });
-                timelineList.innerHTML = timelineHtml;
+                
+                const sortedTotals = Object.entries(workTotals).sort((a, b) => b[1] - a[1]);
+                
+                if (sortedTotals.length === 0) {
+                    hoursSummaryList.innerHTML = `<p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center py-4">No tasks tracked yet</p>`;
+                } else {
+                    let summaryHtml = '';
+                    sortedTotals.forEach(([name, hours]) => {
+                        const color = workColors[name];
+                        const hrStr = hours === 1 ? '1.0 hr' : `${hours.toFixed(1)} hrs`;
+                        summaryHtml += `
+                            <div class="flex items-center justify-between p-2.5 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/80 rounded-xl hover:shadow-inner transition-all">
+                                <div class="flex items-center space-x-2 overflow-hidden w-3/4">
+                                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${color};"></span>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title="${name}">${name}</span>
+                                </div>
+                                <span class="text-xs font-black text-slate-900 dark:text-white shrink-0 pl-2 w-1/4 text-right">${hrStr}</span>
+                            </div>
+                        `;
+                    });
+                    hoursSummaryList.innerHTML = summaryHtml;
+                }
             }
         };
 
@@ -12555,79 +12648,45 @@
                 if (!panel) return;
                 
                 const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
-                panel.classList.toggle('dark', isDark);
                 
                 const isFullscreen = panel.classList.toggle('timer-fullscreen');
+                panel.classList.toggle('dark', isDark && isFullscreen);
                 document.body.classList.toggle('timer-fullscreen-active', isFullscreen);
+
+                const btn = document.getElementById('timer-btn-fullscreen');
                 
-                // Native HTML5 Fullscreen request
-                try {
-                    if (isFullscreen) {
-                        if (panel.requestFullscreen) {
-                            panel.requestFullscreen();
-                        } else if (panel.webkitRequestFullscreen) {
-                            panel.webkitRequestFullscreen();
-                        } else if (panel.msRequestFullscreen) {
-                            panel.msRequestFullscreen();
-                        }
+                const updateFullscreenBtn = (active) => {
+                    if (!btn) return;
+                    if (active) {
+                        btn.innerHTML = `
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 14h6m0 0v6m0-6L4 20m16-6h-6m0 0v6m0-6l6 6M4 10h6m0 0V4m0 6L4 4m16 6h-6m0 0V4m0 6l6-6"></path>
+                            </svg>
+                        `;
+                        btn.title = "Exit Fullscreen";
                     } else {
-                        if (document.fullscreenElement || document.webkitFullscreenElement) {
-                            if (document.exitFullscreen) {
-                                document.exitFullscreen();
-                            } else if (document.webkitExitFullscreen) {
-                                document.webkitExitFullscreen();
-                            } else if (document.msExitFullscreen) {
-                                document.msExitFullscreen();
-                            }
-                        }
+                        btn.innerHTML = `
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4"></path>
+                            </svg>
+                        `;
+                        btn.title = "Toggle Fullscreen";
                     }
-                } catch (err) {
-                    console.warn("Native Fullscreen API failed or blocked:", err);
-                }
-                
-                // Sync classes if browser native fullscreen is exited (e.g. by pressing Esc)
+                };
+
+                updateFullscreenBtn(isFullscreen);
+
                 if (isFullscreen) {
-                    const handleFullscreenChange = () => {
-                        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                    const handleEscExit = (e) => {
+                        if (e.key === 'Escape') {
                             panel.classList.remove('timer-fullscreen');
                             panel.classList.remove('dark');
                             document.body.classList.remove('timer-fullscreen-active');
-                            const btn = document.getElementById('timer-btn-fullscreen');
-                            if (btn) {
-                                btn.innerHTML = `
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4"></path>
-                                    </svg>
-                                `;
-                                btn.title = "Toggle Fullscreen";
-                            }
-                            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-                            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-                            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+                            updateFullscreenBtn(false);
+                            document.removeEventListener('keydown', handleEscExit);
                         }
                     };
-                    document.addEventListener('fullscreenchange', handleFullscreenChange);
-                    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-                    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-                }
-
-                const btn = document.getElementById('timer-btn-fullscreen');
-                if (!btn) return;
-                
-                if (isFullscreen) {
-                    btn.innerHTML = `
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 14h6m0 0v6m0-6L4 20m16-6h-6m0 0v6m0-6l6 6M4 10h6m0 0V4m0 6L4 4m16 6h-6m0 0V4m0 6l6-6"></path>
-                        </svg>
-                    `;
-                    btn.title = "Exit Fullscreen";
-                } else {
-                    btn.innerHTML = `
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4"></path>
-                        </svg>
-                    `;
-                    btn.title = "Toggle Fullscreen";
+                    document.addEventListener('keydown', handleEscExit);
                 }
             };
 
@@ -13967,18 +14026,32 @@
                     </div>
                 </div>
 
-                <!-- Timeline List of Slots -->
-                <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-7 shadow-sm space-y-6">
-                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/60 pb-4">
+                <!-- Timeline Grid and Hours Summary Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+                    <!-- Left: Same Work Summary Card -->
+                    <div class="lg:col-span-1 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 shadow-sm space-y-4">
                         <div>
-                            <h3 class="text-sm md:text-base font-black dark:text-white leading-tight">Daily Timeline</h3>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Chronological list of schedule slots</p>
+                            <h3 class="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">Routine Hours Summary</h3>
+                            <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Summed durations by unique work name</p>
                         </div>
-                        <span id="schedule-slots-count-badge" class="text-[9px] bg-slate-100 dark:bg-slate-900 px-2.5 py-0.5 rounded-full font-bold text-slate-500 dark:text-slate-400">0 Slots</span>
+                        <div id="schedule-hours-summary-list" class="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                            <!-- Populated dynamically -->
+                        </div>
                     </div>
-                    
-                    <div id="schedule-timeline-list" class="relative pl-6 md:pl-8 border-l border-slate-100 dark:border-slate-800 space-y-6">
-                        <!-- Dynamically populated timeline items -->
+
+                    <!-- Right: Grid of Schedule Slots -->
+                    <div class="lg:col-span-3 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-7 shadow-sm space-y-6">
+                        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/60 pb-4">
+                            <div>
+                                <h3 class="text-sm md:text-base font-black dark:text-white leading-tight">Daily Timeline Grid</h3>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">1-hour segmented blocks of your routine</p>
+                            </div>
+                            <span id="schedule-slots-count-badge" class="text-[9px] bg-slate-100 dark:bg-slate-900 px-2.5 py-0.5 rounded-full font-bold text-slate-500 dark:text-slate-400">0 Slots</span>
+                        </div>
+                        
+                        <div id="schedule-timeline-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                            <!-- Dynamically populated timeline cards -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -16118,16 +16191,25 @@
                         </div>
                     </div>
                     <div class="flex flex-col gap-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Session Description:</label>
-                        <input type="text" id="schedule-input-task" placeholder="e.g. Chapter 4 Practice Exercises"
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Work Name:</label>
+                        <input type="text" id="schedule-input-task" placeholder="e.g. Mathematics Practice"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject / Category:</label>
-                        <select id="schedule-input-subject"
-                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
-                            <!-- Options populated dynamically -->
-                        </select>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track (Optional):</label>
+                            <select id="schedule-input-track" onchange="window.onScheduleTrackChange()"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Program (Optional):</label>
+                            <select id="schedule-input-program"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
                     </div>
                     <div class="flex flex-col gap-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Routine Color:</label>
