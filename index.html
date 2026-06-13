@@ -891,6 +891,9 @@
                     selectedSubject: 'General Study'
                 };
             }
+            if (!window.scheduleBlocks) {
+                window.scheduleBlocks = [];
+            }
         };
 
         window.getAllSubjects = function () {
@@ -1172,6 +1175,133 @@
             }
         };
 
+        window.openAccountSettingsModal = function() {
+            const user = window.currentUser || { displayName: 'ris2k29', email: 'ris2k29@gmail.com' };
+            const nameInput = document.getElementById('account-input-name');
+            const emailInput = document.getElementById('account-input-email');
+            
+            const localName = localStorage.getItem('studyPlan_profileName');
+            const localEmail = localStorage.getItem('studyPlan_profileEmail');
+            
+            if (nameInput) nameInput.value = localName || user.displayName || '';
+            if (emailInput) emailInput.value = localEmail || user.email || '';
+            
+            openModal('account-settings-modal');
+        };
+
+        window.submitAccountUpdate = function() {
+            const nameInput = document.getElementById('account-input-name');
+            const emailInput = document.getElementById('account-input-email');
+            if (!nameInput || !emailInput) return;
+            
+            const newName = nameInput.value.trim();
+            const newEmail = emailInput.value.trim();
+            
+            if (!newName) {
+                showToast("Display Name cannot be empty.", "error");
+                return;
+            }
+            if (!newEmail || !newEmail.includes('@')) {
+                showToast("Please enter a valid email address.", "error");
+                return;
+            }
+            
+            localStorage.setItem('studyPlan_profileName', newName);
+            localStorage.setItem('studyPlan_profileEmail', newEmail);
+            
+            if (window.currentUser) {
+                window.currentUser.displayName = newName;
+                window.currentUser.email = newEmail;
+            } else {
+                window.currentUser = { displayName: newName, email: newEmail };
+            }
+            
+            const profileNameEl = document.getElementById('profile-name');
+            const profileEmailEl = document.getElementById('profile-email');
+            const profileAvatarEl = document.getElementById('profile-avatar');
+            if (profileNameEl) profileNameEl.textContent = newName;
+            if (profileEmailEl) profileEmailEl.textContent = newEmail;
+            if (profileAvatarEl) {
+                profileAvatarEl.textContent = newName.charAt(0).toUpperCase();
+            }
+            
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                const fbUser = firebase.auth().currentUser;
+                if (fbUser) {
+                    fbUser.updateProfile({
+                        displayName: newName
+                    }).catch(err => console.warn("Firebase updateProfile failed:", err));
+                }
+            }
+            
+            closeModal('account-settings-modal');
+            showToast("Account settings updated successfully.", "success");
+        };
+
+        window.openAddScheduleModal = function() {
+            const select = document.getElementById('schedule-input-subject');
+            if (select) {
+                let optionsHtml = '';
+                const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
+                const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
+                uniqueSubjects.forEach(sub => {
+                    optionsHtml += `<option value="${sub}">${sub}</option>`;
+                });
+                select.innerHTML = optionsHtml || '<option value="">No Subjects Available</option>';
+            }
+            const taskInput = document.getElementById('schedule-input-task');
+            if (taskInput) taskInput.value = '';
+            
+            openModal('add-schedule-modal');
+        };
+
+        window.submitAddScheduleBlock = function() {
+            const daySelect = document.getElementById('schedule-input-day');
+            const startInput = document.getElementById('schedule-input-start');
+            const endInput = document.getElementById('schedule-input-end');
+            const taskInput = document.getElementById('schedule-input-task');
+            const subjectSelect = document.getElementById('schedule-input-subject');
+            
+            if (!daySelect || !startInput || !endInput || !taskInput || !subjectSelect) return;
+            
+            const day = daySelect.value;
+            const startTime = startInput.value;
+            const endTime = endInput.value;
+            const task = taskInput.value.trim();
+            const subject = subjectSelect.value;
+            
+            if (!startTime || !endTime) {
+                showToast("Please fill in start and end times.", "error");
+                return;
+            }
+            if (!task) {
+                showToast("Please enter a task description.", "error");
+                return;
+            }
+            if (startTime >= endTime) {
+                showToast("Start time must be before end time.", "error");
+                return;
+            }
+            
+            const newBlock = {
+                id: 'schedule-block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                day: day,
+                startTime: startTime,
+                endTime: endTime,
+                task: task,
+                subject: subject
+            };
+            
+            if (!window.scheduleBlocks) window.scheduleBlocks = [];
+            window.scheduleBlocks.push(newBlock);
+            
+            saveToCloud(true);
+            closeModal('add-schedule-modal');
+            showToast("Schedule slot added successfully.", "success");
+        };
+
+        
+
         function loadFromCloud() {
             if (!db) return;
             db.collection('studyPlan').doc('globalData').onSnapshot((docSnap) => {
@@ -1206,6 +1336,8 @@
                         targetDuration: 0,
                         selectedSubject: 'General Study'
                     };
+                    if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
+                    else window.scheduleBlocks = [];
                     if (window.syncTimerStateFromCloud) {
                         window.syncTimerStateFromCloud();
                     }
@@ -1355,6 +1487,7 @@
                 },
                 dashboardConfig: window.dashboardConfig,
                 weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+                scheduleBlocks: window.scheduleBlocks || [],
                 weeklyTargets: (function () {
                     const range = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
                     if (range && window.weeklyTargetsDatabase) {
@@ -7086,20 +7219,20 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
-
+ 
             modal.classList.remove('hidden'); void modal.offsetWidth;
             backdrop.classList.remove('opacity-0'); backdrop.classList.add('opacity-100');
             content.classList.remove('scale-95', 'opacity-0', 'translate-y-4'); content.classList.add('scale-100', 'opacity-100', 'translate-y-0');
             document.body.classList.add('overflow-hidden');
-
+ 
             if (modalId === 'revision-trend-modal') {
                 window.renderRevisionTrendChart();
             }
-
+ 
             // Critical Fix: Sync all charts properly by giving the CSS transform transition time (300ms) to complete
             // before recalculating canvas dimensions. This applies to Analytics, Yearly, Pace, and Subject modals perfectly.
             setTimeout(() => {
@@ -7116,10 +7249,10 @@
                 if (modalId === 'pace-candle-modal' && window.paceCandleChartInstance) window.paceCandleChartInstance.resize();
             }, 320);
         };
-
+ 
         window.closeModal = function (modalId) {
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content' };
+            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
+            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -11368,7 +11501,7 @@
         };
 
         window.switchPage = function (pageId) {
-            const pages = ['dashboard', 'timer', 'daily-actions', 'global-filter', 'subjects', 'paces-management', 'master-config', 'outcome'];
+            const pages = ['dashboard', 'timer', 'daily-actions', 'schedule', 'global-filter', 'subjects', 'paces-management', 'master-config', 'outcome'];
             pages.forEach(p => {
                 const el = document.getElementById(`page-${p}`);
                 if (el) {
@@ -11519,19 +11652,25 @@
 
                 // Authorized
                 console.log("Admin authorized:", currentUser.email);
+                window.currentUser = currentUser;
 
-                // Update profile section
+                // Update profile section with local settings override if available
+                const localName = localStorage.getItem('studyPlan_profileName');
+                const localEmail = localStorage.getItem('studyPlan_profileEmail');
+                const displayName = localName || currentUser.displayName || 'ris2k29';
+                const displayEmail = localEmail || currentUser.email;
+
                 const profileNameEl = document.getElementById('profile-name');
                 const profileEmailEl = document.getElementById('profile-email');
                 const profileAvatarEl = document.getElementById('profile-avatar');
                 if (profileNameEl) {
-                    profileNameEl.textContent = currentUser.displayName || 'ris2k29';
+                    profileNameEl.textContent = displayName;
                 }
                 if (profileEmailEl) {
-                    profileEmailEl.textContent = currentUser.email;
+                    profileEmailEl.textContent = displayEmail;
                 }
                 if (profileAvatarEl) {
-                    const initial = (currentUser.displayName || currentUser.email || 'R').charAt(0).toUpperCase();
+                    const initial = displayName.charAt(0).toUpperCase();
                     profileAvatarEl.textContent = initial;
                 }
 
@@ -11822,11 +11961,19 @@
                     showToast("Please pause the timer before changing presets.", "error");
                     return;
                 }
-                const val = prompt("Enter target duration in minutes:", "30");
-                if (val === null) return;
-                const minutes = parseInt(val, 10);
+                const input = document.getElementById('custom-timer-input-minutes');
+                if (input) {
+                    input.value = "25";
+                }
+                openModal('custom-timer-modal');
+            };
+
+            window.submitCustomTimer = function() {
+                const input = document.getElementById('custom-timer-input-minutes');
+                if (!input) return;
+                const minutes = parseInt(input.value, 10);
                 if (isNaN(minutes) || minutes <= 0) {
-                    showToast("Please enter a valid positive number.", "error");
+                    showToast("Please enter a valid positive number of minutes.", "error");
                     return;
                 }
                 window.activeTimerState.targetDuration = minutes * 60;
@@ -11834,6 +11981,7 @@
                 window.activeTimerState.startTime = null;
                 saveToCloud(true);
                 window.syncTimerStateFromCloud();
+                closeModal('custom-timer-modal');
                 showToast(`Timer set to ${minutes} minutes.`, "success");
             };
 
@@ -11868,14 +12016,18 @@
 
             window.resetTimerClick = function() {
                 if (!window.activeTimerState) return;
-                if (confirm("Are you sure you want to reset the current timer/stopwatch?")) {
-                    window.activeTimerState.isRunning = false;
-                    window.activeTimerState.startTime = null;
-                    window.activeTimerState.elapsedBeforeStart = 0;
-                    saveToCloud(true);
-                    window.syncTimerStateFromCloud();
-                    showToast("Timer reset.", "success");
-                }
+                window.openConfirmModal(
+                    "Reset Timer/Stopwatch?",
+                    "Are you sure you want to reset the current session? This will clear all accumulated time.",
+                    () => {
+                        window.activeTimerState.isRunning = false;
+                        window.activeTimerState.startTime = null;
+                        window.activeTimerState.elapsedBeforeStart = 0;
+                        saveToCloud(true);
+                        window.syncTimerStateFromCloud();
+                        showToast("Timer reset.", "success");
+                    }
+                );
             };
 
             window.saveTimerSession = function() {
@@ -11917,13 +12069,17 @@
             };
 
             window.deleteTimerLog = function(logId) {
-                if (confirm("Are you sure you want to delete this study record?")) {
-                    if (!window.timerLogs) window.timerLogs = [];
-                    window.timerLogs = window.timerLogs.filter(log => log.id !== logId);
-                    saveToCloud(true);
-                    window.renderTimerPage();
-                    showToast("Study session deleted.", "success");
-                }
+                window.openConfirmModal(
+                    "Delete Study Record?",
+                    "Are you sure you want to delete this study record? This action cannot be undone.",
+                    () => {
+                        if (!window.timerLogs) window.timerLogs = [];
+                        window.timerLogs = window.timerLogs.filter(log => log.id !== logId);
+                        saveToCloud(true);
+                        window.renderTimerPage();
+                        showToast("Study session deleted.", "success");
+                    }
+                );
             };
 
             function populateTimerSubjects() {
@@ -12272,15 +12428,21 @@
             height: 100vh;
             border-radius: 0;
             margin: 0;
-            padding: 2rem;
+            padding: 1.5rem !important;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             background: rgba(255, 255, 255, 0.75);
-            backdrop-blur: 40px;
+
             backdrop-filter: blur(40px) saturate(200%);
             -webkit-backdrop-filter: blur(40px) saturate(200%);
+        }
+        
+        @media (min-width: 640px) {
+            #timer-active-panel.timer-fullscreen {
+                padding: 3rem !important;
+            }
         }
         
         .dark #timer-active-panel.timer-fullscreen {
@@ -12301,19 +12463,23 @@
         }
         
         .timer-fullscreen #timer-clock-container {
-            width: 24rem !important;
-            height: 24rem !important;
+            width: 70vw !important;
+            height: 70vw !important;
+            max-width: 16.5rem !important;
+            max-height: 16.5rem !important;
         }
         
         @media (min-width: 640px) {
             .timer-fullscreen #timer-clock-container {
                 width: 32rem !important;
                 height: 32rem !important;
+                max-width: none !important;
+                max-height: none !important;
             }
         }
         
         .timer-fullscreen #timer-clock-text {
-            font-size: 5rem !important;
+            font-size: 2.75rem !important;
         }
         
         @media (min-width: 640px) {
@@ -12615,8 +12781,8 @@
 
                     <!-- Profile Card -->
                     <div class="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
-                        <div
-                            class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl">
+                        <div onclick="window.openAccountSettingsModal()"
+                            class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors group">
                             <div id="profile-avatar"
                                 class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white uppercase text-sm shrink-0 shadow-sm">
                                 R
@@ -13095,6 +13261,13 @@
                                             </path>
                                         </svg>
                                         <span>Targets Database</span>
+                                    </button>
+                                    <button onclick="window.openAddScheduleModal()"
+                                        class="flex items-center justify-center space-x-2 bg-emerald-650 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-lg transition-colors shadow-md shadow-emerald-500/10 active:scale-95 shrink-0">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span>Add Slot</span>
                                     </button>
                                     <select id="wt-select-week" class="hidden"></select>
                                 </div>
@@ -13766,12 +13939,7 @@
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8 items-start">
                     <!-- Left Column: Active Timer/Stopwatch Panel -->
-                    <div id="timer-active-panel" class="xl:col-span-2 glass-panel-apple rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[400px]">
-                        <div class="liquid-bg-wrapper">
-                            <div class="liquid-blob-1"></div>
-                            <div class="liquid-blob-2"></div>
-                            <div class="liquid-blob-3"></div>
-                        </div>
+                    <div id="timer-active-panel" class="xl:col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/40 dark:to-slate-900/40 border border-slate-200/50 dark:border-slate-700/50 shadow-sm rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[400px] transition-all duration-300 hover:shadow-md">
 
                         <!-- Fullscreen Toggle Button -->
                         <button onclick="window.toggleTimerFullscreen()" id="timer-btn-fullscreen" class="absolute top-4 right-4 z-20 p-2.5 bg-slate-100/50 hover:bg-slate-200/80 dark:bg-slate-800/40 dark:hover:bg-slate-700/60 rounded-xl transition-all active:scale-95 text-slate-600 dark:text-slate-300" title="Toggle Fullscreen">
@@ -15380,6 +15548,205 @@
 
                 <div id="dadb-view-trend" class="flex-1 flex flex-col relative min-h-[300px] hidden">
                     <div class="relative w-full h-[300px] sm:h-[400px] mt-2"><canvas id="dadbTrendChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Timer Input Modal -->
+        <div id="custom-timer-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="ctm-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="closeModal('custom-timer-modal')"></div>
+            <div id="ctm-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 dark:text-slate-100">Custom Timer</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Set countdown duration</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal('custom-timer-modal')"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 my-2">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Duration (Minutes):</label>
+                        <input type="number" id="custom-timer-input-minutes" value="25" min="1" max="1440"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                    <button onclick="closeModal('custom-timer-modal')"
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                        Cancel
+                    </button>
+                    <button onclick="window.submitCustomTimer()"
+                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
+                        Set Timer
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Settings Modal -->
+        <div id="account-settings-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="asm-account-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="closeModal('account-settings-modal')"></div>
+            <div id="asm-account-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 dark:text-slate-100">Account Settings</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Manage user details & authentication</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal('account-settings-modal')"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 my-2">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Display Name:</label>
+                        <input type="text" id="account-input-name"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Email Address:</label>
+                        <input type="email" id="account-input-email"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                    </div>
+                </div>
+                
+                <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 flex flex-col gap-4">
+                    <div class="flex items-center justify-end gap-3 shrink-0">
+                        <button onclick="closeModal('account-settings-modal')"
+                            class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                            Cancel
+                        </button>
+                        <button onclick="window.submitAccountUpdate()"
+                            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
+                            Save Details
+                        </button>
+                    </div>
+                    
+                    <div class="border-t border-dashed border-slate-200 dark:border-slate-700 pt-4">
+                        <!-- Relocated Logout button -->
+                        <button id="btn-logout-relocated" onclick="window.handleLogout()"
+                            class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/30 px-4 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Logout from Application
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Schedule Modal -->
+        <div id="add-schedule-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="asm-schedule-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="closeModal('add-schedule-modal')"></div>
+            <div id="asm-schedule-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 dark:text-slate-100">Add Study Slot</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Plan your weekly schedule slot</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal('add-schedule-modal')"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 my-2">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Day of the Week:</label>
+                        <select id="schedule-input-day"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Start Time:</label>
+                            <input type="time" id="schedule-input-start" value="09:00"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">End Time:</label>
+                            <input type="time" id="schedule-input-end" value="10:00"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Session Description:</label>
+                        <input type="text" id="schedule-input-task" placeholder="e.g. Chapter 4 Practice Exercises"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject / Category:</label>
+                        <select id="schedule-input-subject"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                    <button onclick="closeModal('add-schedule-modal')"
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                        Cancel
+                    </button>
+                    <button onclick="window.submitAddScheduleBlock()"
+                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
+                        Add Slot
+                    </button>
                 </div>
             </div>
         </div>
