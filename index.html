@@ -12643,50 +12643,110 @@
                 }
             });
 
+            // Store original parent so we can return the panel after exiting fullscreen
+            window._timerFsOriginalParent = null;
+            window._timerFsOriginalNext = null;
+            window._timerFsActive = false;
+
+            const _updateTimerFsBtn = (active) => {
+                const btn = document.getElementById('timer-btn-fullscreen');
+                if (!btn) return;
+                if (active) {
+                    btn.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 14h6m0 0v6m0-6L4 20m16-6h-6m0 0v6m0-6l6 6M4 10h6m0 0V4m0 6L4 4m16 6h-6m0 0V4m0 6l6-6"></path>
+                        </svg>
+                    `;
+                    btn.title = "Exit Fullscreen";
+                } else {
+                    btn.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4"></path>
+                        </svg>
+                    `;
+                    btn.title = "Toggle Fullscreen";
+                }
+            };
+
+            const _exitTimerFsCleanup = () => {
+                const panel = document.getElementById('timer-active-panel');
+                if (!panel) return;
+                // If already exiting, don't double-fire
+                if (panel.classList.contains('timer-fs-exiting')) return;
+
+                // Play exit animation
+                panel.classList.add('timer-fs-exiting');
+                _updateTimerFsBtn(false);
+
+                // Wait for animation to finish, then clean up
+                setTimeout(() => {
+                    panel.classList.remove('timer-fullscreen', 'timer-fs-exiting', 'dark');
+                    document.body.classList.remove('timer-fullscreen-active');
+                    window._timerFsActive = false;
+                    // Move panel back to its original position in the DOM
+                    if (window._timerFsOriginalParent) {
+                        if (window._timerFsOriginalNext && window._timerFsOriginalNext.parentNode === window._timerFsOriginalParent) {
+                            window._timerFsOriginalParent.insertBefore(panel, window._timerFsOriginalNext);
+                        } else {
+                            window._timerFsOriginalParent.appendChild(panel);
+                        }
+                        window._timerFsOriginalParent = null;
+                        window._timerFsOriginalNext = null;
+                    }
+                }, 300); // matches timerFsExit animation duration
+            };
+
+            // Listen for fullscreenchange to handle Escape key / browser exit
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement && window._timerFsActive) {
+                    _exitTimerFsCleanup();
+                }
+            });
+            document.addEventListener('webkitfullscreenchange', () => {
+                if (!document.webkitFullscreenElement && window._timerFsActive) {
+                    _exitTimerFsCleanup();
+                }
+            });
+
             window.toggleTimerFullscreen = function() {
                 const panel = document.getElementById('timer-active-panel');
                 if (!panel) return;
-                
+
                 const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
-                
-                const isFullscreen = panel.classList.toggle('timer-fullscreen');
-                panel.classList.toggle('dark', isDark && isFullscreen);
-                document.body.classList.toggle('timer-fullscreen-active', isFullscreen);
 
-                const btn = document.getElementById('timer-btn-fullscreen');
-                
-                const updateFullscreenBtn = (active) => {
-                    if (!btn) return;
-                    if (active) {
-                        btn.innerHTML = `
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 14h6m0 0v6m0-6L4 20m16-6h-6m0 0v6m0-6l6 6M4 10h6m0 0V4m0 6L4 4m16 6h-6m0 0V4m0 6l6-6"></path>
-                            </svg>
-                        `;
-                        btn.title = "Exit Fullscreen";
-                    } else {
-                        btn.innerHTML = `
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4"></path>
-                            </svg>
-                        `;
-                        btn.title = "Toggle Fullscreen";
+                // Currently in fullscreen → exit
+                if (window._timerFsActive) {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen().catch(() => {});
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
                     }
-                };
+                    // cleanup is handled by fullscreenchange listener
+                    return;
+                }
 
-                updateFullscreenBtn(isFullscreen);
+                // Enter fullscreen
+                window._timerFsActive = true;
 
-                if (isFullscreen) {
-                    const handleEscExit = (e) => {
-                        if (e.key === 'Escape') {
-                            panel.classList.remove('timer-fullscreen');
-                            panel.classList.remove('dark');
-                            document.body.classList.remove('timer-fullscreen-active');
-                            updateFullscreenBtn(false);
-                            document.removeEventListener('keydown', handleEscExit);
-                        }
-                    };
-                    document.addEventListener('keydown', handleEscExit);
+                // Save the panel's current DOM position so we can restore it later
+                window._timerFsOriginalParent = panel.parentNode;
+                window._timerFsOriginalNext = panel.nextSibling;
+
+                // Move panel to document.body to escape any parent transform/animation containing blocks
+                document.body.appendChild(panel);
+
+                panel.classList.add('timer-fullscreen');
+                panel.classList.toggle('dark', isDark);
+                document.body.classList.add('timer-fullscreen-active');
+                _updateTimerFsBtn(true);
+
+                // Request true browser fullscreen (like F11) — no browser chrome, no gaps
+                const docEl = document.documentElement;
+                const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+                if (requestFs) {
+                    requestFs.call(docEl).catch(() => {
+                        // Fullscreen API denied (e.g. iframe restrictions) — CSS fallback still works
+                    });
                 }
             };
 
@@ -12754,16 +12814,68 @@
     <style>
 
 
+        /* ===== Timer Fullscreen Entry/Exit Animations ===== */
+        @keyframes timerFsEnter {
+            from {
+                opacity: 0;
+                transform: scale(0.92);
+                backdrop-filter: blur(0);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+                backdrop-filter: blur(0);
+            }
+        }
+        @keyframes timerFsContentEnter {
+            from {
+                opacity: 0;
+                transform: scale(0.85) translateY(20px);
+            }
+            60% {
+                opacity: 1;
+                transform: scale(1.02) translateY(-4px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        @keyframes timerFsExit {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.92);
+            }
+        }
+        @keyframes timerFsContentExit {
+            from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.88) translateY(30px);
+            }
+        }
+
         /* Timer Fullscreen Mode (Solid Minimalist Layout) */
         #timer-active-panel.timer-fullscreen {
             position: fixed;
-            inset: 0;
-            z-index: 100;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 99999;
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
             border-radius: 0;
             margin: 0;
-            padding: 2rem !important;
+            padding: 1.5rem !important;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -12771,10 +12883,28 @@
             background: #f8fafc;
             border: none;
             box-shadow: none;
-            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: timerFsEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        
+
+        /* Exit animation class */
+        #timer-active-panel.timer-fs-exiting {
+            animation: timerFsExit 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+
+        /* Content animation inside fullscreen */
+        #timer-active-panel.timer-fullscreen > .relative {
+            animation: timerFsContentEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+        }
+        #timer-active-panel.timer-fs-exiting > .relative {
+            animation: timerFsContentExit 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+
         @media (min-width: 640px) {
+            #timer-active-panel.timer-fullscreen {
+                padding: 3rem !important;
+            }
+        }
+        @media (min-width: 1024px) {
             #timer-active-panel.timer-fullscreen {
                 padding: 4rem !important;
             }
@@ -12791,20 +12921,14 @@
             }
         }
         
-        /* Reset containing block constraints during fullscreen */
-        body.timer-fullscreen-active #page-timer {
-            transform: none !important;
-            animation: none !important;
-            position: relative;
-            z-index: 9999 !important;
-        }
-        
-        /* Hide scrollbars during fullscreen active mode */
+        /* Panel is moved to document.body during fullscreen, so no #page-timer hacks needed */
+
+        /* Hide scrollbars and lock body during fullscreen active mode */
         body.timer-fullscreen-active {
             overflow: hidden !important;
+            touch-action: none;
         }
 
-        /* Float standard card inside fullscreen background matching all other cards */
         /* Remove bounding card style during fullscreen mode */
         .timer-fullscreen .relative.z-10.w-full.max-w-md {
             background: transparent !important;
@@ -12817,7 +12941,6 @@
             flex-direction: column;
             align-items: center;
             gap: 1.5rem;
-            transition: all 0.3s ease;
         }
 
         .dark .timer-fullscreen .relative.z-10.w-full.max-w-md,
@@ -12835,25 +12958,50 @@
             }
         }
         
-        /* Scale clock container nicely in fullscreen inside the card */
+        /* ===== Fullscreen Clock Sizes ===== */
+        /* Phone (default) — keep same as normal view */
         .timer-fullscreen #timer-clock-container {
             width: 15rem !important;
             height: 15rem !important;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* Tablet */
         @media (min-width: 640px) {
             .timer-fullscreen #timer-clock-container {
-                width: 18rem !important;
-                height: 18rem !important;
+                width: 20rem !important;
+                height: 20rem !important;
+            }
+        }
+
+        /* Desktop — much bigger */
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-clock-container {
+                width: 24rem !important;
+                height: 24rem !important;
+            }
+            .timer-fullscreen .relative.z-10.w-full.max-w-md {
+                max-width: 40rem !important;
+                gap: 2rem;
+            }
+        }
+
+        /* Large desktop */
+        @media (min-width: 1280px) {
+            .timer-fullscreen #timer-clock-container {
+                width: 28rem !important;
+                height: 28rem !important;
             }
         }
         
+        /* ===== Fullscreen Clock Text Sizes ===== */
         .timer-fullscreen #timer-clock-text {
             font-size: 2.5rem !important;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
             font-weight: 900;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
             color: #0f172a;
+            transition: font-size 0.3s ease;
         }
 
         .dark .timer-fullscreen #timer-clock-text,
@@ -12866,10 +13014,39 @@
                 color: #ffffff;
             }
         }
-        
+
+        /* Tablet */
         @media (min-width: 640px) {
             .timer-fullscreen #timer-clock-text {
-                font-size: 3rem !important;
+                font-size: 3.5rem !important;
+            }
+        }
+
+        /* Desktop */
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-clock-text {
+                font-size: 4.5rem !important;
+                letter-spacing: 0.06em;
+            }
+        }
+
+        /* Large desktop */
+        @media (min-width: 1280px) {
+            .timer-fullscreen #timer-clock-text {
+                font-size: 5rem !important;
+            }
+        }
+
+        /* Status text bigger on desktop fullscreen */
+        .timer-fullscreen #timer-status-text {
+            font-size: 9px;
+            margin-top: 0.5rem;
+        }
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-status-text {
+                font-size: 11px !important;
+                letter-spacing: 0.15em;
+                margin-top: 0.75rem;
             }
         }
 
@@ -12877,9 +13054,27 @@
             filter: none !important;
         }
 
-        .timer-fullscreen #timer-btn-reset,
+        /* Bigger control buttons in fullscreen on desktop */
         .timer-fullscreen #timer-btn-toggle {
             font-size: 0.75rem !important;
+        }
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-btn-toggle {
+                font-size: 0.85rem !important;
+                padding: 1rem 3.5rem !important;
+                border-radius: 1.25rem;
+            }
+        }
+
+        .timer-fullscreen #timer-btn-save {
+            font-size: 0.75rem !important;
+        }
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-btn-save {
+                font-size: 0.85rem !important;
+                padding: 1rem 2rem !important;
+                border-radius: 1.25rem;
+            }
         }
 
         .timer-fullscreen #timer-presets-container button {
@@ -12896,6 +13091,11 @@
         
         .timer-fullscreen .max-w-md {
             max-width: 32rem !important;
+        }
+        @media (min-width: 1024px) {
+            .timer-fullscreen .max-w-md {
+                max-width: 42rem !important;
+            }
         }
 
         @keyframes pageEnter {
