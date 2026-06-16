@@ -894,6 +894,12 @@
             if (!window.scheduleBlocks) {
                 window.scheduleBlocks = [];
             }
+            if (!window.scheduleGroups) {
+                window.scheduleGroups = [];
+            }
+            if (window.scheduleShowGrouped === undefined) {
+                window.scheduleShowGrouped = false;
+            }
         };
 
         window.getAllSubjects = function () {
@@ -1239,7 +1245,293 @@
         };
 
         window.selectedScheduleColor = '#6366f1';
+        window.selectedScheduleColor = '#6366f1';
         window.editingScheduleBlockId = null;
+        if (!window.scheduleGroups) window.scheduleGroups = [];
+
+        window.editingScheduleGroupId = null;
+
+        window.openCreateScheduleGroup = function(groupId) {
+            window.editingScheduleGroupId = groupId || null;
+            
+            const titleEl = document.getElementById('csgm-title');
+            const submitBtn = document.getElementById('csgm-submit-btn');
+            const nameInput = document.getElementById('group-input-name');
+            
+            let currentGroup = null;
+            if (groupId && window.scheduleGroups) {
+                currentGroup = window.scheduleGroups.find(g => g.id === groupId);
+            }
+            
+            if (titleEl) {
+                titleEl.textContent = currentGroup ? 'Edit Work Group' : 'Create Work Group';
+            }
+            if (submitBtn) {
+                submitBtn.textContent = currentGroup ? 'Save Changes' : 'Create Group';
+            }
+            if (nameInput) {
+                nameInput.value = currentGroup ? currentGroup.name : '';
+            }
+            
+            const listEl = document.getElementById('group-modal-ungrouped-list');
+            if (listEl) {
+                const workTotals = {};
+                const blocks = window.scheduleBlocks || [];
+                
+                const timeToMinutes = (t) => {
+                    if (!t) return 0;
+                    const parts = t.split(':').map(Number);
+                    return (parts[0] || 0) * 60 + (parts[1] || 0);
+                };
+                
+                blocks.forEach(b => {
+                    const name = b.task || 'Untitled Work';
+                    const startMin = timeToMinutes(b.startTime);
+                    const endMin = timeToMinutes(b.endTime);
+                    const hours = (endMin - startMin) / 60;
+                    if (hours > 0) {
+                        workTotals[name] = (workTotals[name] || 0) + hours;
+                    }
+                });
+                
+                const uniqueNames = Object.keys(workTotals);
+                
+                // Show items that are not in any group OR are already in the group we are editing
+                const availableNames = uniqueNames.filter(name => {
+                    const g = window.getGroupForWork(name);
+                    return g === null || (currentGroup && g.id === currentGroup.id);
+                });
+                
+                if (availableNames.length === 0) {
+                    listEl.innerHTML = `<p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider py-2">No work items available to group.</p>`;
+                } else {
+                    listEl.innerHTML = availableNames.map(name => {
+                        const isChecked = currentGroup && (currentGroup.items || []).includes(name);
+                        return `
+                            <label class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all select-none w-full">
+                                <input type="checkbox" name="group-work-item" value="${name.replace(/"/g, '&quot;')}" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${name}</span>
+                            </label>
+                        `;
+                    }).join('');
+                }
+            }
+            openModal('create-schedule-group-modal');
+        };
+
+        window.submitCreateScheduleGroup = function() {
+            const nameInput = document.getElementById('group-input-name');
+            if (!nameInput) return;
+            const name = nameInput.value.trim();
+            if (!name) {
+                showToast('Please enter a group name.', 'error');
+                return;
+            }
+            if (!window.scheduleGroups) window.scheduleGroups = [];
+            
+            const checkboxes = document.querySelectorAll('input[name="group-work-item"]:checked');
+            const items = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (window.editingScheduleGroupId) {
+                // Editing mode
+                const grp = window.scheduleGroups.find(g => g.id === window.editingScheduleGroupId);
+                if (!grp) return;
+                
+                // Name check excluding itself
+                if (window.scheduleGroups.some(g => g.id !== window.editingScheduleGroupId && g.name.toLowerCase() === name.toLowerCase())) {
+                    showToast('Another group with that name already exists.', 'error');
+                    return;
+                }
+                
+                grp.name = name;
+                grp.items = items;
+                window.editingScheduleGroupId = null;
+                showToast(`Group "${name}" updated.`, 'success');
+            } else {
+                // Creation mode
+                if (window.scheduleGroups.some(g => g.name.toLowerCase() === name.toLowerCase())) {
+                    showToast('A group with that name already exists.', 'error');
+                    return;
+                }
+                const colors = ['#6366f1', '#10b981', '#f97316', '#8b5cf6', '#f43f5e', '#06b6d4', '#f59e0b', '#64748b'];
+                window.scheduleGroups.push({
+                    id: 'sgrp-' + Date.now(),
+                    name: name,
+                    color: colors[window.scheduleGroups.length % colors.length],
+                    items: items
+                });
+                showToast(`Group "${name}" created with ${items.length} items.`, 'success');
+            }
+            
+            saveToCloud(true);
+            closeModal('create-schedule-group-modal');
+            if (window.renderSchedulePage) window.renderSchedulePage();
+        };
+
+        window.deleteScheduleGroup = function(groupId) {
+            window.openConfirmModal('Delete Group', 'Remove this group? Items will become ungrouped.', () => {
+                if (!window.scheduleGroups) return;
+                window.scheduleGroups = window.scheduleGroups.filter(g => g.id !== groupId);
+                saveToCloud(true);
+                if (window.renderSchedulePage) window.renderSchedulePage();
+                showToast('Group deleted.', 'success');
+            });
+        };
+
+        window.assignSlotToGroup = function(workName, groupId) {
+            if (!window.scheduleGroups) return;
+            // Remove from all groups first
+            window.scheduleGroups.forEach(g => {
+                g.items = (g.items || []).filter(n => n !== workName);
+            });
+            // Add to target group
+            const grp = window.scheduleGroups.find(g => g.id === groupId);
+            if (grp) {
+                if (!grp.items) grp.items = [];
+                grp.items.push(workName);
+            }
+            saveToCloud(true);
+            if (window.renderSchedulePage) window.renderSchedulePage();
+        };
+
+        window.removeSlotFromGroup = function(workName) {
+            if (!window.scheduleGroups) return;
+            window.scheduleGroups.forEach(g => {
+                g.items = (g.items || []).filter(n => n !== workName);
+            });
+            saveToCloud(true);
+            if (window.renderSchedulePage) window.renderSchedulePage();
+        };
+
+        window.getGroupForWork = function(workName) {
+            if (!window.scheduleGroups) return null;
+            return window.scheduleGroups.find(g => (g.items || []).includes(workName)) || null;
+        };
+
+        window.updateActiveScheduleSlot = function() {
+            const activeContainer = document.getElementById('schedule-active-now-container');
+            if (!activeContainer) return;
+            
+            const blocks = window.scheduleBlocks || [];
+            const dailyBlocks = blocks.filter(b => b.day === 'Daily');
+            
+            const timeToMinutes = (t) => {
+                if (!t) return 0;
+                const parts = t.split(':').map(Number);
+                return (parts[0] || 0) * 60 + (parts[1] || 0);
+            };
+            
+            const formatTime12h = (timeStr) => {
+                if (!timeStr) return '';
+                const parts = timeStr.split(':').map(Number);
+                let hrs = parts[0] || 0;
+                const mins = parts[1] || 0;
+                const ampm = hrs >= 12 ? 'PM' : 'AM';
+                hrs = hrs % 12;
+                if (hrs === 0) hrs = 12;
+                return `${hrs}:${mins.toString().padStart(2, '0')} ${ampm}`;
+            };
+            
+            const now = new Date();
+            const currentMin = now.getHours() * 60 + now.getMinutes();
+            
+            let activeBlock = null;
+            dailyBlocks.forEach(b => {
+                const startMin = timeToMinutes(b.startTime);
+                const endMin = timeToMinutes(b.endTime);
+                if (startMin <= currentMin && currentMin < endMin) {
+                    activeBlock = b;
+                }
+            });
+            
+            let activeHtml = '';
+            if (activeBlock) {
+                const startMin = timeToMinutes(activeBlock.startTime);
+                const endMin = timeToMinutes(activeBlock.endTime);
+                const durationMins = endMin - startMin;
+                const elapsedMins = currentMin - startMin;
+                const remainingMins = durationMins - elapsedMins;
+                const remainingStr = remainingMins === 1 ? '1 min left' : `${remainingMins} mins left`;
+                
+                const timeRangeStr = `${formatTime12h(activeBlock.startTime)} - ${formatTime12h(activeBlock.endTime)}`;
+                const category = activeBlock.track || activeBlock.program || 'Routine';
+                
+                activeHtml = `
+                    <div class="flex items-center justify-between mb-1 select-none">
+                        <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-400">Active Now</h3>
+                        <span class="flex h-1.5 w-1.5 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="rounded-2xl p-3 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md"
+                         style="min-height: 120px; background-color: ${activeBlock.color || '#6366f1'}cc; border: 1.5px solid ${activeBlock.color || '#6366f1'};"
+                         onclick="window.openEditScheduleModal('${activeBlock.id}')">
+                        
+                        <div class="flex flex-col gap-1 min-w-0">
+                            <span class="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                  style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.1);">${category}</span>
+                            <h4 class="text-[11px] font-bold text-white leading-snug tracking-tight truncate mt-1" title="${activeBlock.task}">${activeBlock.task}</h4>
+                        </div>
+                        
+                        <div class="pt-1.5 flex items-center justify-between gap-2 shrink-0" style="border-top: 1px dashed rgba(255,255,255,0.25);">
+                            <span class="text-[8px] font-bold font-mono tracking-tight" style="color: rgba(255,255,255,0.65);">${timeRangeStr}</span>
+                            <span class="text-[8px] font-black uppercase tracking-widest text-emerald-300">${remainingStr}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                activeHtml = `
+                    <div class="flex items-center justify-between mb-1 select-none">
+                        <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-400">Active Now</h3>
+                        <span class="flex h-1.5 w-1.5 relative">
+                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-350 dark:bg-slate-650"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all select-none"
+                         style="min-height: 120px;">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm">☀️</span>
+                            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
+                        </div>
+                        <p class="text-[8px] opacity-75 text-slate-400 dark:text-slate-500 mt-1">No active routine slot right now.</p>
+                    </div>
+                `;
+            }
+            activeContainer.innerHTML = activeHtml;
+        };
+
+        // Live Header Clock with seconds (updates clock and active slot display)
+        setInterval(() => {
+            const now = new Date();
+            let hrs = now.getHours();
+            const mins = now.getMinutes().toString().padStart(2, '0');
+            const secs = now.getSeconds().toString().padStart(2, '0');
+            const ampm = hrs >= 12 ? 'PM' : 'AM';
+            hrs = hrs % 12;
+            if (hrs === 0) hrs = 12;
+            const timeString = `${hrs}:${mins}:${secs} ${ampm}`;
+            
+            const clockEl = document.getElementById('header-clock-stats');
+            if (clockEl) {
+                clockEl.innerHTML = `
+                    <div class="flex items-center space-x-2 md:space-x-3">
+                        <div class="p-2 md:p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg md:rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-blue-600 dark:text-blue-450 flex items-center justify-center">
+                            <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <span class="block text-[9px] md:text-[10px] uppercase font-black text-slate-400 tracking-wider">Current Time</span>
+                            <span class="text-blue-600 dark:text-blue-450 font-black text-sm md:text-base tracking-tight font-mono">${timeString}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Periodically refresh the Active Now view
+            window.updateActiveScheduleSlot();
+        }, 1000);
 
         window.selectScheduleColor = function(color, btnEl) {
             window.selectedScheduleColor = color;
@@ -1306,6 +1598,9 @@
             
             window.selectScheduleColor('#6366f1', document.querySelector('#schedule-color-picker button[data-color="#6366f1"]'));
             
+            const dayStartCb = document.getElementById('schedule-input-daystart');
+            if (dayStartCb) dayStartCb.checked = false;
+            
             const titleEl = document.querySelector('#add-schedule-modal h2');
             if (titleEl) titleEl.textContent = 'Add Daily Slot';
             const descEl = document.querySelector('#add-schedule-modal p');
@@ -1348,6 +1643,9 @@
             const pickerBtn = document.querySelector(`#schedule-color-picker button[data-color="${color}"]`);
             window.selectScheduleColor(color, pickerBtn);
             
+            const dayStartCb = document.getElementById('schedule-input-daystart');
+            if (dayStartCb) dayStartCb.checked = !!block.isDayStart;
+            
             const titleEl = document.querySelector('#add-schedule-modal h2');
             if (titleEl) titleEl.textContent = 'Edit Daily Slot';
             const descEl = document.querySelector('#add-schedule-modal p');
@@ -1375,6 +1673,7 @@
             const taskInput = document.getElementById('schedule-input-task');
             const trackSelect = document.getElementById('schedule-input-track');
             const programSelect = document.getElementById('schedule-input-program');
+            const dayStartCb = document.getElementById('schedule-input-daystart');
             
             if (!startInput || !endInput || !taskInput) return;
             
@@ -1383,6 +1682,7 @@
             const task = taskInput.value.trim();
             const track = trackSelect ? trackSelect.value : '';
             const program = programSelect ? programSelect.value : '';
+            const isDayStart = dayStartCb ? dayStartCb.checked : false;
             
             if (!startTime || !endTime) {
                 showToast("Please fill in start and end times.", "error");
@@ -1399,6 +1699,11 @@
             
             if (!window.scheduleBlocks) window.scheduleBlocks = [];
             
+            // If this block is marked as day start, clear isDayStart from all other blocks
+            if (isDayStart) {
+                window.scheduleBlocks.forEach(b => { b.isDayStart = false; });
+            }
+            
             if (window.editingScheduleBlockId) {
                 const block = window.scheduleBlocks.find(b => b.id === window.editingScheduleBlockId);
                 if (block) {
@@ -1409,6 +1714,7 @@
                     block.track = track;
                     block.program = program;
                     block.color = window.selectedScheduleColor;
+                    block.isDayStart = isDayStart;
                 }
                 window.editingScheduleBlockId = null;
                 showToast("Routine slot updated successfully.", "success");
@@ -1421,7 +1727,8 @@
                     task: task,
                     track: track,
                     program: program,
-                    color: window.selectedScheduleColor
+                    color: window.selectedScheduleColor,
+                    isDayStart: isDayStart
                 };
                 window.scheduleBlocks.push(newBlock);
                 showToast("Schedule slot added successfully.", "success");
@@ -1456,11 +1763,26 @@
                 return (parts[0] || 0) * 60 + (parts[1] || 0);
             };
             
-            // Helper convert minutes to time string
+            // Helper convert minutes to 12-hour AM/PM time string
             const minutesToTime = (m) => {
-                const hrs = Math.floor(m / 60);
+                let hrs = Math.floor(m / 60);
                 const mins = m % 60;
-                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+                const ampm = hrs >= 12 ? 'PM' : 'AM';
+                hrs = hrs % 12;
+                if (hrs === 0) hrs = 12;
+                return `${hrs}:${mins.toString().padStart(2, '0')} ${ampm}`;
+            };
+            
+            // Helper convert 24h string to 12h display string
+            const formatTime12h = (timeStr) => {
+                if (!timeStr) return '';
+                const parts = timeStr.split(':').map(Number);
+                let hrs = parts[0] || 0;
+                const mins = parts[1] || 0;
+                const ampm = hrs >= 12 ? 'PM' : 'AM';
+                hrs = hrs % 12;
+                if (hrs === 0) hrs = 12;
+                return `${hrs}:${mins.toString().padStart(2, '0')} ${ampm}`;
             };
             
             // Build visual 24-hour timeline bar
@@ -1502,7 +1824,7 @@
                             <div class="h-full border-r border-black/10 transition-all hover:brightness-95 cursor-pointer flex items-center justify-center overflow-hidden relative"
                                  style="width: ${pct}%; background-color: ${color};"
                                  onclick="window.openEditScheduleModal('${block.id}')"
-                                 title="${block.track || block.program || 'Work'} (${block.startTime} - ${block.endTime}): ${block.task}">
+                                 title="${block.track || block.program || 'Work'} (${formatTime12h(block.startTime)} - ${formatTime12h(block.endTime)}): ${block.task}">
                                  ${labelHtml}
                             </div>
                         `;
@@ -1517,7 +1839,7 @@
                     segmentsHtml += `
                         <div class="h-full bg-slate-100 dark:bg-slate-900 transition-all flex items-center justify-center overflow-hidden"
                              style="width: ${pct}%;"
-                             title="Unscheduled (${minutesToTime(lastMin)} - 24:00)">
+                             title="Unscheduled (${minutesToTime(lastMin)} - ${minutesToTime(1440)})">
                         </div>
                     `;
                 }
@@ -1562,6 +1884,7 @@
                 if (endMin <= startMin) return;
                 
                 let currentStart = startMin;
+                let isFirst = true;
                 while (currentStart < endMin) {
                     const currentEnd = Math.min(currentStart + 60, endMin);
                     segments.push({
@@ -1572,23 +1895,34 @@
                         color: block.color || '#6366f1',
                         startTime: minutesToTime(currentStart),
                         endTime: minutesToTime(currentEnd),
-                        duration: currentEnd - currentStart
+                        startMin: currentStart,
+                        endMin: currentEnd,
+                        duration: currentEnd - currentStart,
+                        isDayStart: isFirst && !!block.isDayStart
                     });
+                    isFirst = false;
                     currentStart = currentEnd;
                 }
             });
             
             // Sort segments chronologically
-            segments.sort((a, b) => a.startTime.localeCompare(b.startTime));
+            segments.sort((a, b) => a.startMin - b.startMin);
+            
+            // Re-order: if a dayStart block exists, rotate the array to start from it
+            const dayStartIdx = segments.findIndex(s => s.isDayStart);
+            let orderedSegments = segments;
+            if (dayStartIdx > 0) {
+                orderedSegments = [...segments.slice(dayStartIdx), ...segments.slice(0, dayStartIdx)];
+            }
             
             // Render slot count badge
             if (badge) {
-                badge.textContent = `${segments.length} Box${segments.length === 1 ? '' : 'es'}`;
+                badge.textContent = `${orderedSegments.length} Box${orderedSegments.length === 1 ? '' : 'es'}`;
             }
             
-            // Build timeline grid
+            // Build timeline grid — compact boxes
             if (grid) {
-                if (segments.length === 0) {
+                if (orderedSegments.length === 0) {
                     grid.innerHTML = `
                         <div class="col-span-full flex flex-col items-center justify-center py-12 text-center text-slate-400 dark:text-slate-500">
                             <span class="text-3xl">📅</span>
@@ -1598,46 +1932,50 @@
                     `;
                 } else {
                     let gridHtml = '';
-                    segments.forEach(seg => {
+                    orderedSegments.forEach((seg, idx) => {
                         const color = seg.color;
                         let metaHtml = '';
                         if (seg.track || seg.program) {
-                            const trackLabel = seg.track ? `<span class="truncate block text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">${seg.track}</span>` : '';
-                            const progLabel = seg.program ? `<span class="truncate block text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">${seg.program}</span>` : '';
+                            const trackLabel = seg.track ? `<span class="truncate block text-[8px] font-black text-white/75 uppercase tracking-widest leading-none">${seg.track}</span>` : '';
+                            const progLabel = seg.program ? `<span class="truncate block text-[8px] font-black text-white/85 uppercase tracking-wider">${seg.program}</span>` : '';
                             metaHtml = `
-                                <div class="mt-2 pt-1.5 border-t border-dashed border-slate-100 dark:border-slate-800/80">
+                                <div class="mt-1.5 pt-1 border-t border-dashed border-white/10">
                                     ${trackLabel}
                                     ${progLabel}
                                 </div>
                             `;
                         }
                         
+                        const dayStartBadge = seg.isDayStart ? `
+                            <span class="absolute top-1.5 right-1.5 text-[8px] font-black bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-md border border-amber-300 dark:border-amber-700 z-10" title="Day starts here">☀️ Start</span>
+                        ` : '';
+                        
                         gridHtml += `
-                            <div class="aspect-square bg-slate-50/70 dark:bg-slate-900/30 hover:bg-slate-100/40 dark:hover:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl flex flex-col hover:shadow-sm transition-all relative overflow-hidden group cursor-pointer"
+                            <div class="hover:brightness-95 rounded-2xl flex flex-col hover:shadow-md transition-all relative overflow-hidden group cursor-pointer text-white"
+                                 style="background-color: ${color}cc; min-height: 140px;"
                                  onclick="window.openEditScheduleModal('${seg.id}')">
-                                <!-- Colored top indicator edge -->
-                                <div class="absolute left-0 top-0 right-0 h-1.5" style="background-color: ${color}"></div>
+                                ${dayStartBadge}
                                 
-                                <!-- Upper 1/4: Time -->
-                                <div class="h-[25%] flex items-center justify-center border-b border-slate-200/50 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/30 pt-2">
-                                    <span class="text-xs sm:text-sm font-black text-slate-600 dark:text-slate-300 tracking-tight">${seg.startTime} - ${seg.endTime}</span>
+                                <!-- Time header — stroke only, softer color -->
+                                <div class="flex items-center justify-center py-2.5 mx-2.5 mt-2" style="border: 1.5px solid rgba(255,255,255,0.35); border-radius: 8px;">
+                                    <span class="text-xs font-black tracking-tight" style="color: rgba(255,255,255,0.7);">${seg.startTime} - ${seg.endTime}</span>
                                 </div>
                                 
-                                <!-- Lower 3/4: Work name + meta + actions -->
-                                <div class="h-[75%] flex flex-col justify-between p-4 overflow-hidden">
+                                <!-- Work name + meta + actions -->
+                                <div class="flex flex-col justify-between p-3 pt-2.5 overflow-hidden flex-1 text-white">
                                     <div class="space-y-1.5 overflow-hidden">
-                                        <h4 class="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 tracking-tight leading-snug line-clamp-3" title="${seg.task}">${seg.task}</h4>
+                                        <h4 class="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug line-clamp-2" title="${seg.task}">${seg.task}</h4>
                                         ${metaHtml}
                                     </div>
                                     
                                     <!-- Actions float hover -->
-                                    <div class="flex items-center gap-1.5 self-end opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                        <button onclick="event.stopPropagation(); window.openEditScheduleModal('${seg.id}')" class="p-1 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-800 rounded-lg text-slate-500 hover:text-blue-500 transition-colors shadow-sm" title="Edit">
+                                    <div class="flex items-center gap-1.5 self-end opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1">
+                                        <button onclick="event.stopPropagation(); window.openEditScheduleModal('${seg.id}')" class="p-1 bg-white/20 hover:bg-white/30 border border-white/15 rounded-md text-white transition-colors shadow-sm" title="Edit">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                             </svg>
                                         </button>
-                                        <button onclick="event.stopPropagation(); window.deleteScheduleBlock('${seg.id}')" class="p-1 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-800 rounded-lg text-slate-500 hover:text-red-500 transition-colors shadow-sm" title="Delete">
+                                        <button onclick="event.stopPropagation(); window.deleteScheduleBlock('${seg.id}')" class="p-1 bg-white/20 hover:bg-white/30 border border-white/15 rounded-md text-white transition-colors shadow-sm" title="Delete">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                             </svg>
@@ -1651,7 +1989,7 @@
                 }
             }
             
-            // Build hours summary list
+            // Build hours summary list — with grouped view and flat ungrouped items below
             if (hoursSummaryList) {
                 const workTotals = {};
                 const workColors = {};
@@ -1668,26 +2006,108 @@
                 });
                 
                 const sortedTotals = Object.entries(workTotals).sort((a, b) => b[1] - a[1]);
+                const groups = window.scheduleGroups || [];
+                
+                // Build group assignment dropdown HTML
+                const groupOptionsHtml = groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+                
+                // Render an individual work item row
+                const renderWorkRow = (name, hours, color, showGroupActions) => {
+                    const hrStr = hours === 1 ? '1.0 hr' : `${hours.toFixed(1)} hrs`;
+                    const currentGrp = window.getGroupForWork(name);
+                    
+                    let actionHtml = '';
+                    if (showGroupActions && groups.length > 0) {
+                        if (currentGrp) {
+                            actionHtml = `
+                                <button onclick="event.stopPropagation(); window.removeSlotFromGroup('${name.replace(/'/g, "\\'")}')" 
+                                    class="text-[7px] font-black text-red-400 hover:text-red-600 uppercase tracking-wider px-1 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shrink-0" title="Remove from group">✕</button>
+                            `;
+                        } else {
+                            actionHtml = `
+                                <select onchange="if(this.value) window.assignSlotToGroup('${name.replace(/'/g, "\\'")}', this.value); this.value='';"
+                                    class="text-[8px] font-bold bg-transparent border border-slate-200 dark:border-slate-700 rounded px-1 py-0.5 text-slate-500 cursor-pointer outline-none max-w-[60px]">
+                                    <option value="">+ Grp</option>
+                                    ${groupOptionsHtml}
+                                </select>
+                            `;
+                        }
+                    }
+                    
+                    return `
+                        <div class="flex items-center justify-between p-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/80 rounded-lg hover:shadow-inner transition-all">
+                            <div class="flex items-center space-x-1.5 overflow-hidden flex-1 min-w-0">
+                                <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${color};"></span>
+                                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate" title="${name}">${name}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0 pl-1">
+                                ${actionHtml}
+                                <span class="text-[11px] font-black text-slate-900 dark:text-white">${hrStr}</span>
+                            </div>
+                        </div>
+                    `;
+                };
                 
                 if (sortedTotals.length === 0) {
                     hoursSummaryList.innerHTML = `<p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center py-4">No tasks tracked yet</p>`;
                 } else {
                     let summaryHtml = '';
-                    sortedTotals.forEach(([name, hours]) => {
-                        const color = workColors[name];
-                        const hrStr = hours === 1 ? '1.0 hr' : `${hours.toFixed(1)} hrs`;
+                    const assignedNames = new Set();
+                    
+                    groups.forEach(grp => {
+                        const groupItems = (grp.items || []).filter(n => workTotals[n] !== undefined);
+                        if (groupItems.length === 0) return;
+                        
+                        let groupTotal = 0;
+                        groupItems.forEach(n => { groupTotal += workTotals[n] || 0; assignedNames.add(n); });
+                        const grpHrStr = groupTotal === 1 ? '1.0 hr' : `${groupTotal.toFixed(1)} hrs`;
+                        
                         summaryHtml += `
-                            <div class="flex items-center justify-between p-2.5 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/80 rounded-xl hover:shadow-inner transition-all">
-                                <div class="flex items-center space-x-2 overflow-hidden w-3/4">
-                                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${color};"></span>
-                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title="${name}">${name}</span>
+                            <div class="border border-slate-200/60 dark:border-slate-700/60 rounded-xl overflow-hidden mb-3">
+                                <div class="flex items-center justify-between px-3 py-2 bg-slate-100/80 dark:bg-slate-800/80 cursor-pointer" onclick="this.parentElement.querySelector('.grp-items').classList.toggle('hidden')">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-md shrink-0" style="background-color: ${grp.color};"></span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">${grp.name}</span>
+                                        <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500">(${groupItems.length})</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] font-black text-slate-900 dark:text-white">${grpHrStr}</span>
+                                        <button onclick="event.stopPropagation(); window.openCreateScheduleGroup('${grp.id}')" class="text-slate-400 hover:text-blue-500 transition-colors" title="Edit group">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                        </button>
+                                        <button onclick="event.stopPropagation(); window.deleteScheduleGroup('${grp.id}')" class="text-slate-400 hover:text-red-500 transition-colors" title="Delete group">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </div>
                                 </div>
-                                <span class="text-xs font-black text-slate-900 dark:text-white shrink-0 pl-2 w-1/4 text-right">${hrStr}</span>
+                                <div class="grp-items p-2 space-y-1.5 bg-white dark:bg-slate-900/20">
+                                    ${groupItems.map(n => renderWorkRow(n, workTotals[n], workColors[n], true)).join('')}
+                                </div>
                             </div>
                         `;
                     });
+                    
+                    // Ungrouped items
+                    const ungrouped = sortedTotals.filter(([name]) => !assignedNames.has(name));
+                    if (ungrouped.length > 0) {
+                        summaryHtml += `
+                            <div class="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                                <div class="flex items-center justify-between px-3 py-2 bg-slate-50/50 dark:bg-slate-800/40">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Ungrouped</span>
+                                    <span class="text-[9px] font-bold text-slate-400">${ungrouped.length} item${ungrouped.length > 1 ? 's' : ''}</span>
+                                </div>
+                                <div class="p-2 space-y-1.5">
+                                    ${ungrouped.map(([name, hours]) => renderWorkRow(name, hours, workColors[name], true)).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     hoursSummaryList.innerHTML = summaryHtml;
                 }
+            }
+            if (window.updateActiveScheduleSlot) {
+                window.updateActiveScheduleSlot();
             }
         };
 
@@ -1729,6 +2149,8 @@
                     };
                     if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
                     else window.scheduleBlocks = [];
+                    if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+                    else window.scheduleGroups = [];
                     if (window.syncTimerStateFromCloud) {
                         window.syncTimerStateFromCloud();
                     }
@@ -1879,6 +2301,7 @@
                 dashboardConfig: window.dashboardConfig,
                 weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
                 scheduleBlocks: window.scheduleBlocks || [],
+                scheduleGroups: window.scheduleGroups || [],
                 weeklyTargets: (function () {
                     const range = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
                     if (range && window.weeklyTargetsDatabase) {
@@ -7611,8 +8034,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
+            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
+            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
  
@@ -7643,8 +8066,8 @@
         };
  
         window.closeModal = function (modalId) {
-            const backdrops = { 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
-            const contents = { 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
+            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
+            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -12114,6 +12537,8 @@
                             if (data.revisionData) window.revisionData = data.revisionData;
                             if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
                             if (data.successResults) window.successResults = data.successResults;
+                            if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
+                            if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
                             if (data.dashboardConfig) {
                                 window.dashboardConfig = data.dashboardConfig;
                                 if (window.dashboardConfig.trendStartDate) {
@@ -13442,7 +13867,8 @@
                 <!-- Stats Widgets -->
                 <div
                     class="flex flex-row items-center bg-white dark:bg-slate-800/80 p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 w-full lg:w-auto justify-center flex-wrap gap-y-3">
-                    <div id="success-score-stats" class="pr-3 sm:pr-5"></div>
+                    <div id="header-clock-stats" class="pr-3 sm:pr-5"></div>
+                    <div id="success-score-stats" class="border-l border-slate-200 dark:border-slate-700 pl-3 sm:pl-5 pr-3 sm:pr-5"></div>
                     <div id="time-gone-stats"
                         class="border-l border-slate-200 dark:border-slate-700 pl-3 sm:pl-5 pr-3 sm:pr-5"></div>
                     <div id="countdown-timer"
@@ -14203,13 +14629,18 @@
                         <p class="text-slate-500 dark:text-slate-400 font-bold text-[10px] sm:text-xs md:text-sm tracking-wide">
                             Plan and visualize your 24-hour daily routine with color-coded schedule slots</p>
                     </div>
-                    <button onclick="window.openAddScheduleModal()"
-                        class="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-[11px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                        </svg>
-                        Add Schedule Slot
-                    </button>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                        <button onclick="window.openAddScheduleModal()"
+                            class="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-[11px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 h-12 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Add Schedule Slot
+                        </button>
+                        <div id="schedule-active-now-container" class="shrink-0 w-full sm:w-[260px]">
+                            <!-- Populated dynamically by updateActiveScheduleSlot() -->
+                        </div>
+                    </div>
                 </header>
 
                 <!-- 24-Hour Routine Allocation Visualizer -->
@@ -14230,11 +14661,20 @@
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
                     <!-- Left: Same Work Summary Card -->
                     <div class="lg:col-span-1 bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 shadow-sm space-y-4">
-                        <div>
-                            <h3 class="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">Routine Hours Summary</h3>
-                            <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Summed durations by unique work name</p>
+                        <div class="flex justify-between items-center gap-2">
+                            <div>
+                                <h3 class="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">Routine Hours Summary</h3>
+                                <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Summed durations by unique work name</p>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button onclick="window.openCreateScheduleGroup()"
+                                    class="text-[8px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border transition-all active:scale-95 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
+                                    title="Create custom group">
+                                    <span>+ Group</span>
+                                </button>
+                            </div>
                         </div>
-                        <div id="schedule-hours-summary-list" class="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        <div id="schedule-hours-summary-list" class="space-y-3 max-h-[450px] overflow-y-auto pr-1 custom-scrollbar">
                             <!-- Populated dynamically -->
                         </div>
                     </div>
@@ -14249,7 +14689,7 @@
                             <span id="schedule-slots-count-badge" class="text-[9px] bg-slate-100 dark:bg-slate-900 px-2.5 py-0.5 rounded-full font-bold text-slate-500 dark:text-slate-400">0 Slots</span>
                         </div>
                         
-                        <div id="schedule-timeline-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                        <div id="schedule-timeline-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                             <!-- Dynamically populated timeline cards -->
                         </div>
                     </div>
@@ -16395,6 +16835,15 @@
                         <input type="text" id="schedule-input-task" placeholder="e.g. Mathematics Practice"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
                     </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Day Start Settings:</label>
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all has-[:checked]:bg-blue-100 has-[:checked]:border-blue-400 dark:has-[:checked]:bg-blue-900/30 dark:has-[:checked]:border-blue-600 group w-full">
+                                <input type="checkbox" id="schedule-input-daystart" class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-500 focus:ring-blue-500 cursor-pointer transition-all">
+                                <span class="text-xs font-bold text-slate-600 dark:text-slate-300 group-has-[:checked]:text-blue-600 dark:group-has-[:checked]:text-blue-400">☀️ Start timeline from this slot</span>
+                            </label>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-2">
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track (Optional):</label>
@@ -16434,6 +16883,61 @@
                     <button onclick="window.submitAddScheduleBlock()"
                         class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
                         Add Slot
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Schedule Group Modal -->
+        <div id="create-schedule-group-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="csgm-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="closeModal('create-schedule-group-modal')"></div>
+            <div id="csgm-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 id="csgm-title" class="text-xl font-black text-slate-800 dark:text-slate-100">Create Work Group</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Organize your schedule slots</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal('create-schedule-group-modal')"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 my-2">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Group Name:</label>
+                        <input type="text" id="group-input-name" placeholder="e.g. Core Work, Study Session"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Ungrouped Work Items to Add:</label>
+                        <div id="group-modal-ungrouped-list" class="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                    <button onclick="closeModal('create-schedule-group-modal')"
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                        Cancel
+                    </button>
+                    <button id="csgm-submit-btn" onclick="window.submitCreateScheduleGroup()"
+                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
+                        Create Group
                     </button>
                 </div>
             </div>
