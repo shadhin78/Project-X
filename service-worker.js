@@ -17,9 +17,34 @@ const ASSETS_TO_CACHE = [
 // Install Event - Pre-cache assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[Service Worker] Pre-caching App Shell');
-      return cache.addAll(ASSETS_TO_CACHE);
+      
+      // Cache assets one-by-one so that a single network or CORS redirect issue on a CDN does not prevent the service worker from installing.
+      const cachePromises = ASSETS_TO_CACHE.map(async (url) => {
+        try {
+          const response = await fetch(url, { cache: 'reload' });
+          if (!response.ok) {
+            throw new Error(`Fetch failed with status: ${response.status}`);
+          }
+          await cache.put(url, response);
+          console.log(`[Service Worker] Cached asset: ${url}`);
+        } catch (error) {
+          console.warn(`[Service Worker] Failed to pre-cache asset: ${url}`, error);
+          
+          // Throw error for critical local files so service worker installation fails if they are missing.
+          const isCriticalLocal = url.startsWith('./index.html') || 
+                                  url.startsWith('./login.html') || 
+                                  url.startsWith('./manifest.json') || 
+                                  url === './' || 
+                                  url === '/';
+          if (isCriticalLocal) {
+            throw error;
+          }
+        }
+      });
+      
+      await Promise.all(cachePromises);
     }).then(() => {
       return self.skipWaiting();
     })

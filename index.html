@@ -13037,6 +13037,9 @@
                     if (window.mainChartPrograms) window.mainChartPrograms.resize();
                     if (window.monthlyChartActions) window.monthlyChartActions.resize();
                     if (window.yearlyChartActions) window.yearlyChartActions.resize();
+                }, 50);
+            } else if (pageId === 'subjects') {
+                setTimeout(() => {
                     if (progressChart) progressChart.resize();
                 }, 50);
             } else if (pageId === 'outcome') {
