@@ -3553,7 +3553,7 @@
             setupFocusTodayButton();
             updateCountdown();
             updateSuccessScore();
-            renderFilterButtons();
+            renderSubjectNavigation();
             renderTaskList();
             renderChart();
             updateMetrics();
@@ -3606,7 +3606,7 @@
             const btn = document.getElementById('focus-today-btn');
             if (!btn) return;
             btn.addEventListener('click', () => {
-                if (currentFilter !== 'All') { currentFilter = 'All'; renderFilterButtons(); renderTaskList(); updateMetrics(); }
+                if (currentFilter !== 'All') { currentFilter = 'All'; renderSubjectNavigation(); renderTaskList(); updateMetrics(); }
                 const todayString = formatDate(new Date());
                 const todayTask = tasks.find(t => t.date === todayString);
                 if (todayTask && todayTask.type === 'study') {
@@ -3682,52 +3682,7 @@
             }
         }
 
-        function renderFilterButtons() {
-            const filterContainer = document.getElementById('filter-buttons');
-            if (!filterContainer) return;
-
-            let html = '';
-
-            const btnClass = (val) => {
-                const isActive = currentFilter === val;
-                return `active:scale-95 whitespace-nowrap px-4 py-2 md:px-5 md:py-2.5 rounded-full text-[11px] md:text-sm font-black transition-all duration-300 ${isActive ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border-transparent scale-105' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:shadow-md'}`;
-            };
-
-            // ALL button and Revise Setup
-            html += `<div class="mb-3 flex gap-2"><button class="${btnClass('All')}" onclick="window.setFilter('All')">All Tasks</button><button class="active:scale-95 whitespace-nowrap px-4 py-2 md:px-5 md:py-2.5 rounded-full text-[11px] md:text-sm font-black transition-all duration-300 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-800/60 shadow-sm flex items-center gap-1.5" onclick="window.openRevisionModal()"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Revise Subject</button></div>`;
-
-            // Group by Track -> Program
-            window.tracks.forEach(trackObj => {
-                const track = trackObj.id;
-                if (window.customPrograms[track]) {
-                    window.customPrograms[track].forEach(prog => {
-                        const progName = prog.name || prog;
-                        const subs = (syllabusStructure[track] || []).filter(s => s.program === progName).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
-                        if (subs.length > 0) {
-                            html += `
-                            <div class="mb-3 p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm w-full">
-                                <div class="flex items-center gap-2 mb-3">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1 w-full">${progName} PROGRAM</span>
-                                </div>
-                                <div class="flex flex-wrap gap-2 md:gap-3">
-                                    <button class="${btnClass(progName)}" onclick="window.setFilter('${progName}')">[ ENTIRE ${progName} ]</button>
-                                    ${subs.map(s => {
-                                let displaySub = s.subject;
-                                if (displaySub.startsWith(s.program + ' - ')) displaySub = displaySub.replace(s.program + ' - ', '');
-                                else if (displaySub.startsWith(s.program + ' ')) displaySub = displaySub.replace(s.program + ' ', '');
-                                return `<button class="${btnClass(s.subject)}" onclick="window.setFilter('${s.subject}')">${displaySub}</button>`;
-                            }).join('')}
-                                </div>
-                            </div>`;
-                        }
-                    });
-                }
-            });
-
-            filterContainer.innerHTML = html;
-        }
-
-        window.setFilter = function (val) { currentFilter = val; window.subjectDetailsState = {}; renderFilterButtons(); renderTaskList(); updateMetrics(); renderTrendCharts(); };
+        window.setFilter = function (val) { currentFilter = val; window.subjectDetailsState = {}; renderSubjectNavigation(); renderTaskList(); updateMetrics(); renderTrendCharts(); };
 
         window.setTrendFilter = function (f) {
             window.trendTimeFilter = f;
@@ -5204,6 +5159,9 @@
                 return `active:scale-95 whitespace-nowrap px-4 py-2 md:px-5 md:py-2.5 rounded-full text-[11px] md:text-sm font-black transition-all duration-300 ${isActive ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border-transparent scale-105' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:shadow-md'}`;
             };
 
+            // ALL button and Revise Setup
+            html += `<div class="mb-3 flex gap-2"><button class="${btnClass('All')}" onclick="window.setFilter('All')">All Tasks</button><button class="active:scale-95 whitespace-nowrap px-4 py-2 md:px-5 md:py-2.5 rounded-full text-[11px] md:text-sm font-black transition-all duration-300 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-800/60 shadow-sm flex items-center gap-1.5" onclick="window.openRevisionModal()"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Revise Subject</button></div>`;
+
             window.tracks.forEach(trackObj => {
                 const track = trackObj.id;
                 if (window.customPrograms[track]) {
@@ -5217,12 +5175,12 @@
                                     <span class="text-[9px] md:text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1 w-full">${progName} PROGRAM</span>
                                 </div>
                                 <div class="flex flex-wrap gap-2 md:gap-3">
-                                    <button class="${btnClass(progName)}" onclick="window.setFilter('${progName.replace(/'/g, "\\'")}'); window.switchPage('global-filter');">[ ENTIRE ${progName} ]</button>
+                                    <button class="${btnClass(progName)}" onclick="window.setFilter('${progName.replace(/'/g, "\\'")}');">[ ENTIRE ${progName} ]</button>
                                     ${subs.map(s => {
                                 let displaySub = s.subject;
                                 if (displaySub.startsWith(s.program + ' - ')) displaySub = displaySub.replace(s.program + ' - ', '');
                                 else if (displaySub.startsWith(s.program + ' ')) displaySub = displaySub.replace(s.program + ' ', '');
-                                return `<button class="${btnClass(s.subject)}" onclick="window.setFilter('${s.subject.replace(/'/g, "\\'")}'); window.switchPage('global-filter');">${displaySub}</button>`;
+                                return `<button class="${btnClass(s.subject)}" onclick="window.setFilter('${s.subject.replace(/'/g, "\\'")}');">${displaySub}</button>`;
                             }).join('')}
                                 </div>
                             </div>`;
@@ -13029,7 +12987,7 @@
         };
 
         window.switchPage = function (pageId) {
-            const pages = ['dashboard', 'timer', 'daily-actions', 'schedule', 'global-filter', 'subjects', 'paces-management', 'master-config', 'outcome'];
+            const pages = ['dashboard', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome'];
             pages.forEach(p => {
                 const el = document.getElementById(`page-${p}`);
                 if (el) {
@@ -13046,7 +13004,6 @@
             const buttons = {
                 'dashboard': { active: 'bg-slate-900 dark:bg-blue-600 text-white border-slate-900 dark:border-blue-600 shadow-lg', hover: 'hover:border-blue-400' },
                 'daily-actions': { active: 'bg-orange-500 text-white border-orange-500 shadow-lg', hover: 'hover:border-orange-400' },
-                'global-filter': { active: 'bg-slate-700 text-white border-slate-700 shadow-lg', hover: 'hover:border-slate-400' },
                 'subjects': { active: 'bg-violet-600 text-white border-violet-600 shadow-lg', hover: 'hover:border-violet-400' },
                 'paces-management': { active: 'bg-red-600 text-white border-red-600 shadow-lg', hover: 'hover:border-red-400' },
                 'master-config': { active: 'bg-indigo-600 text-white border-indigo-600 shadow-lg', hover: 'hover:border-indigo-400' },
@@ -14704,16 +14661,7 @@
                             </svg>
                             Daily Schedule
                         </button>
-                        <button id="btn-nav-global-filter"
-                            onclick="window.switchPage('global-filter'); window.closeMobileSidebar()"
-                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z">
-                                </path>
-                            </svg>
-                            Global Filter
-                        </button>
+
                         <button id="btn-nav-subjects"
                             onclick="window.switchPage('subjects'); window.closeMobileSidebar()"
                             class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
@@ -14842,9 +14790,12 @@
 
             <!-- Page: Dashboard -->
             <div id="page-dashboard" class="space-y-6 md:space-y-8">
-                <!-- Apple Liquid Glass Trends Status Bar -->
+                <!-- X Bar -->
                 <div
                     class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-6 mb-6 flex flex-wrap items-center justify-between gap-5 relative z-10 w-full animate-page-enter shadow-sm">
+                    <div class="w-full flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 mb-1">
+                        <span class="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">X Bar</span>
+                    </div>
 
                     <div class="flex flex-wrap items-center gap-6 md:gap-10 relative z-10">
                         <!-- Start Date -->
@@ -14932,145 +14883,64 @@
                 </div>
 
                 <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 md:gap-8 mb-6 md:mb-8 pt-2 sm:pt-4 scroll-mt-24">
-                    <div id="pace-stats-section" class="xl:col-span-4 space-y-6">
-                        <!-- Global Baseline Info Card -->
-                        <div
-                            class="flex items-center space-x-2 md:space-x-3 bg-slate-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-700 shadow-lg ">
-                            <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-500" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <div id="pace-timeline-info" class="text-xs sm:text-sm text-slate-300"></div>
+                    <!-- Performance Trends charts inside the grid (xl:col-span-4) -->
+                    <div id="trend-charts-section" class="xl:col-span-4 space-y-6 pt-2 scroll-mt-24">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h2
+                                    class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                                    Performance Trends</h2>
+                            </div>
+                            <div
+                                class="flex bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-slate-600/50">
+                                <button onclick="window.setTrendFilter('1Y')" id="tf-1Y"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">1Y</button>
+                                <button onclick="window.setTrendFilter('2Y')" id="tf-2Y"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">2Y</button>
+                                <button onclick="window.setTrendFilter('3Y')" id="tf-3Y"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">3Y</button>
+                                <button onclick="window.setTrendFilter('ALL')" id="tf-ALL"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all bg-blue-600 text-white shadow">Life Time</button>
+                            </div>
                         </div>
 
-                        <!-- Paces Row -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
                             <div
-                                class="bg-slate-900 border border-slate-700 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] shadow-xl flex flex-col justify-between hover:-translate-y-1 transition-transform">
-                                <div class="text-white"><span id="target-status-label"
-                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-blue-400 uppercase tracking-widest drop-shadow-sm">Target:
-                                        Oct 31</span>
-                                    <h3 class="text-lg sm:text-xl md:text-2xl font-black mt-1.5 sm:mt-2">Required Pace
-                                    </h3>
-                                </div>
-                                <div class="mt-4 sm:mt-5 md:mt-6">
-                                    <div id="target-req-pace"
-                                        class="text-2xl sm:text-3xl md:text-4xl font-black text-blue-400 drop-shadow-[0_2px_10px_rgba(96,165,250,0.4)]">
-                                        --</div>
-                                    <div class="flex items-center justify-between mt-1.5">
-                                        <span
-                                            class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">To
-                                            hit
-                                            deadline</span>
-                                        <span id="global-days-left"
-                                            class="text-[9px] text-blue-400 font-black uppercase tracking-widest"></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div
-                                class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-transform">
-                                <div><span
-                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Current
-                                        Performance</span>
-                                    <h3 class="text-lg sm:text-xl md:text-2xl font-black mt-1.5 sm:mt-2">Actual Pace
-                                    </h3>
-                                </div>
-                                <div class="mt-4 sm:mt-5 md:mt-6">
-                                    <div id="current-pace-stat" class="text-2xl sm:text-3xl md:text-4xl font-black">--
-                                    </div>
-                                    <div class="flex items-center justify-between mt-1.5">
-                                        <span
-                                            class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Your
-                                            current speed</span>
-                                        <span id="global-days-passed"
-                                            class="text-[9px] text-emerald-500 font-black uppercase tracking-widest"></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div
-                                class="bg-indigo-50 dark:bg-indigo-900/20 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-indigo-100 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-transform relative group">
-                                <button onclick="window.openPaceTrendModal()"
-                                    class="absolute top-4 right-4 p-2.5 bg-indigo-100 dark:bg-indigo-800/60 text-indigo-600 dark:text-indigo-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-700 transition-all shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:scale-110 active:scale-95"
-                                    title="View Pace Analytics Chart">
-                                    <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z">
-                                        </path>
-                                    </svg>
-                                </button>
-                                <div><span
-                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-indigo-400 uppercase tracking-widest">Trend
-                                        Forecast</span>
+                                class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
+                                <div class="flex justify-between items-center mb-4 md:mb-6">
                                     <h3
-                                        class="text-lg sm:text-xl md:text-2xl font-black mt-1.5 sm:mt-2 text-indigo-950 dark:text-indigo-100">
-                                        Est. Finish</h3>
+                                        class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
+                                        Program Completion Trend</h3>
+                                    <button onclick="openSubjectTrendModal()"
+                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-indigo-700 active:scale-95 transition-all">Subject View</button>
                                 </div>
-                                <div class="mt-4 sm:mt-5 md:mt-6">
-                                    <div id="projected-finish"
-                                        class="text-xl sm:text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400">
-                                        --
-                                    </div>
-                                    <div class="flex items-center justify-between mt-1.5">
-                                        <span
-                                            class="text-[9px] text-indigo-400/80 font-bold uppercase tracking-widest block">Based
-                                            on actual pace</span>
-                                        <span id="global-days-needed"
-                                            class="text-[9px] text-orange-500 font-black uppercase tracking-widest"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Global Completion -->
-                        <div id="completion-stats-section"
-                            class="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
-                            <div
-                                class="lg:col-span-3 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/80 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 flex flex-col justify-between shadow-sm hover:shadow-xl transition-shadow relative group">
-                                <button onclick="window.openGlobalHistoryModal()"
-                                    class="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:px-3 sm:py-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-800/60 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 z-10 border border-blue-200 dark:border-blue-800/50"
-                                    title="Open History Database">
-                                    <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
-                                        </path>
-                                    </svg>
-                                    <span
-                                        class="text-[9px] md:text-[10px] font-black uppercase tracking-widest hidden sm:block">Database</span>
-                                </button>
-                                <div>
-                                    <div class="flex justify-between items-end mb-4 sm:mb-5 md:mb-6 pr-10 sm:pr-24">
-                                        <div><span id="progress-title"
-                                                class="block text-[9px] sm:text-[10px] md:text-[11px] font-black text-slate-400 uppercase mb-1 sm:mb-2 tracking-widest">Global
-                                                Overall Completion</span>
-                                            <h2 id="progress-text"
-                                                class="text-4xl sm:text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 drop-shadow-sm leading-none">
-                                                0%</h2>
-                                        </div>
-                                        <div id="progress-detail"
-                                            class="text-[10px] sm:text-xs md:text-sm font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-900 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg md:rounded-xl whitespace-nowrap">
-                                            0 / 0 Chapters</div>
-                                    </div>
-                                    <div
-                                        class="w-full bg-slate-100 dark:bg-slate-900 h-4 sm:h-5 md:h-6 rounded-full overflow-hidden shadow-inner p-0.5 md:p-1 border border-slate-200 dark:border-slate-800">
-                                        <div id="progress-bar"
-                                            class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]">
-                                        </div>
-                                    </div>
+                                <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
+                                        id="mainChartPrograms"></canvas></div>
+                                <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                                    <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                                    <div id="prog-comment"></div>
                                 </div>
                             </div>
                             <div
-                                class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 relative flex items-center justify-center shadow-sm hover:shadow-xl transition-shadow">
-                                <canvas id="progressChart"
-                                    class="max-w-[120px] max-h-[120px] sm:max-w-[140px] sm:max-h-[140px] md:max-w-[160px] md:max-h-[160px] drop-shadow-lg"></canvas>
-                                <div
-                                    class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] sm:text-[10px] md:text-[11px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">
-                                    Syllabus</div>
+                                class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
+                                <div class="flex justify-between items-center mb-4 md:mb-6">
+                                    <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest"
+                                        id="daily-actions-month-title">
+                                        Daily Actions (Month)</h3>
+                                    <button onclick="openYearlyActionsModal()"
+                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Year View</button>
+                                </div>
+                                <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
+                                        id="monthlyActionsChart"></canvas></div>
+                                <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                                    <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                                    <div id="daily-actions-msg-bar" class="mt-2"></div>
+                                    <div id="act-comment"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
                     <!-- Weekly Target Checklist Section (takes 1/5 width on desktop) -->
                     <div
                         class="xl:col-span-1 bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-xl transition-all">
@@ -15102,7 +14972,7 @@
 
                         <!-- Progress Bar -->
                         <div
-                            class="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden mb-5 border border-slate-200 dark:border-slate-800 p-0.5">
+                            class="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden mb-5 border border-slate-200/50 dark:border-slate-700/50 p-0.5">
                             <div id="db-weekly-checklist-progress"
                                 class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500 w-0">
                             </div>
@@ -15112,71 +14982,6 @@
                         <div id="db-weekly-targets-checklist"
                             class="space-y-3 overflow-y-auto max-h-[300px] pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
                             <!-- Dynamic list items -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Trend Charts (Performance Trends Card, placed below spaces/completion, above category-progress) -->
-                <div class="pt-2 scroll-mt-24" id="trend-charts-section">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <h2
-                                class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                                Performance Trends</h2>
-                        </div>
-                        <div
-                            class="flex bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-slate-600/50">
-                            <button onclick="window.setTrendFilter('1Y')" id="tf-1Y"
-                                class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">1Y</button>
-                            <button onclick="window.setTrendFilter('2Y')" id="tf-2Y"
-                                class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">2Y</button>
-                            <button onclick="window.setTrendFilter('3Y')" id="tf-3Y"
-                                class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">3Y</button>
-                            <button onclick="window.setTrendFilter('ALL')" id="tf-ALL"
-                                class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all bg-blue-600 text-white shadow">Life
-                                Time</button>
-                        </div>
-                    </div>
-
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-                        <div
-                            class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
-                            <div class="flex justify-between items-center mb-4 md:mb-6">
-                                <h3
-                                    class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    Program Completion Trend</h3>
-                                <button onclick="openSubjectTrendModal()"
-                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-indigo-700 active:scale-95 transition-all">Subject
-                                    View</button>
-                            </div>
-                            <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
-                                    id="mainChartPrograms"></canvas>
-                            </div>
-                            <div class="mt-4 md:mt-6 flex flex-col gap-3">
-                                <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3">
-                                </div>
-                                <div id="prog-comment"></div>
-                            </div>
-                        </div>
-                        <div
-                            class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
-                            <div class="flex justify-between items-center mb-4 md:mb-6">
-                                <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest"
-                                    id="daily-actions-month-title">
-                                    Daily Actions (Month)</h3>
-                                <button onclick="openYearlyActionsModal()"
-                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Year
-                                    View</button>
-                            </div>
-                            <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
-                                    id="monthlyActionsChart"></canvas></div>
-                            <div class="mt-4 md:mt-6 flex flex-col gap-3">
-                                <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3">
-                                </div>
-                                <div id="daily-actions-msg-bar" class="mt-2"></div>
-                                <div id="act-comment"></div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -15823,7 +15628,55 @@
             </div>
 
             <!-- Page: Subjects -->
-            <div id="page-subjects" class="hidden space-y-6">
+            <div id="page-subjects" class="hidden space-y-6 md:space-y-8 animate-page-enter">
+                <!-- Global Completion -->
+                <div id="completion-stats-section"
+                    class="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+                    <div
+                        class="lg:col-span-3 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/80 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 flex flex-col justify-between shadow-sm hover:shadow-xl transition-shadow relative group">
+                        <button onclick="window.openGlobalHistoryModal()"
+                            class="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:px-3 sm:py-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-800/60 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 z-10 border border-blue-200 dark:border-blue-800/50"
+                            title="Open History Database">
+                            <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                                </path>
+                            </svg>
+                            <span
+                                class="text-[9px] md:text-[10px] font-black uppercase tracking-widest hidden sm:block">Database</span>
+                        </button>
+                        <div>
+                            <div class="flex justify-between items-end mb-4 sm:mb-5 md:mb-6 pr-10 sm:pr-24">
+                                <div><span id="progress-title"
+                                        class="block text-[9px] sm:text-[10px] md:text-[11px] font-black text-slate-400 uppercase mb-1 sm:mb-2 tracking-widest">Global
+                                        Overall Completion</span>
+                                    <h2 id="progress-text"
+                                        class="text-4xl sm:text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 drop-shadow-sm leading-none">
+                                        0%</h2>
+                                </div>
+                                <div id="progress-detail"
+                                    class="text-[10px] sm:text-xs md:text-sm font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-900 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-lg md:rounded-xl whitespace-nowrap">
+                                    0 / 0 Chapters</div>
+                            </div>
+                            <div
+                                class="w-full bg-slate-100 dark:bg-slate-900 h-4 sm:h-5 md:h-6 rounded-full overflow-hidden shadow-inner p-0.5 md:p-1 border border-slate-200 dark:border-slate-800">
+                                <div id="progress-bar"
+                                    class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 relative flex items-center justify-center shadow-sm hover:shadow-xl transition-shadow">
+                        <canvas id="progressChart"
+                            class="max-w-[120px] max-h-[120px] sm:max-w-[140px] sm:max-h-[140px] md:max-w-[160px] md:max-h-[160px] drop-shadow-lg"></canvas>
+                        <div
+                            class="absolute inset-0 flex items-center justify-center pointer-events-none text-[9px] sm:text-[10px] md:text-[11px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">
+                            Syllabus</div>
+                    </div>
+                </div>
+
                 <aside id="sidebar-progress-section"
                     class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm space-y-4 md:space-y-6 scroll-mt-24 md:scroll-mt-32 w-full">
                     <h2
@@ -15839,21 +15692,11 @@
                         Filter Tasks by Subject</h2>
                     <div id="subject-navigation-container" class="space-y-4"></div>
                 </div>
-            </div>
 
-            <!-- Page: Global Filter -->
-            <div id="page-global-filter" class="hidden">
-                <main id="global-filter-section" class="w-full pt-2 scroll-mt-24 md:scroll-mt-32">
-                    <div class="mb-4 md:mb-6 space-y-3 md:space-y-4 px-1 md:px-2">
-                        <h3 class="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400">Global
-                            Filter
-                        </h3>
-                        <div id="filter-buttons" class="flex flex-wrap gap-2 md:gap-3 pb-1 md:pb-0"></div>
-                    </div>
-                    <div id="dashboard-content" class="hidden">
-                        <div id="task-list" class="flex flex-col space-y-8 md:space-y-12 w-full pb-4"></div>
-                    </div>
-                </main>
+                <!-- Task list section -->
+                <div id="dashboard-content" class="hidden w-full">
+                    <div id="task-list" class="flex flex-col space-y-8 md:space-y-12 w-full pb-4"></div>
+                </div>
             </div>
 
             <!-- Page: Master Config -->
@@ -16125,7 +15968,86 @@
             </div>
 
             <!-- Page: Paces Management -->
-            <div id="page-paces-management" class="hidden">
+            <div id="page-paces-management" class="hidden space-y-6 md:space-y-8 animate-page-enter">
+                <!-- Pace Stats Section (contains Global Baseline Info Card and Paces Row) -->
+                <div id="pace-stats-section" class="w-full space-y-6">
+                    <!-- Global Baseline Info Card -->
+                    <div
+                        class="flex items-center space-x-2 md:space-x-3 bg-slate-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-700 shadow-lg ">
+                        <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-500" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div id="pace-timeline-info" class="text-xs sm:text-sm text-slate-300"></div>
+                    </div>
+
+                    <!-- Paces Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+                        <div
+                            class="bg-slate-900 border border-slate-700 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] shadow-xl flex flex-col justify-between hover:-translate-y-1 transition-transform">
+                            <div class="text-white"><span id="target-status-label"
+                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-blue-400 uppercase tracking-widest drop-shadow-sm">Target: Oct 31</span>
+                                <h3 class="text-lg sm:text-xl md:text-2xl font-black mt-1.5 sm:mt-2">Required Pace</h3>
+                            </div>
+                            <div class="mt-4 sm:mt-5 md:mt-6">
+                                <div id="target-req-pace"
+                                    class="text-2xl sm:text-3xl md:text-4xl font-black text-blue-400 drop-shadow-[0_2px_10px_rgba(96,165,250,0.4)]">--</div>
+                                <div class="flex items-center justify-between mt-1.5">
+                                    <span
+                                        class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">To hit deadline</span>
+                                    <span id="global-days-left"
+                                        class="text-[9px] text-blue-400 font-black uppercase tracking-widest"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-transform">
+                            <div><span
+                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Performance</span>
+                                <h3 class="text-lg sm:text-xl md:text-2xl font-black mt-1.5 sm:mt-2">Actual Pace</h3>
+                            </div>
+                            <div class="mt-4 sm:mt-5 md:mt-6">
+                                <div id="current-pace-stat" class="text-2xl sm:text-3xl md:text-4xl font-black">--</div>
+                                <div class="flex items-center justify-between mt-1.5">
+                                    <span
+                                        class="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Your current speed</span>
+                                    <span id="global-days-passed"
+                                        class="text-[9px] text-emerald-500 font-black uppercase tracking-widest"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-indigo-50 dark:bg-indigo-900/20 p-5 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-indigo-100 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-transform relative group">
+                            <button onclick="window.openPaceTrendModal()"
+                                class="absolute top-4 right-4 p-2.5 bg-indigo-100 dark:bg-indigo-800/60 text-indigo-600 dark:text-indigo-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-700 transition-all shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:scale-110 active:scale-95"
+                                title="View Pace Analytics Chart">
+                                <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z">
+                                    </path>
+                                </svg>
+                            </button>
+                            <div><span
+                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-indigo-400 uppercase tracking-widest">Trend Forecast</span>
+                                <h3
+                                    class="text-lg sm:text-xl md:text-2xl font-black mt-1.5 sm:mt-2 text-indigo-950 dark:text-indigo-100">Est. Finish</h3>
+                            </div>
+                            <div class="mt-4 sm:mt-5 md:mt-6">
+                                <div id="projected-finish"
+                                    class="text-xl sm:text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400">--</div>
+                                <div class="flex items-center justify-between mt-1.5">
+                                    <span
+                                        class="text-[9px] text-indigo-400/80 font-bold uppercase tracking-widest block">Based on actual pace</span>
+                                    <span id="global-days-needed"
+                                        class="text-[9px] text-orange-500 font-black uppercase tracking-widest"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Pace Management System -->
                 <div id="pace-management-section"
                     class="mt-8 md:mt-12 bg-white dark:bg-slate-800 p-5 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col scroll-mt-24 md:scroll-mt-32">
