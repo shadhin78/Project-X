@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Project X">
-    <link rel="apple-touch-icon" href="icons/project-x.png">
+    <link rel="apple-touch-icon" href="icons/logo-x.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
@@ -20,6 +20,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- Dexie.js for IndexedDB -->
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
     <script>
         window.sanitizeAllData = function (val) {
             if (typeof val === 'string') {
@@ -63,6 +65,467 @@
         let needsSave = false;
 
         window.activeRoutineSet = 1;
+
+        // Initialize Dexie Local Database Layer
+        window.localDB = new Dexie("ProjectXLocalDB");
+        window.localDB.version(1).stores({
+            tasks: 'id, date, type, studyDay',
+            timerLogs: '++id, subject, duration, timestamp',
+            scheduleBlocks: 'id, day, startTime, endTime, task, track, program, color, isDayStart',
+            scheduleBlocks2: 'id, day, startTime, endTime, task, track, program, color, isDayStart',
+            scheduleGroups: 'id, name',
+            appSettings: 'key, value'
+        });
+        window.localDB.version(2).stores({
+            tasks: 'id, date, type, studyDay',
+            timerLogs: '++id, subject, duration, timestamp',
+            scheduleBlocks: 'id, day, startTime, endTime, task, track, program, color, isDayStart',
+            scheduleBlocks2: 'id, day, startTime, endTime, task, track, program, color, isDayStart',
+            scheduleGroups: 'id, name',
+            appSettings: 'key, value',
+            syncQueue: '++id, timestamp, status'
+        });
+
+        window.localDBHelper = {
+            // --- Tasks ---
+            createTask: async function (task) {
+                return await window.localDB.tasks.put(task);
+            },
+            readTask: async function (id) {
+                return await window.localDB.tasks.get(id);
+            },
+            readAllTasks: async function () {
+                return await window.localDB.tasks.toArray();
+            },
+            updateTask: async function (task) {
+                return await window.localDB.tasks.put(task);
+            },
+            deleteTask: async function (id) {
+                return await window.localDB.tasks.delete(id);
+            },
+
+            // --- Timer Logs ---
+            createTimerLog: async function (log) {
+                return await window.localDB.timerLogs.add(log);
+            },
+            readTimerLog: async function (id) {
+                return await window.localDB.timerLogs.get(id);
+            },
+            readAllTimerLogs: async function () {
+                return await window.localDB.timerLogs.toArray();
+            },
+            updateTimerLog: async function (log) {
+                return await window.localDB.timerLogs.put(log);
+            },
+            deleteTimerLog: async function (id) {
+                return await window.localDB.timerLogs.delete(id);
+            },
+
+            // --- Schedule Blocks (Routine 1) ---
+            createScheduleBlock: async function (block) {
+                return await window.localDB.scheduleBlocks.put(block);
+            },
+            readScheduleBlock: async function (id) {
+                return await window.localDB.scheduleBlocks.get(id);
+            },
+            readAllScheduleBlocks: async function () {
+                return await window.localDB.scheduleBlocks.toArray();
+            },
+            updateScheduleBlock: async function (block) {
+                return await window.localDB.scheduleBlocks.put(block);
+            },
+            deleteScheduleBlock: async function (id) {
+                return await window.localDB.scheduleBlocks.delete(id);
+            },
+
+            // --- Schedule Blocks (Routine 2) ---
+            createScheduleBlock2: async function (block) {
+                return await window.localDB.scheduleBlocks2.put(block);
+            },
+            readScheduleBlock2: async function (id) {
+                return await window.localDB.scheduleBlocks2.get(id);
+            },
+            readAllScheduleBlocks2: async function () {
+                return await window.localDB.scheduleBlocks2.toArray();
+            },
+            updateScheduleBlock2: async function (block) {
+                return await window.localDB.scheduleBlocks2.put(block);
+            },
+            deleteScheduleBlock2: async function (id) {
+                return await window.localDB.scheduleBlocks2.delete(id);
+            },
+
+            // --- Schedule Groups ---
+            createScheduleGroup: async function (group) {
+                return await window.localDB.scheduleGroups.put(group);
+            },
+            readScheduleGroup: async function (id) {
+                return await window.localDB.scheduleGroups.get(id);
+            },
+            readAllScheduleGroups: async function () {
+                return await window.localDB.scheduleGroups.toArray();
+            },
+            updateScheduleGroup: async function (group) {
+                return await window.localDB.scheduleGroups.put(group);
+            },
+            deleteScheduleGroup: async function (id) {
+                return await window.localDB.scheduleGroups.delete(id);
+            },
+
+            // --- App Settings (Key-Value) ---
+            setSetting: async function (key, value) {
+                return await window.localDB.appSettings.put({ key, value });
+            },
+            getSetting: async function (key) {
+                const res = await window.localDB.appSettings.get(key);
+                return res ? res.value : null;
+            },
+            deleteSetting: async function (key) {
+                return await window.localDB.appSettings.delete(key);
+            }
+        };
+
+        window.syncManager = {
+            isProcessing: false,
+            
+            // Queue an operation
+            enqueue: async function (payload) {
+                try {
+                    const pendingItem = await window.localDB.syncQueue
+                        .where('status')
+                        .equals('pending')
+                        .first();
+                        
+                    if (pendingItem) {
+                        pendingItem.payload = payload;
+                        pendingItem.timestamp = Date.now();
+                        await window.localDB.syncQueue.put(pendingItem);
+                        console.log("Updated existing pending sync item with latest state.");
+                    } else {
+                        const queueItem = {
+                            timestamp: Date.now(),
+                            status: 'pending',
+                            payload: payload
+                        };
+                        const id = await window.localDB.syncQueue.add(queueItem);
+                        console.log("Enqueued local change with ID:", id);
+                    }
+                } catch (err) {
+                    console.error("SyncManager enqueue error:", err);
+                }
+                this.processQueue();
+                if (window.updateSyncDashboardUI) {
+                    window.updateSyncDashboardUI();
+                }
+            },
+            
+            // Process the queue
+            processQueue: async function () {
+                if (this.isProcessing) {
+                    console.log("SyncManager is already processing.");
+                    return;
+                }
+                
+                if (!navigator.onLine) {
+                    console.log("SyncManager: Offline. Operations queued.");
+                    this.updateSyncStatusUI();
+                    if (window.updateSyncDashboardUI) {
+                        window.updateSyncDashboardUI();
+                    }
+                    return;
+                }
+                
+                this.isProcessing = true;
+                
+                try {
+                    // Find the oldest pending item
+                    let pendingItem = await window.localDB.syncQueue
+                        .where('status')
+                        .equals('pending')
+                        .first();
+                        
+                    while (pendingItem) {
+                        console.log("Processing sync item:", pendingItem.id);
+                        
+                        // Mark as syncing to prevent duplicates
+                        pendingItem.status = 'syncing';
+                        await window.localDB.syncQueue.put(pendingItem);
+                        this.updateSyncStatusUI();
+                        if (window.updateSyncDashboardUI) {
+                            window.updateSyncDashboardUI();
+                        }
+                        
+                        try {
+                            if (db) {
+                                showSync('saving');
+                                isSyncing = true;
+                                await db.collection('studyPlan').doc('globalData').set(pendingItem.payload);
+                                
+                                // Success: Mark as synced
+                                pendingItem.status = 'synced';
+                                await window.localDB.syncQueue.put(pendingItem);
+                                showSync('saved');
+                                console.log("Successfully synced item:", pendingItem.id);
+                                
+                                window.lastSyncTime = Date.now();
+                                if (window.localDBHelper) {
+                                    await window.localDBHelper.setSetting('lastSyncTime', window.lastSyncTime);
+                                }
+                                if (window.updateSyncDashboardUI) {
+                                    window.updateSyncDashboardUI();
+                                }
+                            } else {
+                                throw new Error("Firestore DB reference not initialized");
+                            }
+                        } catch (syncErr) {
+                            console.error("Failed to sync item:", pendingItem.id, syncErr);
+                            // Revert status to pending so it can be retried
+                            pendingItem.status = 'pending';
+                            await window.localDB.syncQueue.put(pendingItem);
+                            showSync('error');
+                            window.lastSyncError = syncErr.message || String(syncErr);
+                            if (window.updateSyncDashboardUI) {
+                                window.updateSyncDashboardUI();
+                            }
+                            break; // Stop loop and retry later
+                        } finally {
+                            isSyncing = false;
+                        }
+                        
+                        // Grab next pending item
+                        pendingItem = await window.localDB.syncQueue
+                            .where('status')
+                            .equals('pending')
+                            .first();
+                    }
+                } catch (err) {
+                    console.error("SyncManager processQueue error:", err);
+                } finally {
+                    this.isProcessing = false;
+                    this.updateSyncStatusUI();
+                    if (window.updateSyncDashboardUI) {
+                        window.updateSyncDashboardUI();
+                    }
+                }
+            },
+            
+            // Update sync queue indicator in UI
+            updateSyncStatusUI: async function () {
+                const pendingCount = await window.localDB.syncQueue
+                    .where('status')
+                    .equals('pending')
+                    .count();
+                const syncingCount = await window.localDB.syncQueue
+                    .where('status')
+                    .equals('syncing')
+                    .count();
+                    
+                const syncStatusEl = document.getElementById('sync-status');
+                const syncIcon = document.getElementById('sync-icon');
+                const syncText = document.getElementById('sync-text');
+                
+                if (!syncStatusEl || !syncIcon || !syncText) return;
+                
+                if (pendingCount > 0 || syncingCount > 0) {
+                    syncStatusEl.classList.remove('opacity-0', 'scale-95');
+                    syncStatusEl.classList.add('opacity-100', 'scale-100');
+                    
+                    if (syncingCount > 0) {
+                        syncIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />`;
+                        syncIcon.className = "w-3.5 h-3.5 animate-spin text-blue-500";
+                        syncText.textContent = `Syncing (${syncingCount})`;
+                        syncText.className = "text-[9px] font-black uppercase tracking-widest text-blue-500";
+                    } else {
+                        syncIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />`;
+                        syncIcon.className = "w-3.5 h-3.5 text-amber-500";
+                        syncText.textContent = `Pending (${pendingCount})`;
+                        syncText.className = "text-[9px] font-black uppercase tracking-widest text-amber-500";
+                    }
+                } else {
+                    // If everything is synced, show saved state
+                    syncIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />`;
+                    syncIcon.className = "w-3.5 h-3.5 text-emerald-500";
+                    syncText.textContent = "Synced";
+                    syncText.className = "text-[9px] font-black uppercase tracking-widest text-emerald-500";
+                    syncStatusEl.classList.remove('opacity-0', 'scale-95');
+                    syncStatusEl.classList.add('opacity-100', 'scale-100');
+                    
+                    // Fade out after 2 seconds
+                    setTimeout(() => {
+                        // Double check if still no pending items
+                        window.localDB.syncQueue.where('status').anyOf('pending', 'syncing').count().then(count => {
+                            if (count === 0) {
+                                syncStatusEl.classList.add('opacity-0', 'scale-95');
+                                syncStatusEl.classList.remove('opacity-100', 'scale-100');
+                            }
+                        });
+                    }, 2000);
+                }
+            }
+        };
+
+        // Attach window listeners
+        window.addEventListener('online', () => {
+            if (window.syncManager) window.syncManager.processQueue();
+            if (window.updateSyncDashboardUI) window.updateSyncDashboardUI();
+        });
+        window.addEventListener('offline', () => {
+            if (window.updateSyncDashboardUI) window.updateSyncDashboardUI();
+        });
+
+        window.lastSyncTime = null;
+        window.lastSyncError = null;
+
+        // Initialize lastSyncTime from database cache
+        (async () => {
+            if (window.localDBHelper) {
+                try {
+                    window.lastSyncTime = await window.localDBHelper.getSetting('lastSyncTime');
+                } catch (e) {}
+            }
+        })();
+
+        window.updateSyncDashboardUI = async function () {
+            const netDot = document.getElementById('sync-dash-net-dot');
+            const netText = document.getElementById('sync-dash-net-text');
+            const timeVal = document.getElementById('sync-dash-time');
+            const pendingCountEl = document.getElementById('sync-dash-pending-count');
+            const errorContainer = document.getElementById('sync-dash-error-container');
+            const errorMsg = document.getElementById('sync-dash-error-msg');
+            const logList = document.getElementById('sync-dash-log-list');
+            const progressContainer = document.getElementById('sync-dash-progress-container');
+            const progressBar = document.getElementById('sync-dash-progress-bar');
+            const progressText = document.getElementById('sync-dash-progress-text');
+
+            if (!pendingCountEl) return;
+
+            // Connection status
+            const isOnline = navigator.onLine;
+            if (isOnline) {
+                if (netDot) netDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                if (netText) netText.textContent = "Online";
+            } else {
+                if (netDot) netDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+                if (netText) netText.textContent = "Offline";
+            }
+
+            // Last Sync Time formatting
+            if (window.lastSyncTime) {
+                const diffSec = Math.floor((Date.now() - window.lastSyncTime) / 1000);
+                if (diffSec < 5) {
+                    timeVal.textContent = "Just now";
+                } else if (diffSec < 60) {
+                    timeVal.textContent = `${diffSec} seconds ago`;
+                } else if (diffSec < 3600) {
+                    timeVal.textContent = `${Math.floor(diffSec / 60)} minutes ago`;
+                } else {
+                    timeVal.textContent = new Date(window.lastSyncTime).toLocaleTimeString();
+                }
+            } else {
+                timeVal.textContent = "Never";
+            }
+
+            // Sync Queue counts
+            let pendingCount = 0;
+            let syncingCount = 0;
+            let logs = [];
+            
+            if (window.localDB) {
+                try {
+                    pendingCount = await window.localDB.syncQueue.where('status').equals('pending').count();
+                    syncingCount = await window.localDB.syncQueue.where('status').equals('syncing').count();
+                    // Load the last 5 logs from syncQueue (both pending, syncing, synced)
+                    logs = await window.localDB.syncQueue.orderBy('timestamp').reverse().limit(5).toArray();
+                } catch (e) {
+                    console.error("Error loading sync stats:", e);
+                }
+            }
+
+            pendingCountEl.textContent = pendingCount;
+
+            // Sync progress indicator
+            if (syncingCount > 0 || (window.syncManager && window.syncManager.isProcessing)) {
+                if (progressContainer) progressContainer.classList.remove('hidden');
+                // Simulate progress
+                const total = pendingCount + syncingCount + 1;
+                const progress = Math.round((1 - (pendingCount / total)) * 100);
+                if (progressBar) progressBar.style.width = `${progress}%`;
+                if (progressText) progressText.textContent = `${progress}%`;
+            } else {
+                if (progressContainer) progressContainer.classList.add('hidden');
+            }
+
+            // Error display
+            if (window.lastSyncError) {
+                if (errorContainer) errorContainer.classList.remove('hidden');
+                if (errorMsg) errorMsg.textContent = window.lastSyncError;
+            } else {
+                if (errorContainer) errorContainer.classList.add('hidden');
+            }
+
+            // Sync Log list
+            if (logList) {
+                if (logs.length > 0) {
+                    logList.innerHTML = logs.map(log => {
+                        let statusColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+                        if (log.status === 'synced') statusColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+                        if (log.status === 'syncing') statusColor = 'text-blue-500 bg-blue-500/10 border-blue-500/20';
+                        
+                        const timeStr = new Date(log.timestamp).toLocaleTimeString();
+                        return `
+                            <div class="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
+                                <div class="flex flex-col">
+                                    <span class="font-black text-slate-700 dark:text-slate-200">Operation #${log.id}</span>
+                                    <span class="text-[10px] text-slate-400 font-bold">${timeStr}</span>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-lg border font-black text-[9px] uppercase tracking-wider ${statusColor}">
+                                    ${log.status}
+                                </span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    logList.innerHTML = `<div class="text-center py-4 text-xs text-slate-400 font-medium">No recent operations logged.</div>`;
+                }
+            }
+        };
+
+        window.openSyncDashboardModal = function () {
+            window.updateSyncDashboardUI();
+            window.openModal('sync-dashboard-modal');
+        };
+
+        window.closeSyncDashboardModal = function () {
+            window.closeModal('sync-dashboard-modal');
+        };
+
+        window.triggerManualSync = async function () {
+            const btn = document.getElementById('btn-manual-sync');
+            const spinner = document.getElementById('manual-sync-spinner');
+            const btnText = document.getElementById('manual-sync-text');
+
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.textContent = 'Syncing...';
+
+            window.lastSyncError = null;
+
+            try {
+                if (window.syncManager) {
+                    await window.syncManager.processQueue();
+                }
+            } catch (e) {
+                console.error("Manual sync triggered error:", e);
+            }
+
+            setTimeout(async () => {
+                await window.updateSyncDashboardUI();
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (btnText) btnText.textContent = 'Force Manual Sync';
+            }, 800);
+        };
+
         window.switchRoutineSet = function (direction) {
             window.activeRoutineSet = window.activeRoutineSet === 1 ? 2 : 1;
             const badge = document.getElementById('active-routine-badge');
@@ -2507,29 +2970,87 @@
             localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
             console.log("Offline Backup Saved");
 
-            const executeSave = () => {
-                if (!db) return;
-                isSyncing = true;
-                showSync('saving');
+            // Parallel save to IndexedDB via Dexie
+            if (window.localDBHelper) {
+                window.localDBHelper.setSetting('dashboardConfig', window.dashboardConfig);
+                window.localDBHelper.setSetting('weeklyTargetsDatabase', window.weeklyTargetsDatabase || {});
+                window.localDBHelper.setSetting('activeTimerState', window.activeTimerState);
+                window.localDBHelper.setSetting('passedItems', window.passedItems || { programs: [], subjects: [] });
+                window.localDBHelper.setSetting('revisionData', window.revisionData || { active: [], progress: {} });
+                window.localDBHelper.setSetting('subjectTimeLinks', window.subjectTimeLinks || {});
+                window.localDBHelper.setSetting('successResults', window.successResults || []);
+                window.localDBHelper.setSetting('tracks', window.tracks || []);
+                window.localDBHelper.setSetting('activeRoutineSet', window.activeRoutineSet || 1);
+                window.localDBHelper.setSetting('customPrograms', window.customPrograms || {});
+                window.localDBHelper.setSetting('customSyllabus', syllabusStructure || {});
+                window.localDBHelper.setSetting('customActions', window.customActions || []);
+                window.localDBHelper.setSetting('paceGoals', window.paceGoals || []);
+                
+                window.localDB.tasks.clear().then(() => {
+                    if (Array.isArray(tasks)) {
+                        window.localDB.tasks.bulkPut(tasks).catch(err => console.error("Error bulk putting tasks:", err));
+                    }
+                });
+                
+                window.localDB.timerLogs.clear().then(() => {
+                    if (Array.isArray(window.timerLogs)) {
+                        window.localDB.timerLogs.bulkPut(window.timerLogs).catch(err => console.error("Error bulk putting timerLogs:", err));
+                    }
+                });
+                
+                window.localDB.scheduleBlocks.clear().then(() => {
+                    const blocks = window.scheduleBlocks || [];
+                    if (Array.isArray(blocks)) {
+                        window.localDB.scheduleBlocks.bulkPut(blocks).catch(err => console.error("Error bulk putting scheduleBlocks:", err));
+                    }
+                });
+                
+                window.localDB.scheduleBlocks2.clear().then(() => {
+                    const blocks2 = window.scheduleBlocks2 || [];
+                    if (Array.isArray(blocks2)) {
+                        window.localDB.scheduleBlocks2.bulkPut(blocks2).catch(err => console.error("Error bulk putting scheduleBlocks2:", err));
+                    }
+                });
+                
+                window.localDB.scheduleGroups.clear().then(() => {
+                    const groups = window.scheduleGroups || [];
+                    if (Array.isArray(groups)) {
+                        window.localDB.scheduleGroups.bulkPut(groups).catch(err => console.error("Error bulk putting scheduleGroups:", err));
+                    }
+                });
+                
+                console.log("IndexedDB Local Backup Saved");
+            }
 
-                db.collection('studyPlan').doc('globalData').set(window.appState)
-                    .then(() => {
-                        console.log("Cloud Sync Success");
-                        showSync('saved');
-                    })
-                    .catch((error) => {
-                        console.error("Sync Error:", error);
-                        showSync('error');
-                    })
-                    .finally(() => {
-                        // Small buffer after write
-                        setTimeout(() => { isSyncing = false; }, 300);
-                        if (needsSave) { needsSave = false; saveTimeout = setTimeout(executeSave, 800); }
-                    });
+            const executeSave = () => {
+                if (window.syncManager) {
+                    window.syncManager.enqueue(window.appState);
+                } else if (db) {
+                    isSyncing = true;
+                    showSync('saving');
+
+                    db.collection('studyPlan').doc('globalData').set(window.appState)
+                        .then(() => {
+                            console.log("Cloud Sync Success");
+                            showSync('saved');
+                        })
+                        .catch((error) => {
+                            console.error("Sync Error:", error);
+                            showSync('error');
+                        })
+                        .finally(() => {
+                            setTimeout(() => { isSyncing = false; }, 300);
+                        });
+                }
             };
 
-            if (immediate) { if (saveTimeout) clearTimeout(saveTimeout); executeSave(); }
-            else { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(executeSave, 800); }
+            if (immediate) {
+                if (saveTimeout) clearTimeout(saveTimeout);
+                executeSave();
+            } else {
+                if (saveTimeout) clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(executeSave, 800);
+            }
         }
 
         window.saveHeaderConfigFromForm = function () {
@@ -8226,8 +8747,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
-            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
+            const backdrops = { 'sync-dashboard-modal': 'sdm-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
+            const contents = { 'sync-dashboard-modal': 'sdm-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -8258,8 +8779,8 @@
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
-            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
+            const backdrops = { 'sync-dashboard-modal': 'sdm-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
+            const contents = { 'sync-dashboard-modal': 'sdm-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -12674,7 +13195,7 @@
             }
 
             // Route guard
-            firebase.auth().onAuthStateChanged((user) => {
+            firebase.auth().onAuthStateChanged(async (user) => {
                 let currentUser = user;
                 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 if (!currentUser && isLocal) {
@@ -12723,6 +13244,52 @@
                 // Run original DOMContentLoaded setup logic
                 try {
                     let stored = localStorage.getItem('studyMasterBackup');
+                    if (!stored && window.localDBHelper) {
+                        try {
+                            const dbTasks = await window.localDBHelper.readAllTasks();
+                            if (dbTasks && dbTasks.length > 0) {
+                                console.log("Found backup in local IndexedDB database layer, restoring...");
+                                const dbTracks = await window.localDBHelper.getSetting('tracks');
+                                const dbCustomPrograms = await window.localDBHelper.getSetting('customPrograms');
+                                const dbCustomSyllabus = await window.localDBHelper.getSetting('customSyllabus');
+                                const dbCustomActions = await window.localDBHelper.getSetting('customActions');
+                                const dbPaceGoals = await window.localDBHelper.getSetting('paceGoals');
+                                const dbPassedItems = await window.localDBHelper.getSetting('passedItems');
+                                const dbRevisionData = await window.localDBHelper.getSetting('revisionData');
+                                const dbSubjectTimeLinks = await window.localDBHelper.getSetting('subjectTimeLinks');
+                                const dbSuccessResults = await window.localDBHelper.getSetting('successResults');
+                                const dbScheduleBlocks = await window.localDBHelper.readAllScheduleBlocks();
+                                const dbScheduleBlocks2 = await window.localDBHelper.readAllScheduleBlocks2();
+                                const dbScheduleGroups = await window.localDBHelper.readAllScheduleGroups();
+                                const dbDashboardConfig = await window.localDBHelper.getSetting('dashboardConfig');
+                                const dbWeeklyTargetsDatabase = await window.localDBHelper.getSetting('weeklyTargetsDatabase');
+                                const dbActiveRoutineSet = await window.localDBHelper.getSetting('activeRoutineSet');
+
+                                const localData = {
+                                    tasks: dbTasks,
+                                    tracks: dbTracks || [],
+                                    customPrograms: dbCustomPrograms || {},
+                                    customSyllabus: dbCustomSyllabus || {},
+                                    customActions: dbCustomActions || [],
+                                    paceGoals: dbPaceGoals || [],
+                                    passedItems: dbPassedItems || { programs: [], subjects: [] },
+                                    revisionData: dbRevisionData || { active: [], progress: {} },
+                                    subjectTimeLinks: dbSubjectTimeLinks || {},
+                                    successResults: dbSuccessResults || [],
+                                    scheduleBlocks: dbScheduleBlocks || [],
+                                    scheduleBlocks2: dbScheduleBlocks2 || [],
+                                    scheduleGroups: dbScheduleGroups || [],
+                                    dashboardConfig: dbDashboardConfig || {},
+                                    weeklyTargetsDatabase: dbWeeklyTargetsDatabase || {},
+                                    activeRoutineSet: dbActiveRoutineSet || 1
+                                };
+                                stored = JSON.stringify(localData);
+                                localStorage.setItem('studyMasterBackup', stored);
+                            }
+                        } catch (err) {
+                            console.warn("Could not load from IndexedDB backup:", err);
+                        }
+                    }
                     if (!stored && isLocal) {
                         const mockData = {
                             tracks: [
@@ -12797,6 +13364,7 @@
 
                 renderUI();
                 loadFromCloud();
+                if (window.syncManager) window.syncManager.processQueue();
                 window.switchPage('dashboard');
             });
 
@@ -14134,8 +14702,8 @@
                 <div class="mt-8 space-y-4">
                     <!-- Sync / Load statuses -->
                     <div class="flex flex-col gap-2">
-                        <div id="connection-status"
-                            class="flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 transition-all duration-300">
+                        <div id="connection-status" onclick="window.openSyncDashboardModal()"
+                            class="flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 cursor-pointer rounded-lg border border-slate-200 dark:border-slate-700 transition-all duration-300">
                             <span id="connection-dot" class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                             <span id="connection-text"
                                 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Checking...</span>
@@ -14145,8 +14713,8 @@
                             class="hidden text-[9px] font-black text-blue-500 animate-pulse bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800 text-center">
                             Syncing...</div>
 
-                        <div id="sync-status"
-                            class="flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 transition-all opacity-0 scale-95 duration-300">
+                        <div id="sync-status" onclick="window.openSyncDashboardModal()"
+                            class="flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 cursor-pointer rounded-lg border border-slate-200 dark:border-slate-700 transition-all opacity-0 scale-95 duration-300">
                             <svg id="sync-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
                                 viewBox="0 0 24 24"></svg>
                             <span id="sync-text"
@@ -15698,6 +16266,108 @@
 
 
             <!-- Modals -->
+            <!-- Sync Dashboard Modal -->
+            <div id="sync-dashboard-modal"
+                class="fixed inset-0 z-50 hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+                <div id="sdm-backdrop"
+                    class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                    onclick="closeModal('sync-dashboard-modal')"></div>
+                <div id="sdm-content"
+                    class="relative bg-white dark:bg-slate-850 p-6 md:p-8 rounded-[2rem] shadow-2xl w-full max-w-lg border border-slate-205/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col space-y-6">
+                    
+                    <!-- Modal Header -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 bg-blue-500/10 rounded-xl text-blue-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base md:text-lg font-black text-slate-800 dark:text-white">Synchronization Engine</h3>
+                                <p class="text-[9px] uppercase font-black tracking-wider text-slate-400">Offline Caching & Cloud Backup</p>
+                            </div>
+                        </div>
+                        <button onclick="window.closeSyncDashboardModal()" class="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Stats/Status Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Status Box -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between min-h-[90px]">
+                            <span class="text-[10px] uppercase font-black text-slate-400 tracking-wider">Connection status</span>
+                            <div class="flex items-center gap-2 mt-2">
+                                <span id="sync-dash-net-dot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                                <span id="sync-dash-net-text" class="text-xs md:text-sm font-black text-slate-700 dark:text-slate-200">Checking...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Last Sync Box -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between min-h-[90px]">
+                            <span class="text-[10px] uppercase font-black text-slate-400 tracking-wider">Last Sync</span>
+                            <span id="sync-dash-time" class="text-xs font-black text-slate-700 dark:text-slate-200 mt-2">Never</span>
+                        </div>
+                        
+                        <!-- Pending Items Box -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between min-h-[90px]">
+                            <span class="text-[10px] uppercase font-black text-slate-400 tracking-wider">Pending Changes</span>
+                            <span id="sync-dash-pending-count" class="text-xl md:text-2xl font-black text-slate-850 dark:text-slate-100 mt-2">0</span>
+                        </div>
+
+                        <!-- Sync Queue Total -->
+                        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between min-h-[90px]">
+                            <span class="text-[10px] uppercase font-black text-slate-400 tracking-wider">Engine Version</span>
+                            <span class="text-xs md:text-sm font-black text-slate-850 dark:text-slate-100 mt-2">v2 (Dexie DB)</span>
+                        </div>
+                    </div>
+
+                    <!-- Sync Progress Bar -->
+                    <div id="sync-dash-progress-container" class="hidden space-y-2">
+                        <div class="flex items-center justify-between text-[10px] uppercase font-black tracking-wider text-slate-400">
+                            <span>Sync Progress</span>
+                            <span id="sync-dash-progress-text">0%</span>
+                        </div>
+                        <div class="h-2 w-full bg-slate-100 dark:bg-slate-850 rounded-full overflow-hidden">
+                            <div id="sync-dash-progress-bar" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
+                        </div>
+                    </div>
+
+                    <!-- Error Banner -->
+                    <div id="sync-dash-error-container" class="hidden p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-semibold space-y-1">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Recent Synchronization Error:</span>
+                        </div>
+                        <p id="sync-dash-error-msg" class="font-normal text-red-450 pl-6 break-words"></p>
+                    </div>
+
+                    <!-- Recent Operations Log -->
+                    <div class="space-y-3">
+                        <span class="text-[10px] uppercase font-black text-slate-400 tracking-wider">Sync Log / Queue Entries</span>
+                        <div id="sync-dash-log-list" class="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                            <div class="text-center py-4 text-xs text-slate-400 font-medium">No recent operations logged.</div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="window.triggerManualSync()" id="btn-manual-sync" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs uppercase tracking-widest py-4 rounded-xl transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2">
+                            <svg id="manual-sync-spinner" class="hidden animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span id="manual-sync-text">Force Manual Sync</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div id="edit-task-modal"
                 class="fixed inset-0 z-50 hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
                 <div id="etm-backdrop"

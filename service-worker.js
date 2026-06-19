@@ -1,14 +1,14 @@
-const CACHE_NAME = 'projectx-cache-v1.0.2';
+const CACHE_NAME = 'projectx-cache-v1.0.4';
 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './login.html',
   './manifest.json',
-  './icons/project-x.png',
-  './icons/project-x.png',
+  './icons/logo-x.png',
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
