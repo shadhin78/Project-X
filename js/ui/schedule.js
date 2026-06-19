@@ -384,7 +384,7 @@
                 const category = activeBlock.track || activeBlock.program || 'Routine';
                 const blockColor = activeBlock.color || '#6366f1';
 
-                // Desktop version (sidebar)
+                        // Desktop version (sidebar)
                 desktopHtml = `
                     <div class="flex items-center justify-between mb-1.5 select-none">
                         <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
@@ -395,7 +395,7 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md"
-                         style="min-height: 150px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         style="min-height: 180px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
                          onclick="window.openEditScheduleModal('${activeBlock.id}')">
                         
                         <div class="flex flex-col gap-1.5 min-w-0">
@@ -466,7 +466,7 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 150px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         style="min-height: 180px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
                          onclick="window.switchPage('schedule')">
                         
                         <div class="flex flex-col gap-1.5 min-w-0">
@@ -482,7 +482,7 @@
                             <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
                             </div>
-                            <div class="flex items-center justify-between gap-2 shrink-0">
+                            <div class="flex items-center justify-between gap-2 shrink-0 font-sans">
                                 <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
                                 <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
                             </div>
@@ -500,12 +500,12 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all select-none"
-                         style="min-height: 150px;">
+                         style="min-height: 180px;">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-400 dark:text-slate-500 mt-2">No active routine slot right now.</p>
+                        <p class="text-[9px] opacity-75 text-slate-440 dark:text-slate-500 mt-2">No active routine slot right now.</p>
                     </div>
                 `;
 
@@ -535,7 +535,7 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 150px;"
+                         style="min-height: 180px;"
                          onclick="window.switchPage('schedule')">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
@@ -569,7 +569,7 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 150px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
+                         style="min-height: 180px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
                          onclick="window.switchPage('timer')">
                         
                         <div class="flex flex-col gap-1.5 min-w-0">
@@ -588,8 +588,17 @@
                             <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
                             </div>
-                            <div class="flex items-center justify-between gap-2 shrink-0">
-                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">Active Session</span>
+                            <div class="flex items-center justify-between gap-2 shrink-0 mt-1">
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="event.stopPropagation(); window.toggleTimerClick();" 
+                                            class="px-2.5 py-1 bg-white/20 hover:bg-white/35 text-white font-black text-[9px] uppercase tracking-wider rounded-lg border border-white/25 active:scale-95 transition-all">
+                                        ${window.activeTimerState.isRunning ? 'PAUSE' : 'START'}
+                                    </button>
+                                    <button onclick="event.stopPropagation(); window.resetTimerClick();" 
+                                            class="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/90 font-black text-[9px] uppercase tracking-wider rounded-lg border border-white/10 active:scale-95 transition-all">
+                                        RESET
+                                    </button>
+                                </div>
                                 <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Open Timer &rarr;</span>
                             </div>
                         </div>
@@ -606,15 +615,16 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 150px;"
+                         style="min-height: 180px;"
                          onclick="window.switchPage('timer')">
                         <div class="flex items-center gap-2">
                             <span class="text-base">⏱️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Focus Timer</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
+                        <p class="text-[9px] opacity-75 text-slate-455 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
                     </div>
                 `;
+            }`;
             }
 
             if (activeContainer) activeContainer.innerHTML = desktopHtml;

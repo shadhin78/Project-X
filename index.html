@@ -2000,7 +2000,7 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md"
-                         style="min-height: 150px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         style="min-height: 180px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
                          onclick="window.openEditScheduleModal('${activeBlock.id}')">
                         
                         <div class="flex flex-col gap-1.5 min-w-0">
@@ -2071,7 +2071,7 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 150px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         style="min-height: 180px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
                          onclick="window.switchPage('schedule')">
                         
                         <div class="flex flex-col gap-1.5 min-w-0">
@@ -2087,7 +2087,7 @@
                             <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
                             </div>
-                            <div class="flex items-center justify-between gap-2 shrink-0">
+                            <div class="flex items-center justify-between gap-2 shrink-0 font-sans">
                                 <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
                                 <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
                             </div>
@@ -2105,12 +2105,12 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all select-none"
-                         style="min-height: 150px;">
+                         style="min-height: 180px;">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-400 dark:text-slate-500 mt-2">No active routine slot right now.</p>
+                        <p class="text-[9px] opacity-75 text-slate-440 dark:text-slate-500 mt-2">No active routine slot right now.</p>
                     </div>
                 `;
 
@@ -2140,7 +2140,7 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 150px;"
+                         style="min-height: 180px;"
                          onclick="window.switchPage('schedule')">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
@@ -2174,7 +2174,7 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 150px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
+                         style="min-height: 180px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
                          onclick="window.switchPage('timer')">
                         
                         <div class="flex flex-col gap-1.5 min-w-0">
@@ -2193,8 +2193,17 @@
                             <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
                             </div>
-                            <div class="flex items-center justify-between gap-2 shrink-0">
-                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">Active Session</span>
+                            <div class="flex items-center justify-between gap-2 shrink-0 mt-1">
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="event.stopPropagation(); window.toggleTimerClick();" 
+                                            class="px-2.5 py-1 bg-white/20 hover:bg-white/35 text-white font-black text-[9px] uppercase tracking-wider rounded-lg border border-white/25 active:scale-95 transition-all">
+                                        ${window.activeTimerState.isRunning ? 'PAUSE' : 'START'}
+                                    </button>
+                                    <button onclick="event.stopPropagation(); window.resetTimerClick();" 
+                                            class="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/90 font-black text-[9px] uppercase tracking-wider rounded-lg border border-white/10 active:scale-95 transition-all">
+                                        RESET
+                                    </button>
+                                </div>
                                 <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Open Timer &rarr;</span>
                             </div>
                         </div>
@@ -2211,13 +2220,13 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 150px;"
+                         style="min-height: 180px;"
                          onclick="window.switchPage('timer')">
                         <div class="flex items-center gap-2">
                             <span class="text-base">⏱️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Focus Timer</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
+                        <p class="text-[9px] opacity-75 text-slate-455 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
                     </div>
                 `;
             }
@@ -11378,36 +11387,51 @@
 
             listContainer.innerHTML = '';
 
+            if (listContainer) {
+                listContainer.className = "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 overflow-y-auto max-h-[125px] pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1";
+            }
+
             targetsList.forEach((target, idx) => {
                 const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
                 const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
                 if (isCompleted) completedTargets++;
 
-                const statusColor = isCompleted
-                    ? 'border-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-950/20'
-                    : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30';
-
                 let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
+                const subjectColor = window.getSubjectColor ? window.getSubjectColor(target.subject) : '#10b981';
+
+                const activeStyle = `background-color: ${subjectColor}cc; border-color: ${subjectColor}; color: white; box-shadow: 0 4px 12px ${subjectColor}33;`;
+                const buttonClass = isCompleted
+                    ? `text-white border-transparent`
+                    : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
 
                 const itemHtml = `
-                <div class="flex items-center justify-between p-2.5 rounded-xl border ${statusColor} transition-all duration-300">
-                    <div class="flex items-center space-x-2.5 min-w-0">
-                        <input type="checkbox" 
-                            onchange="window.toggleDashboardWeeklyTargetCompletion(${idx}, this.checked)" 
-                            class="form-checkbox h-4.5 w-4.5 text-emerald-500 dark:text-emerald-500 rounded border-slate-350 focus:ring-emerald-500 transition-all cursor-pointer" 
-                            ${isCompleted ? 'checked' : ''}>
-                        <div class="min-w-0">
-                            <span class="block text-[11px] font-black text-slate-800 dark:text-slate-100 truncate ${isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : ''}">${target.chapter}: ${displaySub}</span>
-                            <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${target.program}</span>
+                <button onclick="window.toggleDashboardWeeklyTargetCompletion(${idx}, ${!isCompleted})"
+                        class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 ${buttonClass}"
+                        style="${isCompleted ? activeStyle : ''}">
+                    <div class="flex items-center space-x-1.5 min-w-0 flex-1">
+                        <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                        </div>
+                        <div class="min-w-0 leading-tight">
+                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${target.chapter}: ${displaySub}</span>
+                            <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${target.program} | ${isCompleted ? 'YES' : 'NO'}</span>
                         </div>
                     </div>
-                </div>`;
+                    <div class="shrink-0">
+                        ${isCompleted 
+                            ? `<span class="flex h-4 w-4 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm text-[8px] font-black">✓</span>`
+                            : `<span class="flex h-4 w-4 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 items-center justify-center text-[7px] font-black">✕</span>`
+                        }
+                    </div>
+                </button>`;
                 listContainer.innerHTML += itemHtml;
             });
 
             if (totalTargets === 0) {
                 listContainer.innerHTML = `
-                <div class="py-8 text-center text-[9px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                <div class="py-8 text-center text-[9px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 w-full col-span-2 sm:col-span-4 lg:col-span-2">
                     No targets set for this week.
                 </div>`;
             }
@@ -15053,7 +15077,7 @@
                     </div>
 
                     <!-- Today's Daily Actions Section -->
-                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col justify-between" style="min-height: 195px;">
+                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col justify-between" style="min-height: 225px;">
                         <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
                             <div>
                                 <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily Actions</h3>
@@ -15079,7 +15103,7 @@
                     <!-- Weekly Targets Checklist Section -->
                     <div id="dashboard-weekly-targets-section"
                         class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col justify-between animate-page-enter"
-                        style="min-height: 195px;">
+                        style="min-height: 225px;">
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center space-x-2">
                                 <div class="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0">
