@@ -1,4 +1,4 @@
-const CACHE_NAME = 'projectx-cache-v1.0.4';
+const CACHE_NAME = 'projectx-cache-v1.0.5';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -73,8 +73,16 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Offline: serve from cache
-          return caches.match('./index.html') || caches.match(event.request);
+          // Offline: serve matching request or custom fallbacks from cache
+          const url = new URL(event.request.url);
+          // Handle login routing specifically to prevent redirect loops
+          if (url.pathname === '/login' || url.pathname.endsWith('/login.html')) {
+            return caches.match('./login.html');
+          }
+          // Serve matching request if available, otherwise fallback to dashboard index.html
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('./index.html');
+          });
         })
     );
     return;
