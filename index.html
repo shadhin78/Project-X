@@ -1890,6 +1890,7 @@
             const activeContainer = document.getElementById('schedule-active-now-container');
             const mobileContainer = document.getElementById('schedule-active-now-mobile');
             const dashContainer = document.getElementById('dashboard-active-now-container');
+            const dashTimerContainer = document.getElementById('dashboard-focus-timer-container');
 
             // Check active routine set for active block
             const currentSet = window.activeRoutineSet || 1;
@@ -1932,6 +1933,43 @@
             let mobileHtml = '';
             // Build dashboard Active Now HTML (compact, clickable navigation)
             let dashHtml = '';
+            // Build dashboard Focus Timer HTML
+            let dashTimerHtml = '';
+
+            let timerElapsedMs = 0;
+            let isTimerActive = false;
+            let timerSeconds = 0;
+            let timerProgressPercent = 0;
+            let timerSubject = 'General Study';
+            let timerModeLabel = 'TIMER';
+            let timerStatusText = 'READY';
+            let timerColor = '#2563eb';
+            
+            if (window.activeTimerState) {
+                let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+                if (window.activeTimerState.isRunning && window.activeTimerState.startTime) {
+                    elapsedMs += (Date.now() - window.activeTimerState.startTime);
+                }
+                timerElapsedMs = elapsedMs;
+                isTimerActive = window.activeTimerState.isRunning || elapsedMs > 0;
+                
+                timerSubject = window.activeTimerState.selectedSubject || 'General Study';
+                timerModeLabel = window.activeTimerState.mode.toUpperCase();
+                timerColor = window.getSubjectColor ? window.getSubjectColor(timerSubject) : '#2563eb';
+                timerStatusText = window.activeTimerState.isRunning ? 'FOCUSING' : (elapsedMs > 0 ? 'PAUSED' : 'READY');
+                
+                if (window.activeTimerState.mode === 'stopwatch') {
+                    timerSeconds = Math.floor(elapsedMs / 1000);
+                    timerProgressPercent = Math.round(((timerSeconds % 60) / 60) * 100);
+                } else {
+                    const targetMs = (window.activeTimerState.targetDuration || 0) * 1000;
+                    const remainingMs = Math.max(0, targetMs - elapsedMs);
+                    timerSeconds = window.activeTimerState.isRunning ? Math.ceil(remainingMs / 1000) : Math.floor(remainingMs / 1000);
+                    const target = window.activeTimerState.targetDuration || 1;
+                    const elapsedSec = Math.floor(elapsedMs / 1000);
+                    timerProgressPercent = Math.min(100, Math.round((elapsedSec / target) * 100));
+                }
+            }
 
             if (activeBlock) {
                 const startMin = timeToMinutes(activeBlock.startTime);
@@ -2033,25 +2071,25 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 120px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         style="min-height: 150px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
                          onclick="window.switchPage('schedule')">
                         
-                        <div class="flex flex-col gap-1 min-w-0">
-                            <div class="flex justify-between items-start gap-2">
-                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
-                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
-                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
-                            </div>
-                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-1" title="${activeBlock.task}">${activeBlock.task}</h4>
+                        <div class="flex flex-col gap-1.5 min-w-0">
+                            <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                  style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
+                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-0.5" title="${activeBlock.task}">${activeBlock.task}</h4>
                         </div>
                         
-                        <div class="mt-2 space-y-1.5">
-                            <div class="flex items-center justify-between gap-3">
+                        <div class="mt-2 space-y-2">
+                            <div class="text-center">
                                 <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${countdownStr}</span>
-                                <span class="text-[9px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
                             </div>
-                            <div class="w-full bg-white/15 rounded-full h-1 overflow-hidden">
+                            <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 shrink-0">
+                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
                             </div>
                         </div>
                     </div>
@@ -2067,12 +2105,12 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all select-none"
-                         style="min-height: 130px;">
+                         style="min-height: 150px;">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-400 dark:text-slate-500 mt-1.5">No active routine slot right now.</p>
+                        <p class="text-[9px] opacity-75 text-slate-400 dark:text-slate-500 mt-2">No active routine slot right now.</p>
                     </div>
                 `;
 
@@ -2102,13 +2140,84 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 100px;"
+                         style="min-height: 150px;"
                          onclick="window.switchPage('schedule')">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-1">No active routine slot right now. Go to Schedule</p>
+                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active routine slot right now. Go to Schedule</p>
+                    </div>
+                `;
+            }
+
+            // Build Focus Timer HTML independently
+            if (isTimerActive) {
+                const hrs = Math.floor(timerSeconds / 3600);
+                const mins = Math.floor((timerSeconds % 3600) / 60);
+                const secs = timerSeconds % 60;
+                const clockText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                
+                const statusDot = window.activeTimerState.isRunning ? `
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                ` : `
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                `;
+
+                dashTimerHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
+                        <span class="flex h-2 w-2 relative">
+                            ${statusDot}
+                        </span>
+                    </div>
+                    
+                    <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
+                         style="min-height: 150px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
+                         onclick="window.switchPage('timer')">
+                        
+                        <div class="flex flex-col gap-1.5 min-w-0">
+                            <div class="flex justify-between items-start gap-2">
+                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${timerModeLabel}</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">${timerStatusText}</span>
+                            </div>
+                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-0.5" title="${timerSubject}">${timerSubject}</h4>
+                        </div>
+                        
+                        <div class="mt-2 space-y-2">
+                            <div class="text-center">
+                                <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${clockText}</span>
+                            </div>
+                            <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 shrink-0">
+                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">Active Session</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Open Timer &rarr;</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Empty Focus Timer card (clickable navigation to timer page)
+                dashTimerHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
+                         style="min-height: 150px;"
+                         onclick="window.switchPage('timer')">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">⏱️</span>
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Focus Timer</h4>
+                        </div>
+                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
                     </div>
                 `;
             }
@@ -2116,6 +2225,7 @@
             if (activeContainer) activeContainer.innerHTML = desktopHtml;
             if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
             if (dashContainer) dashContainer.innerHTML = dashHtml;
+            if (dashTimerContainer) dashTimerContainer.innerHTML = dashTimerHtml;
         };
 
         // Live Header Clock with seconds (updates clock and active slot display)
@@ -5965,21 +6075,21 @@
                     
                     const compactHtml = `
                     <button onclick="window.setDailyState('${cfg.id}', ${!isActive})"
-                            class="flex items-center justify-between p-3.5 rounded-2xl border font-black text-xs transition-all duration-300 active:scale-95 text-left w-full gap-2 ${cardClass}"
+                            class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 ${cardClass}"
                             style="${isActive ? activeStyle : ''}">
-                        <div class="flex items-center space-x-2 min-w-0">
-                            <div class="p-1.5 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
+                        <div class="flex items-center space-x-1.5 min-w-0">
+                            <div class="p-1 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
                             </div>
-                            <div class="min-w-0">
-                                <span class="block text-xs font-black truncate leading-tight">${cfg.title}</span>
-                                <span class="block text-[8px] uppercase tracking-wider font-bold opacity-75 truncate mt-0.5">${isActive ? 'YES' : 'NO'}</span>
+                            <div class="min-w-0 leading-tight">
+                                <span class="block text-[10px] md:text-xs font-black truncate">${cfg.title}</span>
+                                <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${isActive ? 'YES' : 'NO'}</span>
                             </div>
                         </div>
                         <div class="shrink-0">
                             ${isActive 
-                                ? `<span class="flex h-5 w-5 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm font-black">✓</span>`
-                                : `<span class="flex h-5 w-5 rounded-full border border-slate-350 dark:border-slate-600 bg-white dark:bg-slate-850 text-slate-400 dark:text-slate-500 items-center justify-center text-[10px] font-black">✕</span>`
+                                ? `<span class="flex h-4 w-4 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm text-[8px] font-black">✓</span>`
+                                : `<span class="flex h-4 w-4 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 items-center justify-center text-[7px] font-black">✕</span>`
                             }
                         </div>
                     </button>`;
@@ -14936,12 +15046,134 @@
 
             <!-- Page: Dashboard -->
             <div id="page-dashboard" class="space-y-6 md:space-y-8">
-                <!-- Active Now Container on Dashboard (Shortcut to Daily Schedule) -->
-                <div id="dashboard-active-now-container" class="w-full">
-                    <!-- Populated dynamically by updateActiveScheduleSlot() -->
+                <!-- Responsive Grid for Active Now, Today's Daily Actions, Focus Timer, and Weekly Targets Cards -->
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full mb-6">
+                    <div id="dashboard-active-now-container" class="w-full">
+                        <!-- Populated dynamically by updateActiveScheduleSlot() -->
+                    </div>
+
+                    <!-- Today's Daily Actions Section -->
+                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col justify-between" style="min-height: 195px;">
+                        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
+                            <div>
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily Actions</h3>
+                                <p class="text-[8px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">Quick Check-in</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span id="dashboard-daily-actions-percent" class="text-[10px] font-black text-slate-700 dark:text-slate-200">0%</span>
+                                <div class="w-16 bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 p-0.5">
+                                    <div id="dashboard-daily-actions-progress" class="h-full rounded-full bg-blue-500 transition-all duration-500 w-0"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <div id="dashboard-focus-timer-container" class="w-full">
+                        <!-- Populated dynamically by updateActiveScheduleSlot() -->
+                    </div>
+
+                    <!-- Weekly Targets Checklist Section -->
+                    <div id="dashboard-weekly-targets-section"
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col justify-between animate-page-enter"
+                        style="min-height: 195px;">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 truncate">Weekly Targets</h3>
+                                    <span class="text-[7px] text-slate-400 uppercase tracking-wider block font-black truncate" id="db-weekly-checklist-range">Present Week</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span id="db-weekly-checklist-pct" class="text-xs font-black text-emerald-600 dark:text-emerald-400">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full overflow-hidden mb-2.5 border border-slate-200/50 dark:border-slate-700/50 p-0.5">
+                            <div id="db-weekly-checklist-progress" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500 w-0"></div>
+                        </div>
+
+                        <!-- Targets List -->
+                        <div id="db-weekly-targets-checklist" class="space-y-1.5 overflow-y-auto max-h-[90px] pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1">
+                            <!-- Dynamic list items -->
+                        </div>
+                    </div>
                 </div>
 
-                <!-- X Bar -->
+                <div class="w-full mb-6 md:mb-8 pt-2 sm:pt-4 scroll-mt-24">
+                    <!-- Performance Trends charts inside the full container -->
+                    <div id="trend-charts-section" class="w-full space-y-6 pt-2 scroll-mt-24">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h2
+                                    class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                                    Performance Trends</h2>
+                            </div>
+                            <div
+                                class="flex bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-slate-600/50">
+                                <button onclick="window.setTrendFilter('1Y')" id="tf-1Y"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">1Y</button>
+                                <button onclick="window.setTrendFilter('2Y')" id="tf-2Y"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">2Y</button>
+                                <button onclick="window.setTrendFilter('3Y')" id="tf-3Y"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">3Y</button>
+                                <button onclick="window.setTrendFilter('ALL')" id="tf-ALL"
+                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all bg-blue-600 text-white shadow">Life Time</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
+                            <div
+                                class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
+                                <div class="flex justify-between items-center mb-4 md:mb-6">
+                                    <h3
+                                        class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
+                                        Program Completion Trend</h3>
+                                    <button onclick="openSubjectTrendModal()"
+                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-indigo-700 active:scale-95 transition-all">Subject View</button>
+                                </div>
+                                <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
+                                        id="mainChartPrograms"></canvas></div>
+                                <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                                    <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                                    <div id="prog-comment"></div>
+                                </div>
+                            </div>
+                            <div
+                                class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
+                                <div class="flex justify-between items-center mb-4 md:mb-6">
+                                    <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest"
+                                        id="daily-actions-month-title">
+                                        Daily Actions (Month)</h3>
+                                    <button onclick="openYearlyActionsModal()"
+                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Year View</button>
+                                </div>
+                                <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
+                                        id="monthlyActionsChart"></canvas></div>
+                                <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                                    <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                                    <div id="daily-actions-msg-bar" class="mt-2"></div>
+                                    <div id="act-comment"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="category-progress-container"
+                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-8 md:mb-10">
+                </div>
+
+                <!-- X Bar at the bottom of the dashboard -->
                 <div
                     class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-6 mb-6 flex flex-wrap items-center justify-between gap-5 relative z-10 w-full animate-page-enter shadow-sm">
                     <div class="w-full flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 mb-1">
@@ -15031,134 +15263,6 @@
                         </svg>
                         <span>Edit Settings</span>
                     </button>
-                </div>
-
-                <!-- Compact Daily Actions Section -->
-                <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-6 mb-6 shadow-sm">
-                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
-                        <div>
-                            <h3 class="text-xs font-black uppercase tracking-widest text-slate-850 dark:text-white">Today's Daily Actions</h3>
-                            <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Quick Check-in (Toggles Yes/No)</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span id="dashboard-daily-actions-percent" class="text-xs font-black text-slate-700 dark:text-slate-200">0%</span>
-                            <div class="w-20 bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 p-0.5">
-                                <div id="dashboard-daily-actions-progress" class="h-full rounded-full bg-blue-500 transition-all duration-500 w-0"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <!-- Populated dynamically via JS -->
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 md:gap-8 mb-6 md:mb-8 pt-2 sm:pt-4 scroll-mt-24">
-                    <!-- Performance Trends charts inside the grid (xl:col-span-4) -->
-                    <div id="trend-charts-section" class="xl:col-span-4 space-y-6 pt-2 scroll-mt-24">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                            <div class="flex flex-wrap items-center gap-3">
-                                <h2
-                                    class="text-base md:text-lg font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                                    Performance Trends</h2>
-                            </div>
-                            <div
-                                class="flex bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-slate-600/50">
-                                <button onclick="window.setTrendFilter('1Y')" id="tf-1Y"
-                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">1Y</button>
-                                <button onclick="window.setTrendFilter('2Y')" id="tf-2Y"
-                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">2Y</button>
-                                <button onclick="window.setTrendFilter('3Y')" id="tf-3Y"
-                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-600">3Y</button>
-                                <button onclick="window.setTrendFilter('ALL')" id="tf-ALL"
-                                    class="px-3 md:px-4 py-1.5 text-[10px] md:text-xs font-black rounded-lg transition-all bg-blue-600 text-white shadow">Life Time</button>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-                            <div
-                                class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
-                                <div class="flex justify-between items-center mb-4 md:mb-6">
-                                    <h3
-                                        class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
-                                        Program Completion Trend</h3>
-                                    <button onclick="openSubjectTrendModal()"
-                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-indigo-700 active:scale-95 transition-all">Subject View</button>
-                                </div>
-                                <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
-                                        id="mainChartPrograms"></canvas></div>
-                                <div class="mt-4 md:mt-6 flex flex-col gap-3">
-                                    <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
-                                    <div id="prog-comment"></div>
-                                </div>
-                            </div>
-                            <div
-                                class="bg-white dark:bg-slate-800 p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-lg transition-shadow">
-                                <div class="flex justify-between items-center mb-4 md:mb-6">
-                                    <h3 class="text-[9px] sm:text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest"
-                                        id="daily-actions-month-title">
-                                        Daily Actions (Month)</h3>
-                                    <button onclick="openYearlyActionsModal()"
-                                        class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Year View</button>
-                                </div>
-                                <div class="relative h-[180px] md:h-[250px] mt-auto w-full"><canvas
-                                        id="monthlyActionsChart"></canvas></div>
-                                <div class="mt-4 md:mt-6 flex flex-col gap-3">
-                                    <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
-                                    <div id="daily-actions-msg-bar" class="mt-2"></div>
-                                    <div id="act-comment"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Weekly Target Checklist Section (takes 1/5 width on desktop) -->
-                    <div
-                        class="xl:col-span-1 bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-xl transition-all">
-                        <div class="flex justify-between items-center mb-4">
-                            <div class="flex items-center space-x-2.5">
-                                <div
-                                    class="p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                                    <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
-                                        </path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3
-                                        class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
-                                        Weekly Targets</h3>
-                                    <span
-                                        class="text-[8px] sm:text-[9px] text-slate-400 uppercase tracking-wider block font-black"
-                                        id="db-weekly-checklist-range">Present Week</span>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span id="db-weekly-checklist-pct"
-                                    class="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400">0%</span>
-                            </div>
-                        </div>
-
-                        <!-- Progress Bar -->
-                        <div
-                            class="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden mb-5 border border-slate-200/50 dark:border-slate-700/50 p-0.5">
-                            <div id="db-weekly-checklist-progress"
-                                class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500 w-0">
-                            </div>
-                        </div>
-
-                        <!-- Targets List -->
-                        <div id="db-weekly-targets-checklist"
-                            class="space-y-3 overflow-y-auto max-h-[300px] pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
-                            <!-- Dynamic list items -->
-                        </div>
-                    </div>
-                </div>
-
-                <div id="category-progress-container"
-                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-8 md:mb-10">
                 </div>
             </div>
 

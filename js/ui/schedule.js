@@ -285,6 +285,7 @@
             const activeContainer = document.getElementById('schedule-active-now-container');
             const mobileContainer = document.getElementById('schedule-active-now-mobile');
             const dashContainer = document.getElementById('dashboard-active-now-container');
+            const dashTimerContainer = document.getElementById('dashboard-focus-timer-container');
 
             // Check active routine set for active block
             const currentSet = window.activeRoutineSet || 1;
@@ -327,6 +328,43 @@
             let mobileHtml = '';
             // Build dashboard Active Now HTML (compact, clickable navigation)
             let dashHtml = '';
+            // Build dashboard Focus Timer HTML
+            let dashTimerHtml = '';
+
+            let timerElapsedMs = 0;
+            let isTimerActive = false;
+            let timerSeconds = 0;
+            let timerProgressPercent = 0;
+            let timerSubject = 'General Study';
+            let timerModeLabel = 'TIMER';
+            let timerStatusText = 'READY';
+            let timerColor = '#2563eb';
+            
+            if (window.activeTimerState) {
+                let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+                if (window.activeTimerState.isRunning && window.activeTimerState.startTime) {
+                    elapsedMs += (Date.now() - window.activeTimerState.startTime);
+                }
+                timerElapsedMs = elapsedMs;
+                isTimerActive = window.activeTimerState.isRunning || elapsedMs > 0;
+                
+                timerSubject = window.activeTimerState.selectedSubject || 'General Study';
+                timerModeLabel = window.activeTimerState.mode.toUpperCase();
+                timerColor = window.getSubjectColor ? window.getSubjectColor(timerSubject) : '#2563eb';
+                timerStatusText = window.activeTimerState.isRunning ? 'FOCUSING' : (elapsedMs > 0 ? 'PAUSED' : 'READY');
+                
+                if (window.activeTimerState.mode === 'stopwatch') {
+                    timerSeconds = Math.floor(elapsedMs / 1000);
+                    timerProgressPercent = Math.round(((timerSeconds % 60) / 60) * 100);
+                } else {
+                    const targetMs = (window.activeTimerState.targetDuration || 0) * 1000;
+                    const remainingMs = Math.max(0, targetMs - elapsedMs);
+                    timerSeconds = window.activeTimerState.isRunning ? Math.ceil(remainingMs / 1000) : Math.floor(remainingMs / 1000);
+                    const target = window.activeTimerState.targetDuration || 1;
+                    const elapsedSec = Math.floor(elapsedMs / 1000);
+                    timerProgressPercent = Math.min(100, Math.round((elapsedSec / target) * 100));
+                }
+            }
 
             if (activeBlock) {
                 const startMin = timeToMinutes(activeBlock.startTime);
@@ -428,25 +466,25 @@
                     </div>
                     
                     <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 120px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         style="min-height: 150px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
                          onclick="window.switchPage('schedule')">
                         
-                        <div class="flex flex-col gap-1 min-w-0">
-                            <div class="flex justify-between items-start gap-2">
-                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
-                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
-                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
-                            </div>
-                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-1" title="${activeBlock.task}">${activeBlock.task}</h4>
+                        <div class="flex flex-col gap-1.5 min-w-0">
+                            <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                  style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
+                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-0.5" title="${activeBlock.task}">${activeBlock.task}</h4>
                         </div>
                         
-                        <div class="mt-2 space-y-1.5">
-                            <div class="flex items-center justify-between gap-3">
+                        <div class="mt-2 space-y-2">
+                            <div class="text-center">
                                 <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${countdownStr}</span>
-                                <span class="text-[9px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
                             </div>
-                            <div class="w-full bg-white/15 rounded-full h-1 overflow-hidden">
+                            <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 shrink-0">
+                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
                             </div>
                         </div>
                     </div>
@@ -462,12 +500,12 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all select-none"
-                         style="min-height: 130px;">
+                         style="min-height: 150px;">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-400 dark:text-slate-500 mt-1.5">No active routine slot right now.</p>
+                        <p class="text-[9px] opacity-75 text-slate-400 dark:text-slate-500 mt-2">No active routine slot right now.</p>
                     </div>
                 `;
 
@@ -497,13 +535,84 @@
                     </div>
                     
                     <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 100px;"
+                         style="min-height: 150px;"
                          onclick="window.switchPage('schedule')">
                         <div class="flex items-center gap-2">
                             <span class="text-base">☀️</span>
                             <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-1">No active routine slot right now. Go to Schedule</p>
+                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active routine slot right now. Go to Schedule</p>
+                    </div>
+                `;
+            }
+
+            // Build Focus Timer HTML independently
+            if (isTimerActive) {
+                const hrs = Math.floor(timerSeconds / 3600);
+                const mins = Math.floor((timerSeconds % 3600) / 60);
+                const secs = timerSeconds % 60;
+                const clockText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                
+                const statusDot = window.activeTimerState.isRunning ? `
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                ` : `
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                `;
+
+                dashTimerHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
+                        <span class="flex h-2 w-2 relative">
+                            ${statusDot}
+                        </span>
+                    </div>
+                    
+                    <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
+                         style="min-height: 150px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
+                         onclick="window.switchPage('timer')">
+                        
+                        <div class="flex flex-col gap-1.5 min-w-0">
+                            <div class="flex justify-between items-start gap-2">
+                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${timerModeLabel}</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">${timerStatusText}</span>
+                            </div>
+                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-0.5" title="${timerSubject}">${timerSubject}</h4>
+                        </div>
+                        
+                        <div class="mt-2 space-y-2">
+                            <div class="text-center">
+                                <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${clockText}</span>
+                            </div>
+                            <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 shrink-0">
+                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">Active Session</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Open Timer &rarr;</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Empty Focus Timer card (clickable navigation to timer page)
+                dashTimerHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
+                         style="min-height: 150px;"
+                         onclick="window.switchPage('timer')">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">⏱️</span>
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Focus Timer</h4>
+                        </div>
+                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
                     </div>
                 `;
             }
@@ -511,6 +620,7 @@
             if (activeContainer) activeContainer.innerHTML = desktopHtml;
             if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
             if (dashContainer) dashContainer.innerHTML = dashHtml;
+            if (dashTimerContainer) dashTimerContainer.innerHTML = dashTimerHtml;
         };
 
         // Live Header Clock with seconds (updates clock and active slot display)

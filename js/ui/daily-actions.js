@@ -1231,21 +1231,21 @@
                     
                     const compactHtml = `
                     <button onclick="window.setDailyState('${cfg.id}', ${!isActive})"
-                            class="flex items-center justify-between p-3.5 rounded-2xl border font-black text-xs transition-all duration-300 active:scale-95 text-left w-full gap-2 ${cardClass}"
+                            class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 ${cardClass}"
                             style="${isActive ? activeStyle : ''}">
-                        <div class="flex items-center space-x-2 min-w-0">
-                            <div class="p-1.5 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
+                        <div class="flex items-center space-x-1.5 min-w-0">
+                            <div class="p-1 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
                             </div>
-                            <div class="min-w-0">
-                                <span class="block text-xs font-black truncate leading-tight">${cfg.title}</span>
-                                <span class="block text-[8px] uppercase tracking-wider font-bold opacity-75 truncate mt-0.5">${isActive ? 'YES' : 'NO'}</span>
+                            <div class="min-w-0 leading-tight">
+                                <span class="block text-[10px] md:text-xs font-black truncate">${cfg.title}</span>
+                                <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${isActive ? 'YES' : 'NO'}</span>
                             </div>
                         </div>
                         <div class="shrink-0">
                             ${isActive 
-                                ? `<span class="flex h-5 w-5 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm font-black">✓</span>`
-                                : `<span class="flex h-5 w-5 rounded-full border border-slate-350 dark:border-slate-600 bg-white dark:bg-slate-850 text-slate-400 dark:text-slate-500 items-center justify-center text-[10px] font-black">✕</span>`
+                                ? `<span class="flex h-4 w-4 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm text-[8px] font-black">✓</span>`
+                                : `<span class="flex h-4 w-4 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 items-center justify-center text-[7px] font-black">✕</span>`
                             }
                         </div>
                     </button>`;
