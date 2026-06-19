@@ -87,6 +87,25 @@
                 <span id="error-message">Access denied. Project X is private.</span>
             </div>
 
+            <!-- Offline Mode Alert & Button -->
+            <div id="offline-banner"
+                class="hidden flex flex-col gap-3 bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl text-amber-400 text-xs font-semibold animate-fade-in transition-all">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5.5 h-5.5 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z">
+                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 6l12 12"></path>
+                    </svg>
+                    <span>Cloud authentication is offline. You can launch Project X directly in Offline Mode to view or edit your local dashboard data.</span>
+                </div>
+                <button type="button" onclick="window.location.href='/'"
+                    class="w-full mt-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-widest py-2.5 rounded-xl transition-all shadow-md active:scale-[0.98]">
+                    Launch Offline Mode
+                </button>
+            </div>
+
             <!-- Form -->
             <form id="login-form" class="space-y-5">
                 <div class="space-y-2">
@@ -266,6 +285,23 @@
                     spinner.classList.add('hidden');
                 }
             });
+
+            // Network monitoring to show/hide offline banner and toggle form controls
+            function updateOnlineStatus() {
+                const offlineBanner = document.getElementById('offline-banner');
+                const loginForm = document.getElementById('login-form');
+                if (navigator.onLine) {
+                    if (offlineBanner) offlineBanner.classList.add('hidden');
+                    if (loginForm) loginForm.classList.remove('opacity-40', 'pointer-events-none');
+                } else {
+                    if (offlineBanner) offlineBanner.classList.remove('hidden');
+                    if (loginForm) loginForm.classList.add('opacity-40', 'pointer-events-none');
+                }
+            }
+
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
 
             // Register service worker for offline support
             if ('serviceWorker' in navigator) {
