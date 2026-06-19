@@ -13238,47 +13238,14 @@
 
             try {
                 firebase.initializeApp(config);
-                const app = firebase.app();
-                
-                // Dynamically import modular Firebase Firestore for persistent offline cache
-                const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-                const modularDb = firestoreModule.initializeFirestore(app, {
-                    localCache: firestoreModule.persistentLocalCache({
-                        tabManager: firestoreModule.persistentMultipleTabManager()
-                    })
-                });
-                
-                console.log("Modular Firestore initialized with persistentLocalCache");
+                db = firebase.firestore();
+                console.log("Firebase Connected");
 
-                // Compatibility layer wrapper around modularDb
-                db = {
-                    collection: function (collectionName) {
-                        return {
-                            doc: function (docId) {
-                                return {
-                                    set: function (data) {
-                                        return firestoreModule.setDoc(firestoreModule.doc(modularDb, collectionName, docId), data);
-                                    },
-                                    get: async function () {
-                                        const snap = await firestoreModule.getDoc(firestoreModule.doc(modularDb, collectionName, docId));
-                                        return {
-                                            exists: snap.exists(),
-                                            data: () => snap.data()
-                                        };
-                                    },
-                                    onSnapshot: function (callback) {
-                                        return firestoreModule.onSnapshot(firestoreModule.doc(modularDb, collectionName, docId), (snap) => {
-                                            callback({
-                                                exists: snap.exists(),
-                                                data: () => snap.data()
-                                            });
-                                        });
-                                    }
-                                };
-                            }
-                        };
-                    }
-                };
+                db.enablePersistence({ synchronizeTabs: true })
+                    .then(() => console.log("Firestore offline persistence enabled."))
+                    .catch((err) => {
+                        console.warn("Firestore persistence failed:", err.code);
+                    });
             } catch (e) {
                 console.error("Firebase init error:", e);
             }
