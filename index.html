@@ -12574,6 +12574,42 @@
             if (isAppInitialized) return;
             isAppInitialized = true;
 
+            window.updateConnectionStatus = function () {
+                const el = document.getElementById('connection-status');
+                const dot = document.getElementById('connection-dot');
+                const text = document.getElementById('connection-text');
+                const mobDot = document.getElementById('mobile-connection-dot');
+
+                const isOnline = navigator.onLine;
+                if (isOnline) {
+                    if (el) el.className = "flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg border border-emerald-500/20 dark:border-emerald-500/30 transition-all duration-300";
+                    if (dot) dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
+                    if (text) {
+                        text.className = "text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-450";
+                        text.textContent = "Online";
+                    }
+                    if (mobDot) {
+                        mobDot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
+                        mobDot.title = "Online";
+                    }
+                } else {
+                    if (el) el.className = "flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-amber-500/10 dark:bg-amber-500/20 rounded-lg border border-amber-500/20 dark:border-amber-500/30 transition-all duration-300";
+                    if (dot) dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
+                    if (text) {
+                        text.className = "text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-450";
+                        text.textContent = "Offline";
+                    }
+                    if (mobDot) {
+                        mobDot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
+                        mobDot.title = "Offline";
+                    }
+                }
+            };
+
+            window.addEventListener('online', window.updateConnectionStatus);
+            window.addEventListener('offline', window.updateConnectionStatus);
+            window.updateConnectionStatus();
+
             // Fetch config and initialize Firebase
             let config;
             try {
@@ -13944,8 +13980,13 @@
                     <span id="dash-sub-title-mobile" class="text-[9px] font-bold text-slate-400 dark:text-slate-500 truncate mt-0.5"></span>
                 </div>
             </div>
-            <!-- Right Side: Clock -->
-            <div id="mobile-header-clock" class="shrink-0 ml-3"></div>
+            <!-- Right Side: Clock & Network Status -->
+            <div class="flex items-center gap-2 shrink-0 ml-3">
+                <div id="mobile-connection-status" class="flex items-center justify-center">
+                    <span id="mobile-connection-dot" class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                </div>
+                <div id="mobile-header-clock"></div>
+            </div>
         </div>
 
         <!-- Sidebar Backdrop -->
@@ -14093,6 +14134,13 @@
                 <div class="mt-8 space-y-4">
                     <!-- Sync / Load statuses -->
                     <div class="flex flex-col gap-2">
+                        <div id="connection-status"
+                            class="flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 transition-all duration-300">
+                            <span id="connection-dot" class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                            <span id="connection-text"
+                                class="text-[9px] font-black uppercase tracking-widest text-slate-500">Checking...</span>
+                        </div>
+
                         <div id="loading-message"
                             class="hidden text-[9px] font-black text-blue-500 animate-pulse bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800 text-center">
                             Syncing...</div>
