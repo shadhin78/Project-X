@@ -13095,6 +13095,53 @@
             if (isAppInitialized) return;
             isAppInitialized = true;
 
+            // Offline-first Audit & Console Diagnostics
+            (async () => {
+                console.log("=== PROJECT X OFFLINE-FIRST DIAGNOSTICS ===");
+                
+                // 1. Service Worker status
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    if (registrations.length > 0) {
+                        console.log(`[Diagnostic] Service Worker: Active (Scope: ${registrations[0].scope})`);
+                    } else {
+                        console.warn("[Diagnostic] Service Worker: Registered but not active or missing.");
+                    }
+                } else {
+                    console.error("[Diagnostic] Service Worker: Not supported by browser.");
+                }
+
+                // 2. IndexedDB status
+                if (window.localDB) {
+                    try {
+                        const isOpen = window.localDB.isOpen();
+                        console.log(`[Diagnostic] IndexedDB: ${isOpen ? 'Connected (Open)' : 'Disconnected (Closed)'}`);
+                        const taskCount = await window.localDB.tasks.count();
+                        const queueCount = await window.localDB.syncQueue.count();
+                        console.log(`[Diagnostic] IndexedDB Records: Tasks: ${taskCount}, Pending Sync Queue: ${queueCount}`);
+                    } catch (idbErr) {
+                        console.error("[Diagnostic] IndexedDB Error:", idbErr);
+                    }
+                } else {
+                    console.error("[Diagnostic] IndexedDB: window.localDB is undefined.");
+                }
+
+                // 3. Firestore cache status
+                if (typeof db !== 'undefined' && db) {
+                    console.log("[Diagnostic] Firestore: Cache persistence enabled (synchronizeTabs: true)");
+                } else {
+                    console.warn("[Diagnostic] Firestore: DB reference not initialized yet.");
+                }
+
+                // 4. Sync status
+                const isOnline = navigator.onLine;
+                console.log(`[Diagnostic] Network Status: ${isOnline ? 'Online' : 'Offline'}`);
+                if (window.syncManager) {
+                    console.log(`[Diagnostic] Sync Manager Status: ${window.syncManager.isProcessing ? 'Processing' : 'Idle'}`);
+                }
+                console.log("==========================================");
+            })();
+
             window.updateConnectionStatus = function () {
                 const el = document.getElementById('connection-status');
                 const dot = document.getElementById('connection-dot');
@@ -13137,6 +13184,7 @@
                 const res = await fetch('/api/config');
                 if (!res.ok) throw new Error("API config endpoint not available");
                 config = await res.json();
+                localStorage.setItem('firebaseConfig', JSON.stringify(config));
             } catch (err) {
                 console.warn("API config failed, trying static .env fallback...", err);
                 try {
@@ -13165,18 +13213,26 @@
 
                     if (!config.apiKey) throw new Error("No API key found in .env");
                     console.log("Loaded Firebase config from static .env fallback successfully!");
+                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
                 } catch (fallbackErr) {
-                    console.error("Failed to load Firebase configuration:", fallbackErr);
-                    const loadingTextEl = document.querySelector('#auth-loading div.animate-pulse');
-                    if (loadingTextEl) {
-                        loadingTextEl.innerHTML = "Failed to load Firebase configuration.<br><span class='text-[10px] text-rose-400 font-bold font-sans normal-case'>Please ensure your local dev server is running (npm run dev).</span>";
-                        loadingTextEl.classList.remove('animate-pulse');
+                    console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
+                    const cachedConfig = localStorage.getItem('firebaseConfig');
+                    if (cachedConfig) {
+                        config = JSON.parse(cachedConfig);
+                        console.log("Loaded Firebase config from localStorage cache for offline boot.");
+                    } else {
+                        console.error("Failed to load Firebase configuration:", fallbackErr);
+                        const loadingTextEl = document.querySelector('#auth-loading div.animate-pulse');
+                        if (loadingTextEl) {
+                            loadingTextEl.innerHTML = "Failed to load Firebase configuration.<br><span class='text-[10px] text-rose-400 font-bold font-sans normal-case'>Please ensure your local dev server is running (npm run dev).</span>";
+                            loadingTextEl.classList.remove('animate-pulse');
+                        }
+                        const spinnerEl = document.querySelector('#auth-loading div.animate-spin');
+                        if (spinnerEl) {
+                            spinnerEl.classList.add('hidden');
+                        }
+                        return;
                     }
-                    const spinnerEl = document.querySelector('#auth-loading div.animate-spin');
-                    if (spinnerEl) {
-                        spinnerEl.classList.add('hidden');
-                    }
-                    return;
                 }
             }
 

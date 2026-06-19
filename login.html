@@ -158,6 +158,7 @@
                 const res = await fetch('/api/config');
                 if (!res.ok) throw new Error("API config endpoint not available");
                 config = await res.json();
+                localStorage.setItem('firebaseConfig', JSON.stringify(config));
             } catch (err) {
                 console.warn("API config failed, trying static .env fallback...", err);
                 try {
@@ -186,10 +187,18 @@
 
                     if (!config.apiKey) throw new Error("No API key found in .env");
                     console.log("Loaded Firebase config from static .env fallback successfully!");
+                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
                 } catch (fallbackErr) {
-                    console.error("Failed to load Firebase configuration:", fallbackErr);
-                    showError("Configuration loading failed. Contact Administrator.");
-                    return;
+                    console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
+                    const cachedConfig = localStorage.getItem('firebaseConfig');
+                    if (cachedConfig) {
+                        config = JSON.parse(cachedConfig);
+                        console.log("Loaded Firebase config from localStorage cache for offline boot.");
+                    } else {
+                        console.error("Failed to load Firebase configuration:", fallbackErr);
+                        showError("Configuration loading failed. Contact Administrator.");
+                        return;
+                    }
                 }
             }
 
