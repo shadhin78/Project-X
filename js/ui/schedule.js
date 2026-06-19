@@ -284,6 +284,7 @@
         window.updateActiveScheduleSlot = function () {
             const activeContainer = document.getElementById('schedule-active-now-container');
             const mobileContainer = document.getElementById('schedule-active-now-mobile');
+            const dashContainer = document.getElementById('dashboard-active-now-container');
 
             // Check active routine set for active block
             const currentSet = window.activeRoutineSet || 1;
@@ -324,6 +325,8 @@
             let desktopHtml = '';
             // Build mobile Active Now HTML (top of page - larger, more prominent)
             let mobileHtml = '';
+            // Build dashboard Active Now HTML (compact, clickable navigation)
+            let dashHtml = '';
 
             if (activeBlock) {
                 const startMin = timeToMinutes(activeBlock.startTime);
@@ -413,6 +416,41 @@
                         </div>
                     </div>
                 `;
+
+                // Dashboard version (clickable shortcut to Daily Schedule)
+                dashHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
+                         style="min-height: 120px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         onclick="window.switchPage('schedule')">
+                        
+                        <div class="flex flex-col gap-1 min-w-0">
+                            <div class="flex justify-between items-start gap-2">
+                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
+                            </div>
+                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-1" title="${activeBlock.task}">${activeBlock.task}</h4>
+                        </div>
+                        
+                        <div class="mt-2 space-y-1.5">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${countdownStr}</span>
+                                <span class="text-[9px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
+                            </div>
+                            <div class="w-full bg-white/15 rounded-full h-1 overflow-hidden">
+                                <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             } else {
                 // Desktop idle
                 desktopHtml = `
@@ -437,8 +475,8 @@
                 mobileHtml = `
                     <div class="bg-slate-50 dark:bg-slate-800/80 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center justify-between transition-all select-none">
                         <div class="flex items-center gap-2.5">
-                            <span class="flex h-2 w-2 relative">
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                            <span class="flex h-2.5 w-2.5 relative">
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-350 dark:bg-slate-650"></span>
                             </span>
                             <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
                         </div>
@@ -448,10 +486,31 @@
                         </div>
                     </div>
                 `;
+
+                // Dashboard idle
+                dashHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
+                         style="min-height: 100px;"
+                         onclick="window.switchPage('schedule')">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">☀️</span>
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
+                        </div>
+                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-1">No active routine slot right now. Go to Schedule</p>
+                    </div>
+                `;
             }
 
             if (activeContainer) activeContainer.innerHTML = desktopHtml;
             if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
+            if (dashContainer) dashContainer.innerHTML = dashHtml;
         };
 
         // Live Header Clock with seconds (updates clock and active slot display)

@@ -303,7 +303,9 @@
                         const defaultRange = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
                         if (defaultRange) {
                             const key = window.formatDateRangeKey ? window.formatDateRangeKey(defaultRange.start, defaultRange.end) : "Migration Week";
-                            if (!window.weeklyTargetsDatabase[key]) {
+                            const dbKeys = Object.keys(window.weeklyTargetsDatabase || {});
+                            const isEmptyOrOnlyMigration = dbKeys.length === 0 || (dbKeys.length === 1 && dbKeys[0] === "Migration Week");
+                            if (isEmptyOrOnlyMigration && !window.weeklyTargetsDatabase[key]) {
                                 window.weeklyTargetsDatabase[key] = data.weeklyTargets.map(t => {
                                     return {
                                         track: t.track || "",

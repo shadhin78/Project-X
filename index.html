@@ -1889,6 +1889,7 @@
         window.updateActiveScheduleSlot = function () {
             const activeContainer = document.getElementById('schedule-active-now-container');
             const mobileContainer = document.getElementById('schedule-active-now-mobile');
+            const dashContainer = document.getElementById('dashboard-active-now-container');
 
             // Check active routine set for active block
             const currentSet = window.activeRoutineSet || 1;
@@ -1929,6 +1930,8 @@
             let desktopHtml = '';
             // Build mobile Active Now HTML (top of page - larger, more prominent)
             let mobileHtml = '';
+            // Build dashboard Active Now HTML (compact, clickable navigation)
+            let dashHtml = '';
 
             if (activeBlock) {
                 const startMin = timeToMinutes(activeBlock.startTime);
@@ -2018,6 +2021,41 @@
                         </div>
                     </div>
                 `;
+
+                // Dashboard version (clickable shortcut to Daily Schedule)
+                dashHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
+                         style="min-height: 120px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
+                         onclick="window.switchPage('schedule')">
+                        
+                        <div class="flex flex-col gap-1 min-w-0">
+                            <div class="flex justify-between items-start gap-2">
+                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
+                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
+                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
+                            </div>
+                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-1" title="${activeBlock.task}">${activeBlock.task}</h4>
+                        </div>
+                        
+                        <div class="mt-2 space-y-1.5">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${countdownStr}</span>
+                                <span class="text-[9px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
+                            </div>
+                            <div class="w-full bg-white/15 rounded-full h-1 overflow-hidden">
+                                <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             } else {
                 // Desktop idle
                 desktopHtml = `
@@ -2042,8 +2080,8 @@
                 mobileHtml = `
                     <div class="bg-slate-50 dark:bg-slate-800/80 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center justify-between transition-all select-none">
                         <div class="flex items-center gap-2.5">
-                            <span class="flex h-2 w-2 relative">
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                            <span class="flex h-2.5 w-2.5 relative">
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-350 dark:bg-slate-650"></span>
                             </span>
                             <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
                         </div>
@@ -2053,10 +2091,31 @@
                         </div>
                     </div>
                 `;
+
+                // Dashboard idle
+                dashHtml = `
+                    <div class="flex items-center justify-between mb-1.5 select-none">
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                        </span>
+                    </div>
+                    
+                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
+                         style="min-height: 100px;"
+                         onclick="window.switchPage('schedule')">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">☀️</span>
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
+                        </div>
+                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-1">No active routine slot right now. Go to Schedule</p>
+                    </div>
+                `;
             }
 
             if (activeContainer) activeContainer.innerHTML = desktopHtml;
             if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
+            if (dashContainer) dashContainer.innerHTML = dashHtml;
         };
 
         // Live Header Clock with seconds (updates clock and active slot display)
@@ -2813,7 +2872,9 @@
                         const defaultRange = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
                         if (defaultRange) {
                             const key = window.formatDateRangeKey ? window.formatDateRangeKey(defaultRange.start, defaultRange.end) : "Migration Week";
-                            if (!window.weeklyTargetsDatabase[key]) {
+                            const dbKeys = Object.keys(window.weeklyTargetsDatabase || {});
+                            const isEmptyOrOnlyMigration = dbKeys.length === 0 || (dbKeys.length === 1 && dbKeys[0] === "Migration Week");
+                            if (isEmptyOrOnlyMigration && !window.weeklyTargetsDatabase[key]) {
                                 window.weeklyTargetsDatabase[key] = data.weeklyTargets.map(t => {
                                     return {
                                         track: t.track || "",
@@ -5887,6 +5948,57 @@
                 </div>`;
                 gridContainer.innerHTML += cardHtml;
             });
+
+            // Render compact version for Dashboard
+            const dashCompactContainer = document.getElementById('dashboard-daily-actions-compact');
+            if (dashCompactContainer) {
+                dashCompactContainer.innerHTML = '';
+                sortedActions.forEach(cfg => {
+                    const state = todayTask ? todayTask[cfg.id] : false;
+                    const cMap = twColors[cfg.color];
+                    const isActive = state === true;
+                    
+                    const activeStyle = `background-color: ${cMap.hex}; border-color: ${cMap.hex}; color: white; box-shadow: 0 4px 12px ${cMap.hex}33;`;
+                    const cardClass = isActive
+                        ? `text-white border-transparent`
+                        : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
+                    
+                    const compactHtml = `
+                    <button onclick="window.setDailyState('${cfg.id}', ${!isActive})"
+                            class="flex items-center justify-between p-3.5 rounded-2xl border font-black text-xs transition-all duration-300 active:scale-95 text-left w-full gap-2 ${cardClass}"
+                            style="${isActive ? activeStyle : ''}">
+                        <div class="flex items-center space-x-2 min-w-0">
+                            <div class="p-1.5 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
+                            </div>
+                            <div class="min-w-0">
+                                <span class="block text-xs font-black truncate leading-tight">${cfg.title}</span>
+                                <span class="block text-[8px] uppercase tracking-wider font-bold opacity-75 truncate mt-0.5">${isActive ? 'YES' : 'NO'}</span>
+                            </div>
+                        </div>
+                        <div class="shrink-0">
+                            ${isActive 
+                                ? `<span class="flex h-5 w-5 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm font-black">✓</span>`
+                                : `<span class="flex h-5 w-5 rounded-full border border-slate-350 dark:border-slate-600 bg-white dark:bg-slate-850 text-slate-400 dark:text-slate-500 items-center justify-center text-[10px] font-black">✕</span>`
+                            }
+                        </div>
+                    </button>`;
+                    dashCompactContainer.innerHTML += compactHtml;
+                });
+            }
+
+            const dashPercent = document.getElementById('dashboard-daily-actions-percent');
+            const dashBar = document.getElementById('dashboard-daily-actions-progress');
+            if (dashPercent && dashBar) {
+                dashPercent.textContent = dailyPct + '%';
+                dashBar.style.width = dailyPct + '%';
+                let clr = 'bg-red-500';
+                if (dailyPct >= 25) clr = 'bg-orange-500';
+                if (dailyPct >= 50) clr = 'bg-yellow-400';
+                if (dailyPct >= 75) clr = 'bg-lime-500';
+                if (dailyPct === 100) clr = 'bg-green-500';
+                dashBar.className = `h-full rounded-full transition-all duration-500 ease-out ${clr}`;
+            }
         };
 
         window.renderDailyLogs = function () {
@@ -10710,6 +10822,17 @@
             return `${startStr} - ${endStr}`;
         };
 
+        window.getWeeklyTargetOccurrenceCount = function (track, subject, chapter) {
+            let count = 0;
+            if (!window.weeklyTargetsDatabase) return 0;
+            Object.keys(window.weeklyTargetsDatabase).forEach(weekKey => {
+                const list = window.weeklyTargetsDatabase[weekKey] || [];
+                const match = list.some(t => t.track === track && t.subject === subject && t.chapter === chapter);
+                if (match) count++;
+            });
+            return count;
+        };
+
         window.getWeeklyTargetRange = function (date = new Date()) {
             const today = new Date(date);
             today.setHours(0, 0, 0, 0);
@@ -10805,7 +10928,9 @@
                 chSelect.innerHTML = '<option value="">No Chapters</option>';
             } else {
                 chapters.forEach(ch => {
-                    chSelect.innerHTML += `<option value="${ch}">${ch}</option>`;
+                    const count = window.getWeeklyTargetOccurrenceCount ? window.getWeeklyTargetOccurrenceCount(trackId, subject, ch) : 0;
+                    const stars = count > 0 ? ' ' + '★'.repeat(count) : '';
+                    chSelect.innerHTML += `<option value="${ch}">${ch}${stars}</option>`;
                 });
             }
         };
@@ -11045,6 +11170,12 @@
 
                 let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
 
+                const occurrenceCount = window.getWeeklyTargetOccurrenceCount ? window.getWeeklyTargetOccurrenceCount(target.track, target.subject, target.chapter) : 0;
+                let starsHtml = '';
+                if (occurrenceCount > 1) {
+                    starsHtml = `<span class="inline-flex text-amber-500 text-[10px] ml-1.5" title="Added as target ${occurrenceCount} times">${'★'.repeat(occurrenceCount)}</span>`;
+                }
+
                 const itemHtml = `
                 <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300">
                     <div class="flex items-center space-x-3 min-w-0">
@@ -11053,7 +11184,7 @@
                             class="form-checkbox h-4.5 w-4.5 text-emerald-500 dark:text-emerald-500 rounded border-slate-350 focus:ring-emerald-500 transition-all cursor-pointer" 
                             ${isCompleted ? 'checked' : ''}>
                         <div class="min-w-0">
-                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}</span>
+                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}${starsHtml}</span>
                             <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${target.program}</span>
                         </div>
                     </div>
@@ -11347,7 +11478,9 @@
                 chSelect.innerHTML = '<option value="">No Chapters</option>';
             } else {
                 chapters.forEach(ch => {
-                    chSelect.innerHTML += `<option value="${ch}">${ch}</option>`;
+                    const count = window.getWeeklyTargetOccurrenceCount ? window.getWeeklyTargetOccurrenceCount(trackId, subject, ch) : 0;
+                    const stars = count > 0 ? ' ' + '★'.repeat(count) : '';
+                    chSelect.innerHTML += `<option value="${ch}">${ch}${stars}</option>`;
                 });
             }
         };
@@ -11460,6 +11593,12 @@
 
                     let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
 
+                    const occurrenceCount = window.getWeeklyTargetOccurrenceCount ? window.getWeeklyTargetOccurrenceCount(target.track, target.subject, target.chapter) : 0;
+                    let starsHtml = '';
+                    if (occurrenceCount > 1) {
+                        starsHtml = `<span class="inline-flex text-amber-500 text-[9px] ml-1.5" title="Added as target ${occurrenceCount} times">${'★'.repeat(occurrenceCount)}</span>`;
+                    }
+
                     const row = `
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                         <td class="py-3 px-4 text-center">
@@ -11468,7 +11607,7 @@
                         <td class="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 text-[10px]">${weekKey}</td>
                         <td class="py-3 px-4 uppercase text-[10px] text-slate-400">${target.program}</td>
                         <td class="py-3 px-4 truncate max-w-[120px]" title="${target.subject}">${displaySub}</td>
-                        <td class="py-3 px-4 text-blue-600 dark:text-blue-400">${target.chapter}</td>
+                        <td class="py-3 px-4 text-blue-600 dark:text-blue-400 font-bold">${target.chapter}${starsHtml}</td>
                         <td class="py-3 px-4 text-center">
                             <button onclick="window.deleteWtdbTarget('${weekKey}', ${idx})" class="p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 rounded transition-all active:scale-90 shadow-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -13354,6 +13493,10 @@
                             if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
                             if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
                             if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+                            if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                            if (data.programVisibility) window.programVisibility = data.programVisibility;
+                            if (data.timerLogs) window.timerLogs = data.timerLogs;
+                            if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
                             if (data.dashboardConfig) {
                                 window.dashboardConfig = data.dashboardConfig;
                                 if (window.dashboardConfig.trendStartDate) {
@@ -14793,6 +14936,11 @@
 
             <!-- Page: Dashboard -->
             <div id="page-dashboard" class="space-y-6 md:space-y-8">
+                <!-- Active Now Container on Dashboard (Shortcut to Daily Schedule) -->
+                <div id="dashboard-active-now-container" class="w-full">
+                    <!-- Populated dynamically by updateActiveScheduleSlot() -->
+                </div>
+
                 <!-- X Bar -->
                 <div
                     class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-6 mb-6 flex flex-wrap items-center justify-between gap-5 relative z-10 w-full animate-page-enter shadow-sm">
@@ -14883,6 +15031,26 @@
                         </svg>
                         <span>Edit Settings</span>
                     </button>
+                </div>
+
+                <!-- Compact Daily Actions Section -->
+                <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-5 md:p-6 mb-6 shadow-sm">
+                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3 mb-4">
+                        <div>
+                            <h3 class="text-xs font-black uppercase tracking-widest text-slate-850 dark:text-white">Today's Daily Actions</h3>
+                            <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Quick Check-in (Toggles Yes/No)</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span id="dashboard-daily-actions-percent" class="text-xs font-black text-slate-700 dark:text-slate-200">0%</span>
+                            <div class="w-20 bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 p-0.5">
+                                <div id="dashboard-daily-actions-progress" class="h-full rounded-full bg-blue-500 transition-all duration-500 w-0"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <!-- Populated dynamically via JS -->
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 md:gap-8 mb-6 md:mb-8 pt-2 sm:pt-4 scroll-mt-24">

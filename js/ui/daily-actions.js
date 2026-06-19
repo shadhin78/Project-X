@@ -1214,6 +1214,57 @@
                 </div>`;
                 gridContainer.innerHTML += cardHtml;
             });
+
+            // Render compact version for Dashboard
+            const dashCompactContainer = document.getElementById('dashboard-daily-actions-compact');
+            if (dashCompactContainer) {
+                dashCompactContainer.innerHTML = '';
+                sortedActions.forEach(cfg => {
+                    const state = todayTask ? todayTask[cfg.id] : false;
+                    const cMap = twColors[cfg.color];
+                    const isActive = state === true;
+                    
+                    const activeStyle = `background-color: ${cMap.hex}; border-color: ${cMap.hex}; color: white; box-shadow: 0 4px 12px ${cMap.hex}33;`;
+                    const cardClass = isActive
+                        ? `text-white border-transparent`
+                        : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
+                    
+                    const compactHtml = `
+                    <button onclick="window.setDailyState('${cfg.id}', ${!isActive})"
+                            class="flex items-center justify-between p-3.5 rounded-2xl border font-black text-xs transition-all duration-300 active:scale-95 text-left w-full gap-2 ${cardClass}"
+                            style="${isActive ? activeStyle : ''}">
+                        <div class="flex items-center space-x-2 min-w-0">
+                            <div class="p-1.5 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${getSVG(cfg.icon, cfg.title)}</svg>
+                            </div>
+                            <div class="min-w-0">
+                                <span class="block text-xs font-black truncate leading-tight">${cfg.title}</span>
+                                <span class="block text-[8px] uppercase tracking-wider font-bold opacity-75 truncate mt-0.5">${isActive ? 'YES' : 'NO'}</span>
+                            </div>
+                        </div>
+                        <div class="shrink-0">
+                            ${isActive 
+                                ? `<span class="flex h-5 w-5 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm font-black">✓</span>`
+                                : `<span class="flex h-5 w-5 rounded-full border border-slate-350 dark:border-slate-600 bg-white dark:bg-slate-850 text-slate-400 dark:text-slate-500 items-center justify-center text-[10px] font-black">✕</span>`
+                            }
+                        </div>
+                    </button>`;
+                    dashCompactContainer.innerHTML += compactHtml;
+                });
+            }
+
+            const dashPercent = document.getElementById('dashboard-daily-actions-percent');
+            const dashBar = document.getElementById('dashboard-daily-actions-progress');
+            if (dashPercent && dashBar) {
+                dashPercent.textContent = dailyPct + '%';
+                dashBar.style.width = dailyPct + '%';
+                let clr = 'bg-red-500';
+                if (dailyPct >= 25) clr = 'bg-orange-500';
+                if (dailyPct >= 50) clr = 'bg-yellow-400';
+                if (dailyPct >= 75) clr = 'bg-lime-500';
+                if (dailyPct === 100) clr = 'bg-green-500';
+                dashBar.className = `h-full rounded-full transition-all duration-500 ease-out ${clr}`;
+            }
         };
 
         window.renderDailyLogs = function () {

@@ -402,6 +402,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
                     if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
                     if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+                    if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                    if (data.programVisibility) window.programVisibility = data.programVisibility;
+                    if (data.timerLogs) window.timerLogs = data.timerLogs;
+                    if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
                     if (data.dashboardConfig) {
                         window.dashboardConfig = data.dashboardConfig;
                         if (window.dashboardConfig.trendStartDate) {
