@@ -308,121 +308,133 @@ document.addEventListener('DOMContentLoaded', async () => {
             profileAvatarEl.textContent = initial;
         }
 
-        // Run original DOMContentLoaded setup logic
+        // Offline-first startup sequence
         try {
-            let stored = localStorage.getItem('studyMasterBackup');
-            if (!stored && window.localDBHelper) {
-                try {
-                    const dbTasks = await window.localDBHelper.readAllTasks();
-                    if (dbTasks && dbTasks.length > 0) {
-                        console.log("Found backup in local IndexedDB database layer, restoring...");
-                        const dbTracks = await window.localDBHelper.getSetting('tracks');
-                        const dbCustomPrograms = await window.localDBHelper.getSetting('customPrograms');
-                        const dbCustomSyllabus = await window.localDBHelper.getSetting('customSyllabus');
-                        const dbCustomActions = await window.localDBHelper.getSetting('customActions');
-                        const dbPaceGoals = await window.localDBHelper.getSetting('paceGoals');
-                        const dbPassedItems = await window.localDBHelper.getSetting('passedItems');
-                        const dbRevisionData = await window.localDBHelper.getSetting('revisionData');
-                        const dbSubjectTimeLinks = await window.localDBHelper.getSetting('subjectTimeLinks');
-                        const dbSuccessResults = await window.localDBHelper.getSetting('successResults');
-                        const dbScheduleBlocks = await window.localDBHelper.readAllScheduleBlocks();
-                        const dbScheduleBlocks2 = await window.localDBHelper.readAllScheduleBlocks2();
-                        const dbScheduleGroups = await window.localDBHelper.readAllScheduleGroups();
-                        const dbDashboardConfig = await window.localDBHelper.getSetting('dashboardConfig');
-                        const dbWeeklyTargetsDatabase = await window.localDBHelper.getSetting('weeklyTargetsDatabase');
-                        const dbActiveRoutineSet = await window.localDBHelper.getSetting('activeRoutineSet');
-
-                        const localData = {
-                            tasks: dbTasks,
-                            tracks: dbTracks || [],
-                            customPrograms: dbCustomPrograms || {},
-                            customSyllabus: dbCustomSyllabus || {},
-                            customActions: dbCustomActions || [],
-                            paceGoals: dbPaceGoals || [],
-                            passedItems: dbPassedItems || { programs: [], subjects: [] },
-                            revisionData: dbRevisionData || { active: [], progress: {} },
-                            subjectTimeLinks: dbSubjectTimeLinks || {},
-                            successResults: dbSuccessResults || [],
-                            scheduleBlocks: dbScheduleBlocks || [],
-                            scheduleBlocks2: dbScheduleBlocks2 || [],
-                            scheduleGroups: dbScheduleGroups || [],
-                            dashboardConfig: dbDashboardConfig || {},
-                            weeklyTargetsDatabase: dbWeeklyTargetsDatabase || {},
-                            activeRoutineSet: dbActiveRoutineSet || 1
-                        };
-                        stored = JSON.stringify(localData);
-                        localStorage.setItem('studyMasterBackup', stored);
-                    }
-                } catch (err) {
-                    console.warn("Could not load from IndexedDB backup:", err);
-                }
-            }
-            if (!stored && isLocal) {
-                const mockData = {
-                    tracks: [
-                        { id: "track-1", name: "Math 1st", priority: 1, order: 0 }
-                    ],
-                    customPrograms: {
-                        "track-1": [
-                            { id: "math-prog", name: "Math 1st Program", priority: 1, order: 0 }
-                        ]
-                    },
-                    customSyllabus: {
-                        "track-1": [
-                            { subject: "Math 1st Global Baseline", program: "Math 1st Program", chapters: 10, priority: 1, order: 0 }
-                        ]
-                    },
-                    tasks: [
-                        { id: 1, date: "Jun 13", day: "Sat", type: "study", studyDay: 1, "track-1Study": false, "track-1Tasks": [{ subject: "Math 1st Global Baseline", chapter: "Ch. 1", title: "Topic 1", completed: false, id: "track-1-1" }] }
-                    ],
-                    paceGoals: [
-                        { id: "math-baseline", target: "Math 1st Global Baseline", type: "subject", startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() }
-                    ],
-                    weeklyTargetsDatabase: {
-                        "Migration Week": [
-                            { track: "track-1", program: "Math 1st Program", subject: "Math 1st Global Baseline", chapter: "Ch. 1", completed: false }
-                        ]
-                    }
-                };
-                stored = JSON.stringify(mockData);
-                localStorage.setItem('studyMasterBackup', stored);
-            }
-            if (stored) {
-                const data = window.sanitizeAllData(JSON.parse(stored));
-                if (data.tasks) {
-                    window.tasks = data.tasks;
-                    if (data.tracks) window.tracks = data.tracks;
-                    if (data.customPrograms) window.customPrograms = data.customPrograms;
-                    if (data.customActions) window.customActions = data.customActions;
-                    if (data.paceGoals) window.paceGoals = data.paceGoals;
-                    if (data.passedItems) window.passedItems = data.passedItems;
-                    if (data.revisionData) window.revisionData = data.revisionData;
-                    if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
-                    if (data.successResults) window.successResults = data.successResults;
-                    if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
-                    if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
-                    if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
-                    if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
-                    if (data.programVisibility) window.programVisibility = data.programVisibility;
-                    if (data.timerLogs) window.timerLogs = data.timerLogs;
-                    if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
-                    if (data.dashboardConfig) {
-                        window.dashboardConfig = data.dashboardConfig;
-                        if (window.dashboardConfig.trendStartDate) {
-                            const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
-                            if (!isNaN(trendStart.getTime())) {
-                                trendStart.setHours(0, 0, 0, 0);
-                                window.PLAN_START_DATE = trendStart;
+            window.syncLogger.log('STARTUP', 'Booting offline-first: loading local Dexie DB...');
+            let hasDexieData = false;
+            if (window.localDB) {
+                const tasksCount = await window.localDB.tasks.count();
+                if (tasksCount > 0) {
+                    hasDexieData = true;
+                    // Migrate records in IndexedDB if they are missing fields
+                    const tables = ['tasks', 'timerLogs', 'scheduleBlocks', 'scheduleBlocks2', 'scheduleGroups'];
+                    const keyFields = {
+                        tasks: 'id',
+                        timerLogs: 'id',
+                        scheduleBlocks: 'id',
+                        scheduleBlocks2: 'id',
+                        scheduleGroups: 'id'
+                    };
+                    for (const table of tables) {
+                        const records = await window.localDB[table].toArray();
+                        for (const r of records) {
+                            const originalStr = JSON.stringify(r);
+                            const migrated = window.migrateRecord(r, r[keyFields[table]], 'synced');
+                            if (JSON.stringify(migrated) !== originalStr) {
+                                await window.localDB[table].put(migrated);
+                                window.syncLogger.log('MIGRATION', `Migrated record in ${table}, ID: ${migrated.id}`);
                             }
                         }
                     }
-                    if (data.customSyllabus) {
-                        syllabusStructure = data.customSyllabus;
-                        recalculateTotals();
+
+                    // Also check appSettings settings
+                    const settings = await window.localDB.appSettings.toArray();
+                    for (const s of settings) {
+                        if (s.updatedAt === undefined || s.version === undefined || s.syncStatus === undefined) {
+                            s.updatedAt = s.updatedAt || 1718880000000;
+                            s.version = s.version || 1;
+                            s.syncStatus = s.syncStatus || 'synced';
+                            await window.localDB.appSettings.put(s);
+                            window.syncLogger.log('MIGRATION', `Migrated appSetting: ${s.key}`);
+                        }
+                    }
+                    
+                    // Load to memory
+                    if (window.syncManager && window.syncManager.loadDexieToMemoryState) {
+                        await window.syncManager.loadDexieToMemoryState();
                     }
                 }
             }
-        } catch (e) { }
+
+            if (!hasDexieData) {
+                window.syncLogger.log('STARTUP', 'Dexie is empty. Falling back to localStorage...');
+                let stored = localStorage.getItem('studyMasterBackup');
+                if (!stored && isLocal) {
+                    window.syncLogger.log('STARTUP', 'LocalStorage empty. Using mock placeholder data on localhost...');
+                    const mockData = {
+                        tracks: [
+                            { id: "track-1", name: "Math 1st", priority: 1, order: 0 }
+                        ],
+                        customPrograms: {
+                            "track-1": [
+                                { id: "math-prog", name: "Math 1st Program", priority: 1, order: 0 }
+                            ]
+                        },
+                        customSyllabus: {
+                            "track-1": [
+                                { subject: "Math 1st Global Baseline", program: "Math 1st Program", chapters: 10, priority: 1, order: 0 }
+                            ]
+                        },
+                        tasks: [
+                            { id: 1, date: "Jun 13", day: "Sat", type: "study", studyDay: 1, "track-1Study": false, "track-1Tasks": [{ subject: "Math 1st Global Baseline", chapter: "Ch. 1", title: "Topic 1", completed: false, id: "track-1-1" }] }
+                        ],
+                        paceGoals: [
+                            { id: "math-baseline", target: "Math 1st Global Baseline", type: "subject", startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() }
+                        ],
+                        weeklyTargetsDatabase: {
+                            "Migration Week": [
+                                { track: "track-1", program: "Math 1st Program", subject: "Math 1st Global Baseline", chapter: "Ch. 1", completed: false }
+                            ]
+                        }
+                    };
+                    stored = JSON.stringify(mockData);
+                    localStorage.setItem('studyMasterBackup', stored);
+                }
+
+                if (stored) {
+                    const data = window.sanitizeAllData(JSON.parse(stored));
+                    if (data.tasks) {
+                        window.tasks = data.tasks;
+                        tasks = data.tasks;
+                        if (data.tracks) window.tracks = data.tracks;
+                        if (data.customPrograms) window.customPrograms = data.customPrograms;
+                        if (data.customActions) window.customActions = data.customActions;
+                        if (data.paceGoals) window.paceGoals = data.paceGoals;
+                        if (data.passedItems) window.passedItems = data.passedItems;
+                        if (data.revisionData) window.revisionData = data.revisionData;
+                        if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
+                        if (data.successResults) window.successResults = data.successResults;
+                        if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
+                        if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
+                        if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+                        if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                        if (data.programVisibility) window.programVisibility = data.programVisibility;
+                        if (data.timerLogs) window.timerLogs = data.timerLogs;
+                        if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
+                        if (data.dashboardConfig) {
+                            window.dashboardConfig = data.dashboardConfig;
+                            if (window.dashboardConfig.trendStartDate) {
+                                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                                if (!isNaN(trendStart.getTime())) {
+                                    trendStart.setHours(0, 0, 0, 0);
+                                    window.PLAN_START_DATE = trendStart;
+                                }
+                            }
+                        }
+                        if (data.customSyllabus) {
+                            syllabusStructure = data.customSyllabus;
+                            recalculateTotals();
+                        }
+                    }
+
+                    if (window.saveCurrentStateToIndexedDB) {
+                        await window.saveCurrentStateToIndexedDB();
+                    }
+                }
+            }
+        } catch (e) {
+            window.syncLogger.log('STARTUP', 'Error during local boot sequence:', e);
+        }
 
         window.migrateLegacyData();
         window.sortAllCustomData();

@@ -100,11 +100,12 @@
                     </svg>
                     <span>Cloud authentication is offline. You can launch Project X directly in Offline Mode to view or edit your local dashboard data.</span>
                 </div>
-                <button type="button" onclick="window.location.href='/'"
+                <button type="button" onclick="window.location.href='index.html'"
                     class="w-full mt-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10px] uppercase tracking-widest py-2.5 rounded-xl transition-all shadow-md active:scale-[0.98]">
                     Launch Offline Mode
                 </button>
             </div>
+
 
             <!-- Form -->
             <form id="login-form" class="space-y-5">
@@ -214,9 +215,15 @@
                         config = JSON.parse(cachedConfig);
                         console.log("Loaded Firebase config from localStorage cache for offline boot.");
                     } else {
-                        console.error("Failed to load Firebase configuration:", fallbackErr);
-                        showError("Configuration loading failed. Contact Administrator.");
-                        return;
+                        console.warn("Failed to load Firebase configuration, using offline fallback config.");
+                        config = {
+                            apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+                            authDomain: "project-x-787898.firebaseapp.com",
+                            projectId: "project-x-787898",
+                            storageBucket: "project-x-787898.firebasestorage.app",
+                            messagingSenderId: "1011303841705",
+                            appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                        };
                     }
                 }
             }
@@ -235,9 +242,10 @@
             firebase.auth().onAuthStateChanged((user) => {
                 if (user && user.email === 'ris2k29@gmail.com') {
                     // Redirect to dashboard immediately
-                    window.location.href = '/';
+                    window.location.href = 'index.html';
                 }
             });
+
 
             // Handle Form Submission
             loginForm.addEventListener('submit', async (e) => {
@@ -267,7 +275,8 @@
                         spinner.classList.add('hidden');
                     } else {
                         // Authorized admin user, redirect will happen via onAuthStateChanged or directly
-                        window.location.href = '/';
+                        window.location.href = 'index.html';
+
                     }
                 } catch (error) {
                     console.error("Auth error:", error);

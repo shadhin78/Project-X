@@ -624,7 +624,6 @@
                         <p class="text-[9px] opacity-75 text-slate-455 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
                     </div>
                 `;
-            }`;
             }
 
             if (activeContainer) activeContainer.innerHTML = desktopHtml;

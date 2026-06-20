@@ -54,7 +54,7 @@
         };
         window.timerInterval = null;
         let db;
-        let isSyncing = false;
+        window.isSyncing = false;
         let isAppInitialized = false;
         let tasks = [];
         let progressChart;
@@ -85,6 +85,296 @@
             appSettings: 'key, value',
             syncQueue: '++id, timestamp, status'
         });
+
+        window.syncLogger = {
+            log: function (tag, message, details = '') {
+                const timestamp = new Date().toISOString();
+                const detailStr = details ? ' ' + (typeof details === 'object' ? JSON.stringify(details) : details) : '';
+                console.log(`[${tag}] [${timestamp}] ${message}${detailStr}`);
+            }
+        };
+
+        window.migrateRecord = function (record, defaultId, defaultSyncStatus = 'synced') {
+            if (!record || typeof record !== 'object') return record;
+            if (record.id === undefined || record.id === null) {
+                record.id = defaultId;
+            }
+            if (record.updatedAt === undefined || record.updatedAt === null) {
+                record.updatedAt = 1718880000000; // June 20, 2024
+            }
+            if (record.version === undefined || record.version === null) {
+                record.version = 1;
+            }
+            if (record.syncStatus === undefined || record.syncStatus === null) {
+                record.syncStatus = defaultSyncStatus;
+            }
+            return record;
+        };
+
+        window.enrichChangedRecords = async function (tableName, currentArray, keyField = 'id') {
+            const oldRecords = await window.localDB[tableName].toArray();
+            const oldMap = new Map(oldRecords.map(r => [r[keyField], r]));
+            
+            const enrichedArray = [];
+            let changedAny = false;
+            
+            for (let item of currentArray) {
+                const itemCopy = { ...item };
+                const oldItem = oldMap.get(itemCopy[keyField]);
+                
+                if (!oldItem) {
+                    itemCopy.updatedAt = Date.now();
+                    itemCopy.version = 1;
+                    itemCopy.syncStatus = 'pending';
+                    changedAny = true;
+                    window.syncLogger.log('DEXIE', `New record in ${tableName}: ${itemCopy[keyField]}`);
+                } else {
+                    const cleanCopy = { ...itemCopy };
+                    delete cleanCopy.updatedAt;
+                    delete cleanCopy.version;
+                    delete cleanCopy.syncStatus;
+                    delete cleanCopy.deleted;
+                    
+                    const cleanOld = { ...oldItem };
+                    delete cleanOld.updatedAt;
+                    delete cleanOld.version;
+                    delete cleanOld.syncStatus;
+                    delete cleanOld.deleted;
+                    
+                    if (JSON.stringify(cleanCopy) !== JSON.stringify(cleanOld)) {
+                        itemCopy.updatedAt = Date.now();
+                        itemCopy.version = (oldItem.version || 0) + 1;
+                        itemCopy.syncStatus = 'pending';
+                        changedAny = true;
+                        window.syncLogger.log('DEXIE', `Modified record in ${tableName}: ${itemCopy[keyField]} (v${itemCopy.version})`);
+                    } else {
+                        itemCopy.updatedAt = oldItem.updatedAt || 1718880000000;
+                        itemCopy.version = oldItem.version || 1;
+                        itemCopy.syncStatus = oldItem.syncStatus || 'synced';
+                    }
+                }
+                enrichedArray.push(itemCopy);
+            }
+            
+            const currentKeys = new Set(currentArray.map(r => r[keyField]));
+            const deletedItems = oldRecords.filter(r => !currentKeys.has(r[keyField]));
+            
+            if (deletedItems.length > 0) {
+                changedAny = true;
+                const deletedRecordsSetting = await window.localDB.appSettings.get('deletedRecords') || { key: 'deletedRecords', value: [] };
+                const deletedList = Array.isArray(deletedRecordsSetting.value) ? deletedRecordsSetting.value : [];
+                
+                for (let del of deletedItems) {
+                    if (!deletedList.some(d => d.table === tableName && d.id === del[keyField])) {
+                        deletedList.push({
+                            id: del[keyField],
+                            table: tableName,
+                            deletedAt: Date.now()
+                        });
+                        window.syncLogger.log('DEXIE', `Deleted record tombstone in ${tableName}: ${del[keyField]}`);
+                    }
+                }
+                
+                await window.localDB.appSettings.put({
+                    key: 'deletedRecords',
+                    value: deletedList,
+                    updatedAt: Date.now(),
+                    version: (deletedRecordsSetting.version || 0) + 1,
+                    syncStatus: 'pending'
+                });
+            }
+            
+            return { enrichedArray, changedAny };
+        };
+
+        window.enrichSetting = async function (key, newValue) {
+            const oldSetting = await window.localDB.appSettings.get(key);
+            let updatedSetting;
+            
+            if (!oldSetting) {
+                updatedSetting = {
+                    key,
+                    value: newValue,
+                    updatedAt: Date.now(),
+                    version: 1,
+                    syncStatus: 'pending'
+                };
+                window.syncLogger.log('DEXIE', `New setting created: ${key}`);
+            } else {
+                const cleanOld = oldSetting.value;
+                if (JSON.stringify(cleanOld) !== JSON.stringify(newValue)) {
+                    updatedSetting = {
+                        key,
+                        value: newValue,
+                        updatedAt: Date.now(),
+                        version: (oldSetting.version || 0) + 1,
+                        syncStatus: 'pending'
+                    };
+                    window.syncLogger.log('DEXIE', `Setting modified: ${key} (v${updatedSetting.version})`);
+                } else {
+                    updatedSetting = {
+                        key,
+                        value: newValue,
+                        updatedAt: oldSetting.updatedAt || 1718880000000,
+                        version: oldSetting.version || 1,
+                        syncStatus: oldSetting.syncStatus || 'synced'
+                    };
+                }
+            }
+            return updatedSetting;
+        };
+
+        window.unionArrays = function (arr1, arr2) {
+            if (!Array.isArray(arr1)) arr1 = [];
+            if (!Array.isArray(arr2)) arr2 = [];
+            return Array.from(new Set([...arr1, ...arr2]));
+        };
+
+        window.mergeWeeklyTargets = function (local, remote) {
+            local = local || {};
+            remote = remote || {};
+            const merged = { ...remote };
+            for (const week in local) {
+                if (!merged[week]) {
+                    merged[week] = local[week];
+                } else {
+                    const remoteWeekTargets = merged[week];
+                    const localWeekTargets = local[week];
+                    const targetMap = new Map();
+                    remoteWeekTargets.forEach(t => {
+                        const key = `${t.track}||${t.program}||${t.subject}||${t.chapter}`;
+                        targetMap.set(key, t);
+                    });
+                    localWeekTargets.forEach(t => {
+                        const key = `${t.track}||${t.program}||${t.subject}||${t.chapter}`;
+                        if (targetMap.has(key)) {
+                            const existing = targetMap.get(key);
+                            targetMap.set(key, {
+                                ...existing,
+                                completed: existing.completed || t.completed
+                            });
+                        } else {
+                            targetMap.set(key, t);
+                        }
+                    });
+                    merged[week] = Array.from(targetMap.values());
+                }
+            }
+            return merged;
+        };
+
+        window.mergeRevisionData = function (local, remote) {
+            local = local || { active: [], progress: {} };
+            remote = remote || { active: [], progress: {} };
+            const active = window.unionArrays(local.active, remote.active);
+            const progress = { ...remote.progress };
+            for (const sub in local.progress) {
+                if (!progress[sub]) {
+                    progress[sub] = local.progress[sub];
+                } else {
+                    progress[sub] = { ...progress[sub] };
+                    for (const ch in local.progress[sub]) {
+                        progress[sub][ch] = progress[sub][ch] || local.progress[sub][ch];
+                    }
+                }
+            }
+            return { active, progress };
+        };
+
+        window.mergeDeletedRecords = function (local, remote) {
+            local = local || [];
+            remote = remote || [];
+            const map = new Map();
+            remote.forEach(r => map.set(`${r.table}||${r.id}`, r));
+            local.forEach(r => {
+                const key = `${r.table}||${r.id}`;
+                if (map.has(key)) {
+                    const existing = map.get(key);
+                    if (r.deletedAt > existing.deletedAt) {
+                        map.set(key, r);
+                    }
+                } else {
+                    map.set(key, r);
+                }
+            });
+            return Array.from(map.values());
+        };
+
+        window.mergeArrayById = function (localArr, remoteArr, idField = 'id') {
+            localArr = Array.isArray(localArr) ? localArr : [];
+            remoteArr = Array.isArray(remoteArr) ? remoteArr : [];
+            const map = new Map();
+            remoteArr.forEach(item => {
+                if (item && item[idField] !== undefined) map.set(item[idField], item);
+            });
+            localArr.forEach(item => {
+                if (item && item[idField] !== undefined) {
+                    if (map.has(item[idField])) {
+                        const existing = map.get(item[idField]);
+                        if (item.updatedAt && existing.updatedAt) {
+                            if (item.updatedAt > existing.updatedAt) {
+                                map.set(item[idField], item);
+                            }
+                        } else {
+                            map.set(item[idField], { ...existing, ...item });
+                        }
+                    } else {
+                        map.set(item[idField], item);
+                    }
+                }
+            });
+            return Array.from(map.values());
+        };
+
+        window.mergeCustomPrograms = function (local, remote) {
+            local = local || {};
+            remote = remote || {};
+            const merged = { ...remote };
+            for (const trackId in local) {
+                if (!merged[trackId]) {
+                    merged[trackId] = local[trackId];
+                } else {
+                    merged[trackId] = window.mergeArrayById(local[trackId], merged[trackId], 'id');
+                }
+            }
+            return merged;
+        };
+
+        window.mergeCustomSyllabus = function (local, remote) {
+            local = local || {};
+            remote = remote || {};
+            const merged = { ...remote };
+            for (const trackId in local) {
+                if (!merged[trackId]) {
+                    merged[trackId] = local[trackId];
+                } else {
+                    merged[trackId] = window.mergeArrayById(local[trackId], merged[trackId], 'subject');
+                }
+            }
+            return merged;
+        };
+
+        window.mergeSubjectTimeLinks = function (local, remote) {
+            local = local || {};
+            remote = remote || {};
+            const merged = { ...remote };
+            for (const sub in local) {
+                if (!merged[sub]) {
+                    merged[sub] = local[sub];
+                } else {
+                    const localLink = local[sub];
+                    const remoteLink = remote[sub];
+                    if (localLink.updatedAt && remoteLink.updatedAt) {
+                        if (localLink.updatedAt > remoteLink.updatedAt) {
+                            merged[sub] = localLink;
+                        }
+                    } else {
+                        merged[sub] = { ...remoteLink, ...localLink };
+                    }
+                }
+            }
+            return merged;
+        };
 
         window.localDBHelper = {
             // --- Tasks ---
@@ -188,118 +478,86 @@
         window.syncManager = {
             isProcessing: false,
             
-            // Queue an operation
             enqueue: async function (payload) {
-                try {
-                    const pendingItem = await window.localDB.syncQueue
-                        .where('status')
-                        .equals('pending')
-                        .first();
-                        
-                    if (pendingItem) {
-                        pendingItem.payload = payload;
-                        pendingItem.timestamp = Date.now();
-                        await window.localDB.syncQueue.put(pendingItem);
-                        console.log("Updated existing pending sync item with latest state.");
-                    } else {
-                        const queueItem = {
-                            timestamp: Date.now(),
-                            status: 'pending',
-                            payload: payload
-                        };
-                        const id = await window.localDB.syncQueue.add(queueItem);
-                        console.log("Enqueued local change with ID:", id);
-                    }
-                } catch (err) {
-                    console.error("SyncManager enqueue error:", err);
-                }
                 this.processQueue();
                 if (window.updateSyncDashboardUI) {
                     window.updateSyncDashboardUI();
                 }
             },
             
-            // Process the queue
             processQueue: async function () {
                 if (this.isProcessing) {
-                    console.log("SyncManager is already processing.");
+                    window.syncLogger.log('SYNC-UP', 'SyncManager is already processing.');
                     return;
                 }
                 
                 if (!navigator.onLine) {
-                    console.log("SyncManager: Offline. Operations queued.");
+                    window.syncLogger.log('SYNC-UP', 'SyncManager: Offline. Operations queued locally.');
                     this.updateSyncStatusUI();
                     if (window.updateSyncDashboardUI) {
                         window.updateSyncDashboardUI();
                     }
                     return;
                 }
-                
+
+                const isAllowed = window.isCloudSyncAllowed && window.isCloudSyncAllowed();
+                if (!isAllowed) {
+                    const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+                    window.syncLogger.log('SYNC-UP', 'SyncManager: Cloud sync disallowed (Offline/Mock/Unauthenticated).');
+                    window.lastSyncError = isMockConfig ? "Using mock configuration. Cloud sync disabled." : "Authentication required for cloud backup.";
+                    this.updateSyncStatusUI();
+                    if (window.updateSyncDashboardUI) {
+                        window.updateSyncDashboardUI();
+                    }
+                    return;
+                }
+
                 this.isProcessing = true;
+                showSync('saving');
                 
+                let logId;
                 try {
-                    // Find the oldest pending item
-                    let pendingItem = await window.localDB.syncQueue
-                        .where('status')
-                        .equals('pending')
-                        .first();
-                        
-                    while (pendingItem) {
-                        console.log("Processing sync item:", pendingItem.id);
-                        
-                        // Mark as syncing to prevent duplicates
-                        pendingItem.status = 'syncing';
-                        await window.localDB.syncQueue.put(pendingItem);
-                        this.updateSyncStatusUI();
-                        if (window.updateSyncDashboardUI) {
-                            window.updateSyncDashboardUI();
-                        }
-                        
-                        try {
-                            if (db) {
-                                showSync('saving');
-                                isSyncing = true;
-                                await db.collection('studyPlan').doc('globalData').set(pendingItem.payload);
-                                
-                                // Success: Mark as synced
-                                pendingItem.status = 'synced';
-                                await window.localDB.syncQueue.put(pendingItem);
-                                showSync('saved');
-                                console.log("Successfully synced item:", pendingItem.id);
-                                
-                                window.lastSyncTime = Date.now();
-                                if (window.localDBHelper) {
-                                    await window.localDBHelper.setSetting('lastSyncTime', window.lastSyncTime);
-                                }
-                                if (window.updateSyncDashboardUI) {
-                                    window.updateSyncDashboardUI();
-                                }
-                            } else {
-                                throw new Error("Firestore DB reference not initialized");
-                            }
-                        } catch (syncErr) {
-                            console.error("Failed to sync item:", pendingItem.id, syncErr);
-                            // Revert status to pending so it can be retried
-                            pendingItem.status = 'pending';
-                            await window.localDB.syncQueue.put(pendingItem);
-                            showSync('error');
-                            window.lastSyncError = syncErr.message || String(syncErr);
-                            if (window.updateSyncDashboardUI) {
-                                window.updateSyncDashboardUI();
-                            }
-                            break; // Stop loop and retry later
-                        } finally {
-                            isSyncing = false;
-                        }
-                        
-                        // Grab next pending item
-                        pendingItem = await window.localDB.syncQueue
-                            .where('status')
-                            .equals('pending')
-                            .first();
+                    logId = await window.localDB.syncQueue.add({
+                        timestamp: Date.now(),
+                        status: 'syncing'
+                    });
+                    if (window.updateSyncDashboardUI) {
+                        window.updateSyncDashboardUI();
+                    }
+                } catch (e) {
+                    console.error("Failed to add log to syncQueue:", e);
+                }
+
+                try {
+                    const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                    window.syncLogger.log('FIRESTORE', `Reading remote document for sync. User: ${uid}`);
+                    
+                    const docSnap = await db.collection('userData').doc(uid).get();
+                    if (window.firestoreDiagnostics) {
+                        window.firestoreDiagnostics.log('READ/GET', 'userData', uid);
+                    }
+                    
+                    let remoteData = docSnap.exists ? docSnap.data() : null;
+                    
+                    await this.resolveAllConflicts(remoteData);
+                    
+                    if (logId !== undefined) {
+                        await window.localDB.syncQueue.update(logId, { status: 'synced' });
+                    }
+                    
+                    showSync('saved');
+                    window.lastSyncTime = Date.now();
+                    if (window.localDBHelper) {
+                        await window.localDBHelper.setSetting('lastSyncTime', window.lastSyncTime);
                     }
                 } catch (err) {
-                    console.error("SyncManager processQueue error:", err);
+                    window.syncLogger.log('SYNC-UP', 'Sync failed:', err);
+                    window.lastSyncError = err.message || String(err);
+                    showSync('error');
+                    
+                    if (logId !== undefined) {
+                        await window.localDB.syncQueue.update(logId, { status: 'error' });
+                    }
                 } finally {
                     this.isProcessing = false;
                     this.updateSyncStatusUI();
@@ -308,18 +566,392 @@
                     }
                 }
             },
-            
-            // Update sync queue indicator in UI
-            updateSyncStatusUI: async function () {
-                const pendingCount = await window.localDB.syncQueue
-                    .where('status')
-                    .equals('pending')
-                    .count();
-                const syncingCount = await window.localDB.syncQueue
-                    .where('status')
-                    .equals('syncing')
-                    .count();
+
+            resolveAllConflicts: async function (remoteData) {
+                window.syncLogger.log('SYNC-DOWN', 'Running record-level bidirectional sync & conflict resolution...');
+                
+                const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                if (!remoteData) {
+                    window.syncLogger.log('SYNC-UP', 'Remote document empty. Uploading entire local state...');
                     
+                    await this.markAllSynced();
+                    
+                    const payload = this.constructFullPayload();
+                    await db.collection('userData').doc(uid).set(payload);
+                    if (window.firestoreDiagnostics) {
+                        window.firestoreDiagnostics.log('WRITE/SET', 'userData', uid);
+                    }
+                    await this.loadDexieToMemoryState();
+                    return;
+                }
+
+                let hasLocalPending = false;
+                const remoteMetadata = remoteData.metadata || { settings: {}, records: {} };
+                const settingsMeta = remoteMetadata.settings || {};
+                
+                const nextSettingsMeta = { ...settingsMeta };
+                const nextRemoteData = { ...remoteData };
+                if (!nextRemoteData.metadata) nextRemoteData.metadata = {};
+                nextRemoteData.metadata.settings = nextSettingsMeta;
+
+                const localSettings = await window.localDB.appSettings.toArray();
+                const localSettingsMap = new Map(localSettings.map(s => [s.key, s]));
+                
+                const allSettingKeys = new Set([
+                    ...localSettings.map(s => s.key),
+                    ...Object.keys(remoteData).filter(k => k !== 'tasks' && k !== 'timerLogs' && k !== 'scheduleBlocks' && k !== 'scheduleBlocks2' && k !== 'scheduleGroups' && k !== 'metadata' && k !== 'weeklyTargets' && k !== 'deletedRecords')
+                ]);
+
+                for (const key of allSettingKeys) {
+                    if (key === 'deletedRecords') continue;
+                    
+                    const localSetting = localSettingsMap.get(key);
+                    const remoteValue = remoteData[key];
+                    const remoteMeta = settingsMeta[key] || { updatedAt: 0, version: 1 };
+                    
+                    if (remoteValue !== undefined && !localSetting) {
+                        await window.localDB.appSettings.put({
+                            key,
+                            value: remoteValue,
+                            updatedAt: remoteMeta.updatedAt || 1718880000000,
+                            version: remoteMeta.version || 1,
+                            syncStatus: 'synced'
+                        });
+                        window.syncLogger.log('SYNC-DOWN', `Downloaded remote-only setting key: ${key}`);
+                    } else if (remoteValue === undefined && localSetting) {
+                        if (localSetting.syncStatus === 'pending') {
+                            nextRemoteData[key] = localSetting.value;
+                            nextSettingsMeta[key] = { updatedAt: localSetting.updatedAt, version: localSetting.version };
+                            hasLocalPending = true;
+                        } else {
+                            await window.localDB.appSettings.delete(key);
+                            window.syncLogger.log('SYNC-DOWN', `Deleted local setting key (not found on remote): ${key}`);
+                        }
+                    } else if (remoteValue !== undefined && localSetting) {
+                        const localTS = localSetting.updatedAt || 1718880000000;
+                        const localVer = localSetting.version || 1;
+                        const remoteTS = remoteMeta.updatedAt || 0;
+                        const remoteVer = remoteMeta.version || 1;
+                        
+                        if (localSetting.syncStatus === 'pending') {
+                            hasLocalPending = true;
+                            
+                            if (remoteTS > localTS || remoteVer > localVer) {
+                                window.syncLogger.log('CONFLICT', `Conflict on setting key: ${key}. Remote wins/merging.`, { localTS, remoteTS, localVer, remoteVer });
+                                
+                                let mergedValue = remoteValue;
+                                if (key === 'weeklyTargetsDatabase') mergedValue = window.mergeWeeklyTargets(localSetting.value, remoteValue);
+                                else if (key === 'passedItems') mergedValue = { programs: window.unionArrays(localSetting.value?.programs, remoteValue?.programs), subjects: window.unionArrays(localSetting.value?.subjects, remoteValue?.subjects) };
+                                else if (key === 'revisionData') mergedValue = window.mergeRevisionData(localSetting.value, remoteValue);
+                                else if (key === 'customSyllabus') mergedValue = window.mergeCustomSyllabus(localSetting.value, remoteValue);
+                                else if (key === 'customPrograms') mergedValue = window.mergeCustomPrograms(localSetting.value, remoteValue);
+                                else if (key === 'tracks') mergedValue = window.mergeArrayById(localSetting.value, remoteValue, 'id');
+                                else if (key === 'paceGoals') mergedValue = window.mergeArrayById(localSetting.value, remoteValue, 'id');
+                                else if (key === 'subjectTimeLinks') mergedValue = window.mergeSubjectTimeLinks(localSetting.value, remoteValue);
+                                
+                                const nextTS = Math.max(localTS, remoteTS);
+                                const nextVer = Math.max(localVer, remoteVer) + 1;
+                                
+                                await window.localDB.appSettings.put({
+                                    key,
+                                    value: mergedValue,
+                                    updatedAt: nextTS,
+                                    version: nextVer,
+                                    syncStatus: 'pending'
+                                });
+                                nextRemoteData[key] = mergedValue;
+                                nextSettingsMeta[key] = { updatedAt: nextTS, version: nextVer };
+                            } else {
+                                nextRemoteData[key] = localSetting.value;
+                                nextSettingsMeta[key] = { updatedAt: localTS, version: localVer };
+                            }
+                        } else {
+                            if (remoteTS > localTS || remoteVer > localVer) {
+                                await window.localDB.appSettings.put({
+                                    key,
+                                    value: remoteValue,
+                                    updatedAt: remoteTS,
+                                    version: remoteVer,
+                                    syncStatus: 'synced'
+                                });
+                                window.syncLogger.log('SYNC-DOWN', `Updated local setting key from remote: ${key}`);
+                            }
+                        }
+                    }
+                }
+
+                const localTombSetting = await window.localDB.appSettings.get('deletedRecords') || { key: 'deletedRecords', value: [] };
+                const remoteTombVal = remoteData.deletedRecords || [];
+                const mergedTombstones = window.mergeDeletedRecords(localTombSetting.value, remoteTombVal);
+                
+                await window.localDB.appSettings.put({
+                    key: 'deletedRecords',
+                    value: mergedTombstones,
+                    updatedAt: Date.now(),
+                    version: (localTombSetting.version || 0) + 1,
+                    syncStatus: localTombSetting.syncStatus === 'pending' || remoteData.deletedRecords ? 'pending' : 'synced'
+                });
+                nextRemoteData.deletedRecords = mergedTombstones;
+
+                const tables = ['tasks', 'timerLogs', 'scheduleBlocks', 'scheduleBlocks2', 'scheduleGroups'];
+                const keyFields = {
+                    tasks: 'id',
+                    timerLogs: 'id',
+                    scheduleBlocks: 'id',
+                    scheduleBlocks2: 'id',
+                    scheduleGroups: 'id'
+                };
+                
+                for (const table of tables) {
+                    const keyField = keyFields[table];
+                    const localRecords = await window.localDB[table].toArray();
+                    const localMap = new Map(localRecords.map(r => [r[keyField], r]));
+                    
+                    const remoteArray = Array.isArray(remoteData[table]) ? remoteData[table] : [];
+                    const remoteMap = new Map(remoteArray.map(r => [r[keyField], r]));
+                    
+                    const allKeys = new Set([...localRecords.map(r => r[keyField]), ...remoteArray.map(r => r[keyField])]);
+                    const mergedRecords = [];
+                    const recordsToPutLocal = [];
+                    const recordsToDeleteLocal = [];
+                    
+                    for (const id of allKeys) {
+                        const localRec = localMap.get(id);
+                        const remoteRec = remoteMap.get(id);
+                        
+                        const isDeleted = mergedTombstones.some(t => t.table === table && String(t.id) === String(id));
+                        if (isDeleted) {
+                            if (localRec) recordsToDeleteLocal.push(id);
+                            window.syncLogger.log('SYNC-DOWN', `Soft-deleted record removed from tables: ${table}, ID: ${id}`);
+                            continue;
+                        }
+                        
+                        if (remoteRec && !localRec) {
+                            const migrated = window.migrateRecord(remoteRec, id, 'synced');
+                            recordsToPutLocal.push(migrated);
+                            mergedRecords.push(migrated);
+                            window.syncLogger.log('SYNC-DOWN', `Downloaded remote-only record. Table: ${table}, ID: ${id}`);
+                        } else if (!remoteRec && localRec) {
+                            if (localRec.syncStatus === 'pending') {
+                                mergedRecords.push(localRec);
+                                hasLocalPending = true;
+                            } else {
+                                recordsToDeleteLocal.push(id);
+                                window.syncLogger.log('SYNC-DOWN', `Removed local record not found on remote. Table: ${table}, ID: ${id}`);
+                            }
+                        } else if (remoteRec && localRec) {
+                            const migratedRemote = window.migrateRecord(remoteRec, id, 'synced');
+                            const migratedLocal = window.migrateRecord(localRec, id, localRec.syncStatus);
+                            
+                            const localTS = migratedLocal.updatedAt;
+                            const localVer = migratedLocal.version;
+                            const remoteTS = migratedRemote.updatedAt;
+                            const remoteVer = migratedRemote.version;
+                            
+                            if (migratedLocal.syncStatus === 'pending') {
+                                hasLocalPending = true;
+                                
+                                if (remoteTS > localTS || remoteVer > localVer) {
+                                    window.syncLogger.log('CONFLICT', `Conflict on table ${table}, ID: ${id}. Remote wins.`, { localTS, remoteTS, localVer, remoteVer });
+                                    recordsToPutLocal.push(migratedRemote);
+                                    mergedRecords.push(migratedRemote);
+                                } else {
+                                    mergedRecords.push(migratedLocal);
+                                }
+                            } else {
+                                if (remoteTS > localTS || remoteVer > localVer) {
+                                    recordsToPutLocal.push(migratedRemote);
+                                    mergedRecords.push(migratedRemote);
+                                    window.syncLogger.log('SYNC-DOWN', `Updated local record from remote. Table: ${table}, ID: ${id}`);
+                                } else {
+                                    mergedRecords.push(migratedLocal);
+                                }
+                            }
+                        }
+                    }
+                    
+                    for (const rec of recordsToPutLocal) {
+                        await window.localDB[table].put(rec);
+                    }
+                    for (const id of recordsToDeleteLocal) {
+                        await window.localDB[table].delete(id);
+                    }
+                    
+                    nextRemoteData[table] = mergedRecords;
+                }
+
+                if (hasLocalPending) {
+                    window.syncLogger.log('SYNC-UP', 'Uploading local changes merged with remote...');
+                    const cleanRemoteData = { ...nextRemoteData };
+                    for (const table of tables) {
+                        if (Array.isArray(cleanRemoteData[table])) {
+                            cleanRemoteData[table] = cleanRemoteData[table].map(r => ({ ...r, syncStatus: 'synced' }));
+                        }
+                    }
+                    const cleanSettingsMeta = { ...nextSettingsMeta };
+                    for (const key in cleanRemoteData) {
+                        if (key !== 'tasks' && key !== 'timerLogs' && key !== 'scheduleBlocks' && key !== 'scheduleBlocks2' && key !== 'scheduleGroups' && key !== 'metadata' && key !== 'weeklyTargets' && key !== 'deletedRecords') {
+                            const meta = cleanSettingsMeta[key] || { updatedAt: Date.now(), version: 1 };
+                            cleanSettingsMeta[key] = { updatedAt: meta.updatedAt, version: meta.version };
+                        }
+                    }
+                    cleanRemoteData.metadata.settings = cleanSettingsMeta;
+                    
+                    window.isSyncing = true;
+                    await db.collection('userData').doc(uid).set(cleanRemoteData);
+                    if (window.firestoreDiagnostics) {
+                        window.firestoreDiagnostics.log('WRITE/SET', 'userData', uid);
+                    }
+                    
+                    await this.markAllSynced();
+                    window.syncLogger.log('SYNC-UP', 'Successfully uploaded and synced all local pending changes.');
+                } else {
+                    window.syncLogger.log('SYNC-DOWN', 'Local database is fully up to date with remote. No upload needed.');
+                }
+                
+                await this.loadDexieToMemoryState();
+            },
+
+            markAllSynced: async function () {
+                const tables = ['tasks', 'timerLogs', 'scheduleBlocks', 'scheduleBlocks2', 'scheduleGroups'];
+                for (const table of tables) {
+                    const records = await window.localDB[table].toArray();
+                    for (const r of records) {
+                        if (r.syncStatus === 'pending') {
+                            r.syncStatus = 'synced';
+                            await window.localDB[table].put(r);
+                        }
+                    }
+                }
+                
+                const settings = await window.localDB.appSettings.toArray();
+                for (const s of settings) {
+                    if (s.syncStatus === 'pending') {
+                        s.syncStatus = 'synced';
+                        await window.localDB.appSettings.put(s);
+                    }
+                }
+            },
+
+            loadDexieToMemoryState: async function () {
+                window.syncLogger.log('STARTUP', 'Refreshing memory state and window variables from Dexie...');
+                
+                const dbTasks = await window.localDB.tasks.toArray();
+                window.tasks = dbTasks.map(t => window.migrateRecord(t, t.id, 'synced'));
+                tasks = window.tasks;
+                
+                const dbTimerLogs = await window.localDB.timerLogs.toArray();
+                window.timerLogs = dbTimerLogs.map(l => window.migrateRecord(l, l.id, 'synced'));
+                
+                const dbBlocks = await window.localDB.scheduleBlocks.toArray();
+                window.scheduleBlocks = dbBlocks.map(b => window.migrateRecord(b, b.id, 'synced'));
+                
+                const dbBlocks2 = await window.localDB.scheduleBlocks2.toArray();
+                window.scheduleBlocks2 = dbBlocks2.map(b => window.migrateRecord(b, b.id, 'synced'));
+                
+                const dbGroups = await window.localDB.scheduleGroups.toArray();
+                window.scheduleGroups = dbGroups.map(g => window.migrateRecord(g, g.id, 'synced'));
+                
+                const tracks = await window.localDB.appSettings.get('tracks');
+                if (tracks) window.tracks = tracks.value;
+                
+                const customSyllabus = await window.localDB.appSettings.get('customSyllabus');
+                if (customSyllabus) syllabusStructure = customSyllabus.value;
+                
+                const customPrograms = await window.localDB.appSettings.get('customPrograms');
+                if (customPrograms) window.customPrograms = customPrograms.value;
+                
+                const customActions = await window.localDB.appSettings.get('customActions');
+                if (customActions) window.customActions = customActions.value;
+                
+                const paceGoals = await window.localDB.appSettings.get('paceGoals');
+                if (paceGoals) window.paceGoals = paceGoals.value;
+                
+                const passedItems = await window.localDB.appSettings.get('passedItems');
+                if (passedItems) window.passedItems = passedItems.value;
+                
+                const revisionData = await window.localDB.appSettings.get('revisionData');
+                if (revisionData) window.revisionData = revisionData.value;
+                
+                const subjectTimeLinks = await window.localDB.appSettings.get('subjectTimeLinks');
+                if (subjectTimeLinks) window.subjectTimeLinks = subjectTimeLinks.value;
+                
+                const successResults = await window.localDB.appSettings.get('successResults');
+                if (successResults) window.successResults = successResults.value;
+                
+                const activeTimerState = await window.localDB.appSettings.get('activeTimerState');
+                if (activeTimerState) window.activeTimerState = activeTimerState.value;
+                
+                const dashboardConfig = await window.localDB.appSettings.get('dashboardConfig');
+                if (dashboardConfig) window.dashboardConfig = dashboardConfig.value;
+                
+                const weeklyTargetsDatabase = await window.localDB.appSettings.get('weeklyTargetsDatabase');
+                if (weeklyTargetsDatabase) window.weeklyTargetsDatabase = weeklyTargetsDatabase.value;
+                
+                const activeRoutineSet = await window.localDB.appSettings.get('activeRoutineSet');
+                if (activeRoutineSet) window.activeRoutineSet = activeRoutineSet.value;
+                
+                window.migrateLegacyData();
+                window.sortAllCustomData();
+                recalculateTotals();
+                
+                window.appState = this.constructFullPayload();
+                localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
+            },
+
+            constructFullPayload: function () {
+                return {
+                    tasks: tasks,
+                    tracks: window.tracks,
+                    customSyllabus: syllabusStructure,
+                    customPrograms: window.customPrograms,
+                    customActions: window.customActions,
+                    paceGoals: window.paceGoals,
+                    passedItems: window.passedItems,
+                    revisionData: window.revisionData,
+                    programVisibility: window.programVisibility || {},
+                    subjectTimeLinks: window.subjectTimeLinks,
+                    successResults: window.successResults,
+                    timerLogs: window.timerLogs || [],
+                    activeTimerState: window.activeTimerState,
+                    dashboardConfig: window.dashboardConfig,
+                    weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+                    scheduleBlocks: window.scheduleBlocks || [],
+                    scheduleBlocks2: window.scheduleBlocks2 || [],
+                    scheduleGroups: window.scheduleGroups || [],
+                    deletedRecords: (function() {
+                        const s = localStorage.getItem('studyMasterBackup');
+                        try { return JSON.parse(s).deletedRecords || []; } catch(e) { return []; }
+                    })(),
+                    weeklyTargets: (function () {
+                        const range = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
+                        if (range && window.weeklyTargetsDatabase) {
+                            const key = window.formatDateRangeKey ? window.formatDateRangeKey(range.start, range.end) : null;
+                            if (key && window.weeklyTargetsDatabase[key]) {
+                                return window.weeklyTargetsDatabase[key];
+                            }
+                        }
+                        return [];
+                    })()
+                };
+            },
+
+            updateSyncStatusUI: async function () {
+                const tables = ['tasks', 'timerLogs', 'scheduleBlocks', 'scheduleBlocks2', 'scheduleGroups'];
+                let pendingCount = 0;
+                try {
+                    for (const table of tables) {
+                        const records = await window.localDB[table].toArray();
+                        pendingCount += records.filter(r => r.syncStatus === 'pending').length;
+                    }
+                    const settings = await window.localDB.appSettings.toArray();
+                    pendingCount += settings.filter(s => s.syncStatus === 'pending').length;
+                } catch (e) {
+                    pendingCount = 0;
+                }
+                
+                const syncingCount = this.isProcessing ? 1 : 0;
+                
                 const syncStatusEl = document.getElementById('sync-status');
                 const syncIcon = document.getElementById('sync-icon');
                 const syncText = document.getElementById('sync-text');
@@ -333,7 +965,7 @@
                     if (syncingCount > 0) {
                         syncIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />`;
                         syncIcon.className = "w-3.5 h-3.5 animate-spin text-blue-500";
-                        syncText.textContent = `Syncing (${syncingCount})`;
+                        syncText.textContent = `Syncing (${pendingCount})`;
                         syncText.className = "text-[9px] font-black uppercase tracking-widest text-blue-500";
                     } else {
                         syncIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />`;
@@ -342,7 +974,6 @@
                         syncText.className = "text-[9px] font-black uppercase tracking-widest text-amber-500";
                     }
                 } else {
-                    // If everything is synced, show saved state
                     syncIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />`;
                     syncIcon.className = "w-3.5 h-3.5 text-emerald-500";
                     syncText.textContent = "Synced";
@@ -350,21 +981,42 @@
                     syncStatusEl.classList.remove('opacity-0', 'scale-95');
                     syncStatusEl.classList.add('opacity-100', 'scale-100');
                     
-                    // Fade out after 2 seconds
                     setTimeout(() => {
-                        // Double check if still no pending items
-                        window.localDB.syncQueue.where('status').anyOf('pending', 'syncing').count().then(count => {
-                            if (count === 0) {
+                        let currentPending = 0;
+                        const checkTables = async () => {
+                            try {
+                                for (const table of tables) {
+                                    const records = await window.localDB[table].toArray();
+                                    currentPending += records.filter(r => r.syncStatus === 'pending').length;
+                                }
+                                const settings = await window.localDB.appSettings.toArray();
+                                currentPending += settings.filter(s => s.syncStatus === 'pending').length;
+                            } catch (e) {}
+                            if (currentPending === 0 && !this.isProcessing) {
                                 syncStatusEl.classList.add('opacity-0', 'scale-95');
                                 syncStatusEl.classList.remove('opacity-100', 'scale-100');
                             }
-                        });
+                        };
+                        checkTables();
                     }, 2000);
                 }
             }
         };
 
         // Attach window listeners
+        window.isCloudSyncAllowed = function () {
+            const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+            if (isMockConfig) return false;
+            
+            const currentUser = window.currentUser;
+            if (!currentUser) return false;
+            
+            if (currentUser.uid === 'local-admin-uid' || currentUser.uid === 'offline-admin-uid') {
+                return false;
+            }
+            return true;
+        };
+
         window.addEventListener('online', () => {
             if (window.syncManager) window.syncManager.processQueue();
             if (window.updateSyncDashboardUI) window.updateSyncDashboardUI();
@@ -372,6 +1024,57 @@
         window.addEventListener('offline', () => {
             if (window.updateSyncDashboardUI) window.updateSyncDashboardUI();
         });
+
+        window.firestoreDiagnostics = {
+            logs: [],
+            log: function(operation, collection, document, error = null) {
+                const uid = (window.currentUser && window.currentUser.uid) || 'Unauthenticated';
+                const path = `${collection}/${document}`;
+                const status = error ? 'FAILED' : 'SUCCESS';
+                const logEntry = {
+                    timestamp: new Date().toISOString(),
+                    uid: uid,
+                    path: path,
+                    operation: operation,
+                    status: status,
+                    error: error ? { message: error.message, code: error.code } : null
+                };
+                this.logs.unshift(logEntry);
+                if (this.logs.length > 50) this.logs.pop(); // Keep last 50 logs
+                
+                console.log(`[Firestore Diags] ${operation} to ${path} - Status: ${status}`, error || '');
+            },
+            getReport: function() {
+                const uid = (window.currentUser && window.currentUser.uid) || 'Unauthenticated';
+                const email = (window.currentUser && window.currentUser.email) || 'None';
+                const isAllowed = window.isCloudSyncAllowed ? window.isCloudSyncAllowed() : false;
+                
+                let reason = "Access allowed";
+                if (uid === 'Unauthenticated') {
+                    reason = "User is not authenticated with Firebase Auth.";
+                } else if (uid === 'local-admin-uid' || uid === 'offline-admin-uid') {
+                    reason = "Bypassed login on localhost (Mock Local Admin mode). No Firebase credentials.";
+                } else if (!isAllowed) {
+                    reason = "Cloud sync configuration disabled or unauthorized session.";
+                }
+                
+                return {
+                    currentAuthUser: { uid: uid, email: email },
+                    isCloudSyncAllowed: isAllowed,
+                    expectedRules: {
+                        collection: "userData",
+                        document: "{uid}",
+                        rule: "allow read, write: if request.auth != null && request.auth.uid == userId;"
+                    },
+                    history: this.logs,
+                    reasonAccessDeniedFallback: reason
+                };
+            }
+        };
+        window.printFirestorePermissionsReport = function() {
+            console.log("=== FIRESTORE PERMISSIONS REPORT ===");
+            console.dir(window.firestoreDiagnostics.getReport());
+        };
 
         window.lastSyncTime = null;
         window.lastSyncError = null;
@@ -385,6 +1088,127 @@
             }
         })();
 
+        window.syncDiagData = {
+            projectId: 'Checking...',
+            authState: 'Checking...',
+            dbName: 'ProjectXLocalDB',
+            localRecords: 'Checking...',
+            cloudRecords: 'Checking...',
+            pendingCount: 0,
+            lastUpload: localStorage.getItem('diag_last_upload') || 'Never',
+            lastDownload: localStorage.getItem('diag_last_download') || 'Never',
+            logs: []
+        };
+
+        window.addSyncAuditLog = function (message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            console.log(`[Sync Audit] [${type.toUpperCase()}] ${message}`);
+            if (!window.syncDiagData.logs) {
+                window.syncDiagData.logs = [];
+            }
+            window.syncDiagData.logs.unshift({ timestamp, message, type });
+            if (window.syncDiagData.logs.length > 50) {
+                window.syncDiagData.logs.pop();
+            }
+            if (window.updateSyncDiagnosticsPanelUI) {
+                window.updateSyncDiagnosticsPanelUI();
+            }
+        };
+
+        window.updateSyncDiagnosticsPanelUI = async function () {
+            // Update Project ID
+            if (typeof firebase !== 'undefined') {
+                if (firebase.app && firebase.app().options) {
+                    window.syncDiagData.projectId = firebase.app().options.projectId || 'Unknown';
+                } else {
+                    window.syncDiagData.projectId = 'Not Initialized';
+                }
+                const fbUser = firebase.auth ? firebase.auth().currentUser : null;
+                if (fbUser) {
+                    window.syncDiagData.authState = `${fbUser.email} (${fbUser.uid.substring(0, 6)}...)`;
+                } else if (window.currentUser) {
+                    window.syncDiagData.authState = `${window.currentUser.email} (${window.currentUser.uid.substring(0, 6)}...) [Mock]`;
+                } else {
+                    window.syncDiagData.authState = 'Logged Out';
+                }
+            } else {
+                window.syncDiagData.projectId = 'Firebase Undefined';
+                window.syncDiagData.authState = 'Firebase Undefined';
+            }
+
+            // Local DB Name
+            window.syncDiagData.dbName = window.localDB ? window.localDB.name : 'ProjectXLocalDB';
+
+            // Get local tasks count
+            if (window.localDB && window.localDB.tasks) {
+                try {
+                    const localCount = await window.localDB.tasks.count();
+                    window.syncDiagData.localRecords = `${localCount} tasks`;
+                } catch (e) {
+                    window.syncDiagData.localRecords = 'Error';
+                }
+            } else {
+                window.syncDiagData.localRecords = 'DB Unready';
+            }
+
+            // Get pending sync count
+            if (window.localDB && window.localDB.syncQueue) {
+                try {
+                    const pendingCount = await window.localDB.syncQueue.where('status').equals('pending').count();
+                    window.syncDiagData.pendingCount = pendingCount;
+                } catch (e) {
+                    window.syncDiagData.pendingCount = 0;
+                }
+            }
+
+            // Get cloud records count (if online & sync allowed)
+            const isAllowed = window.isCloudSyncAllowed && window.isCloudSyncAllowed();
+            if (isAllowed && db) {
+                const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                try {
+                    const docSnap = await db.collection('userData').doc(uid).get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        if (data && Array.isArray(data.tasks)) {
+                            window.syncDiagData.cloudRecords = `${data.tasks.length} tasks`;
+                        } else {
+                            window.syncDiagData.cloudRecords = '0 tasks';
+                        }
+                    } else {
+                        window.syncDiagData.cloudRecords = 'No doc';
+                    }
+                } catch (e) {
+                    window.syncDiagData.cloudRecords = 'Failed to fetch';
+                    if (e.code === 'permission-denied') {
+                        window.addSyncAuditLog("Firestore read error (Permission Denied) for userData: " + e.message, 'error');
+                    } else {
+                        window.addSyncAuditLog("Firestore read error: " + e.message, 'error');
+                    }
+                }
+            } else {
+                window.syncDiagData.cloudRecords = 'Sync Disabled';
+            }
+
+            // Map to HTML fields
+            const pIdEl = document.getElementById('diag-project-id');
+            const authEl = document.getElementById('diag-auth-state');
+            const dbEl = document.getElementById('diag-db-name');
+            const pendingEl = document.getElementById('diag-pending');
+            const localEl = document.getElementById('diag-local-records');
+            const cloudEl = document.getElementById('diag-cloud-records');
+            const uploadEl = document.getElementById('diag-last-upload');
+            const downloadEl = document.getElementById('diag-last-download');
+
+            if (pIdEl) pIdEl.textContent = window.syncDiagData.projectId;
+            if (authEl) authEl.textContent = window.syncDiagData.authState;
+            if (dbEl) dbEl.textContent = window.syncDiagData.dbName;
+            if (pendingEl) pendingEl.textContent = window.syncDiagData.pendingCount;
+            if (localEl) localEl.textContent = window.syncDiagData.localRecords;
+            if (cloudEl) cloudEl.textContent = window.syncDiagData.cloudRecords;
+            if (uploadEl) uploadEl.textContent = window.syncDiagData.lastUpload;
+            if (downloadEl) downloadEl.textContent = window.syncDiagData.lastDownload;
+        };
+
         window.updateSyncDashboardUI = async function () {
             const netDot = document.getElementById('sync-dash-net-dot');
             const netText = document.getElementById('sync-dash-net-text');
@@ -397,7 +1221,7 @@
             const progressBar = document.getElementById('sync-dash-progress-bar');
             const progressText = document.getElementById('sync-dash-progress-text');
 
-            if (!pendingCountEl) return;
+
 
             // Connection status
             const isOnline = navigator.onLine;
@@ -458,7 +1282,13 @@
             // Error display
             if (window.lastSyncError) {
                 if (errorContainer) errorContainer.classList.remove('hidden');
-                if (errorMsg) errorMsg.textContent = window.lastSyncError;
+                if (errorMsg) {
+                    if (window.lastSyncError.includes("Authentication required")) {
+                        errorMsg.innerHTML = `${window.lastSyncError} <a href="/login.html" class="text-blue-500 hover:text-blue-600 dark:text-blue-450 dark:hover:text-blue-400 underline font-black ml-1">Sign in here &rarr;</a>`;
+                    } else {
+                        errorMsg.textContent = window.lastSyncError;
+                    }
+                }
             } else {
                 if (errorContainer) errorContainer.classList.add('hidden');
             }
@@ -1649,15 +2479,17 @@
         window.handleLogout = function () {
             if (typeof firebase !== 'undefined' && firebase.auth) {
                 firebase.auth().signOut().then(() => {
-                    window.location.href = '/login.html';
+                    window.location.href = 'login.html';
                 }).catch(err => {
                     console.error("Logout error:", err);
-                    window.location.href = '/login.html';
+                    window.location.href = 'login.html';
                 });
             } else {
-                window.location.href = '/login.html';
+                window.location.href = 'login.html';
             }
         };
+
+
 
         window.openAccountSettingsModal = function () {
             const user = window.currentUser || { displayName: 'ris2k29', email: 'ris2k29@gmail.com' };
@@ -2939,141 +3771,70 @@
 
 
 
+
+
         function loadFromCloud() {
             if (!db) return;
-            db.collection('studyPlan').doc('globalData').onSnapshot((docSnap) => {
-                if (isSyncing) return; // Prevent loop
+
+            const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+            const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+            
+            if (isMockConfig || !fbUser) {
+                console.log("loadFromCloud: Cloud sync unavailable (Offline/Mock Mode).");
+                if (isInitialLoad) { renderUI(); isInitialLoad = false; }
+                return;
+            }
+
+            const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+            db.collection('userData').doc(uid).onSnapshot((docSnap) => {
+                if (window.firestoreDiagnostics) {
+                    window.firestoreDiagnostics.log('READ/SUBSCRIBE', 'userData', uid);
+                }
+                if (window.isSyncing) {
+                    window.syncLogger.log('FIRESTORE', 'loadFromCloud: Snapshot ignored because we are currently syncing up.');
+                    return; // Prevent loop
+                }
 
                 if (docSnap.exists) {
                     const data = window.sanitizeAllData(docSnap.data());
-                    let newTasks = defaultTasks;
-
-                    if (data.tracks) window.tracks = data.tracks;
-                    if (data.customPrograms) window.customPrograms = data.customPrograms;
-                    if (data.customActions) window.customActions = data.customActions;
-                    if (data.programVisibility) window.programVisibility = data.programVisibility;
-                    if (data.paceGoals) window.paceGoals = data.paceGoals;
-                    else window.paceGoals = [];
-                    if (data.passedItems) window.passedItems = data.passedItems;
-                    else window.passedItems = { programs: [], subjects: [] };
-                    if (data.revisionData) window.revisionData = data.revisionData;
-                    else window.revisionData = { active: [], progress: {} };
-                    if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
-                    else window.subjectTimeLinks = {};
-                    if (data.successResults) window.successResults = data.successResults;
-                    else window.successResults = [];
-                    if (data.timerLogs) window.timerLogs = data.timerLogs;
-                    else window.timerLogs = [];
-                    if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
-                    else window.activeTimerState = {
-                        isRunning: false,
-                        mode: 'stopwatch',
-                        startTime: null,
-                        elapsedBeforeStart: 0,
-                        targetDuration: 0,
-                        selectedSubject: 'General Study'
-                    };
-                    if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
-                    else window.scheduleBlocks = [];
-                    if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
-                    else window.scheduleBlocks2 = [];
-                    if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
-                    else window.scheduleGroups = [];
-                    if (window.syncTimerStateFromCloud) {
-                        window.syncTimerStateFromCloud();
-                    }
-                    if (data.weeklyTargetsDatabase) {
-                        window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                    window.syncLogger.log('FIRESTORE', 'loadFromCloud: New remote snapshot received. Resolving conflicts...');
+                    
+                    if (window.syncManager && window.syncManager.resolveAllConflicts) {
+                        window.syncManager.resolveAllConflicts(data).then(() => {
+                            if (isInitialLoad) {
+                                renderUI();
+                                isInitialLoad = false;
+                            } else {
+                                requestAnimationFrame(() => {
+                                    const scrollPos = window.scrollY; // Preserve scroll position
+                                    renderUI();
+                                    window.scrollTo(0, scrollPos); // Seamlessly restore scroll
+                                    showSync('saved');
+                                });
+                            }
+                        }).catch(err => {
+                            window.syncLogger.log('FIRESTORE', 'Error resolving snapshot conflicts:', err);
+                        });
                     } else {
-                        window.weeklyTargetsDatabase = {};
-                    }
-                    if (Array.isArray(data.weeklyTargets) && data.weeklyTargets.length > 0) {
-                        const defaultRange = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
-                        if (defaultRange) {
-                            const key = window.formatDateRangeKey ? window.formatDateRangeKey(defaultRange.start, defaultRange.end) : "Migration Week";
-                            const dbKeys = Object.keys(window.weeklyTargetsDatabase || {});
-                            const isEmptyOrOnlyMigration = dbKeys.length === 0 || (dbKeys.length === 1 && dbKeys[0] === "Migration Week");
-                            if (isEmptyOrOnlyMigration && !window.weeklyTargetsDatabase[key]) {
-                                window.weeklyTargetsDatabase[key] = data.weeklyTargets.map(t => {
-                                    return {
-                                        track: t.track || "",
-                                        program: t.program || "",
-                                        subject: t.subject || "",
-                                        chapter: t.chapter || "",
-                                        completed: t.completed || false
-                                    };
-                                });
-                            }
-                        }
-                    }
-                    if (data.dashboardConfig) {
-                        window.dashboardConfig = data.dashboardConfig;
-                        if (!window.dashboardConfig.trendStartDate) {
-                            window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
-                        } else {
-                            const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
-                            if (!isNaN(trendStart.getTime())) {
-                                trendStart.setHours(0, 0, 0, 0);
-                                PLAN_START_DATE = trendStart;
-                            }
-                        }
-                    }
-
-                    if (data.customSyllabus) {
-                        syllabusStructure = data.customSyllabus;
-                        window.tracks.forEach(trackObj => {
-                            const track = trackObj.id;
-                            if (syllabusStructure[track]) {
-                                syllabusStructure[track].forEach(s => {
-                                    if (!s.program) {
-                                        s.program = trackObj.name + " Prog";
-                                    }
-                                });
-                            }
-                        });
-                        recalculateTotals();
-                        if (isInitialLoad) window.switchSysTab('chapter');
-                    }
-
-                    window.migrateLegacyData();
-                    window.sortAllCustomData();
-
-                    if (data.tasks && data.tasks.length > 0) {
-                        newTasks = data.tasks.map(t => {
-                            const formatted = { ...t };
-                            window.customActions.forEach(a => { formatted[a.id] = formatted[a.id] === true; });
-                            return formatted;
-                        });
-
-                        const lastTask = newTasks[newTasks.length - 1];
-                        if (lastTask && lastTask.id) {
-                            const newEndDate = new Date(PLAN_START_DATE.getTime());
-                            newEndDate.setDate(newEndDate.getDate() + (lastTask.id - 1));
-                            PLAN_END_DATE = newEndDate;
-                        }
-                    } else { if (isInitialLoad) saveToCloud(true); }
-
-                    tasks = newTasks;
-
-                    // Always backup to localStorage
-                    window.appState = data;
-                    localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
-                    console.log("Cloud Sync Success");
-
-                    if (isInitialLoad) { renderUI(); isInitialLoad = false; }
-                    else {
-                        requestAnimationFrame(() => {
-                            const scrollPos = window.scrollY; // Preserve scroll position
-                            renderUI();
-                            window.scrollTo(0, scrollPos); // Seamlessly restore scroll
-                            showSync('saved');
-                        });
+                        window.syncLogger.log('FIRESTORE', 'syncManager.resolveAllConflicts not found, skipping.');
                     }
                 } else {
-                    if (isInitialLoad) saveToCloud(true);
+                    window.syncLogger.log('FIRESTORE', 'loadFromCloud: Remote document empty.');
+                    if (isInitialLoad) {
+                        renderUI();
+                        isInitialLoad = false;
+                    }
                 }
             }, (error) => {
-                console.error("Sync Error:", error);
+                console.error("Sync Error in snapshot:", error);
+                const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                if (window.firestoreDiagnostics) {
+                    window.firestoreDiagnostics.log('READ/SUBSCRIBE', 'userData', uid, error);
+                }
+                window.lastSyncError = error.message || String(error);
+                if (window.updateSyncDashboardUI) {
+                    window.updateSyncDashboardUI();
+                }
                 if (isInitialLoad) { renderUI(); isInitialLoad = false; }
             });
         }
@@ -3106,7 +3867,82 @@
             }
         };
 
-        function saveToCloud(immediate = false) {
+        window.saveCurrentStateToIndexedDB = async function () {
+            if (window.localDBHelper) {
+                window.syncLogger.log('DEXIE', 'Differ & backup starting for current state to IndexedDB...');
+                
+                // 1. Settings (Key-Value)
+                const settingsToSave = {
+                    dashboardConfig: window.dashboardConfig,
+                    weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+                    activeTimerState: window.activeTimerState,
+                    passedItems: window.passedItems || { programs: [], subjects: [] },
+                    revisionData: window.revisionData || { active: [], progress: {} },
+                    subjectTimeLinks: window.subjectTimeLinks || {},
+                    successResults: window.successResults || [],
+                    tracks: window.tracks || [],
+                    activeRoutineSet: window.activeRoutineSet || 1,
+                    customPrograms: window.customPrograms || {},
+                    customSyllabus: syllabusStructure || {},
+                    customActions: window.customActions || [],
+                    paceGoals: window.paceGoals || []
+                };
+
+                for (const key in settingsToSave) {
+                    const enriched = await window.enrichSetting(key, settingsToSave[key]);
+                    await window.localDB.appSettings.put(enriched);
+                }
+
+                // 2. Tasks
+                const tasksResult = await window.enrichChangedRecords('tasks', tasks, 'id');
+                window.tasks = tasksResult.enrichedArray;
+                tasks = tasksResult.enrichedArray;
+                await window.localDB.tasks.clear();
+                if (window.tasks.length > 0) {
+                    await window.localDB.tasks.bulkPut(window.tasks);
+                }
+
+                // 3. Timer Logs
+                const timerLogsResult = await window.enrichChangedRecords('timerLogs', window.timerLogs || [], 'id');
+                window.timerLogs = timerLogsResult.enrichedArray;
+                await window.localDB.timerLogs.clear();
+                if (window.timerLogs.length > 0) {
+                    await window.localDB.timerLogs.bulkPut(window.timerLogs);
+                }
+
+                // 4. Schedule Blocks
+                const scheduleBlocksResult = await window.enrichChangedRecords('scheduleBlocks', window.scheduleBlocks || [], 'id');
+                window.scheduleBlocks = scheduleBlocksResult.enrichedArray;
+                await window.localDB.scheduleBlocks.clear();
+                if (window.scheduleBlocks.length > 0) {
+                    await window.localDB.scheduleBlocks.bulkPut(window.scheduleBlocks);
+                }
+
+                // 5. Schedule Blocks 2
+                const scheduleBlocks2Result = await window.enrichChangedRecords('scheduleBlocks2', window.scheduleBlocks2 || [], 'id');
+                window.scheduleBlocks2 = scheduleBlocks2Result.enrichedArray;
+                await window.localDB.scheduleBlocks2.clear();
+                if (window.scheduleBlocks2.length > 0) {
+                    await window.localDB.scheduleBlocks2.bulkPut(window.scheduleBlocks2);
+                }
+
+                // 6. Schedule Groups
+                const scheduleGroupsResult = await window.enrichChangedRecords('scheduleGroups', window.scheduleGroups || [], 'id');
+                window.scheduleGroups = scheduleGroupsResult.enrichedArray;
+                await window.localDB.scheduleGroups.clear();
+                if (window.scheduleGroups.length > 0) {
+                    await window.localDB.scheduleGroups.bulkPut(window.scheduleGroups);
+                }
+
+                window.syncLogger.log('DEXIE', 'IndexedDB local backup complete (differ & enrich executed).');
+            }
+        };
+
+        async function saveToCloud(immediate = false) {
+            if (window.saveCurrentStateToIndexedDB) {
+                await window.saveCurrentStateToIndexedDB();
+            }
+
             const payload = {
                 tasks: tasks,
                 tracks: window.tracks,
@@ -3146,90 +3982,51 @@
             };
             window.appState = payload;
 
-            // Backup locally
             localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
-            console.log("Offline Backup Saved");
-
-            // Parallel save to IndexedDB via Dexie
-            if (window.localDBHelper) {
-                window.localDBHelper.setSetting('dashboardConfig', window.dashboardConfig);
-                window.localDBHelper.setSetting('weeklyTargetsDatabase', window.weeklyTargetsDatabase || {});
-                window.localDBHelper.setSetting('activeTimerState', window.activeTimerState);
-                window.localDBHelper.setSetting('passedItems', window.passedItems || { programs: [], subjects: [] });
-                window.localDBHelper.setSetting('revisionData', window.revisionData || { active: [], progress: {} });
-                window.localDBHelper.setSetting('subjectTimeLinks', window.subjectTimeLinks || {});
-                window.localDBHelper.setSetting('successResults', window.successResults || []);
-                window.localDBHelper.setSetting('tracks', window.tracks || []);
-                window.localDBHelper.setSetting('activeRoutineSet', window.activeRoutineSet || 1);
-                window.localDBHelper.setSetting('customPrograms', window.customPrograms || {});
-                window.localDBHelper.setSetting('customSyllabus', syllabusStructure || {});
-                window.localDBHelper.setSetting('customActions', window.customActions || []);
-                window.localDBHelper.setSetting('paceGoals', window.paceGoals || []);
-                
-                window.localDB.tasks.clear().then(() => {
-                    if (Array.isArray(tasks)) {
-                        window.localDB.tasks.bulkPut(tasks).catch(err => console.error("Error bulk putting tasks:", err));
-                    }
-                });
-                
-                window.localDB.timerLogs.clear().then(() => {
-                    if (Array.isArray(window.timerLogs)) {
-                        window.localDB.timerLogs.bulkPut(window.timerLogs).catch(err => console.error("Error bulk putting timerLogs:", err));
-                    }
-                });
-                
-                window.localDB.scheduleBlocks.clear().then(() => {
-                    const blocks = window.scheduleBlocks || [];
-                    if (Array.isArray(blocks)) {
-                        window.localDB.scheduleBlocks.bulkPut(blocks).catch(err => console.error("Error bulk putting scheduleBlocks:", err));
-                    }
-                });
-                
-                window.localDB.scheduleBlocks2.clear().then(() => {
-                    const blocks2 = window.scheduleBlocks2 || [];
-                    if (Array.isArray(blocks2)) {
-                        window.localDB.scheduleBlocks2.bulkPut(blocks2).catch(err => console.error("Error bulk putting scheduleBlocks2:", err));
-                    }
-                });
-                
-                window.localDB.scheduleGroups.clear().then(() => {
-                    const groups = window.scheduleGroups || [];
-                    if (Array.isArray(groups)) {
-                        window.localDB.scheduleGroups.bulkPut(groups).catch(err => console.error("Error bulk putting scheduleGroups:", err));
-                    }
-                });
-                
-                console.log("IndexedDB Local Backup Saved");
-            }
+            window.syncLogger.log('CACHE', 'Offline Backup Saved to LocalStorage');
 
             const executeSave = () => {
                 if (window.syncManager) {
                     window.syncManager.enqueue(window.appState);
                 } else if (db) {
-                    isSyncing = true;
-                    showSync('saving');
+                    const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+                    const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+                    if (isMockConfig || !fbUser) {
+                        window.syncLogger.log('FIRESTORE', 'saveToCloud: Cloud sync unavailable (Offline/Mock Mode).');
+                        showSync('error');
+                        return;
+                    }
 
-                    db.collection('studyPlan').doc('globalData').set(window.appState)
+                    window.isSyncing = true;
+                    showSync('saving');
+                    const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                    db.collection('userData').doc(uid).set(window.appState)
                         .then(() => {
-                            console.log("Cloud Sync Success");
+                            window.syncLogger.log('FIRESTORE', 'Cloud Sync Success via direct set');
+                            if (window.firestoreDiagnostics) {
+                                window.firestoreDiagnostics.log('WRITE/SET', 'userData', uid);
+                            }
                             showSync('saved');
                         })
                         .catch((error) => {
-                            console.error("Sync Error:", error);
+                            window.syncLogger.log('FIRESTORE', 'Sync Error via direct set:', error);
+                            if (window.firestoreDiagnostics) {
+                                window.firestoreDiagnostics.log('WRITE/SET', 'userData', uid, error);
+                            }
                             showSync('error');
                         })
                         .finally(() => {
-                            setTimeout(() => { isSyncing = false; }, 300);
+                            setTimeout(() => { window.isSyncing = false; }, 300);
                         });
                 }
             };
 
             if (immediate) {
-                if (saveTimeout) clearTimeout(saveTimeout);
+                if (window.saveTimeout) clearTimeout(window.saveTimeout);
                 executeSave();
             } else {
-                if (saveTimeout) clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(executeSave, 800);
+                if (window.saveTimeout) clearTimeout(window.saveTimeout);
+                window.saveTimeout = setTimeout(executeSave, 800);
             }
         }
 
@@ -13454,15 +14251,16 @@
                         config = JSON.parse(cachedConfig);
                         console.log("Loaded Firebase config from localStorage cache for offline boot.");
                     } else {
-                        console.warn("Failed to load Firebase configuration, using offline placeholder config.");
+                        console.warn("Failed to load Firebase configuration, using offline fallback config.");
                         config = {
-                            apiKey: "mock-api-key",
-                            authDomain: "mock-project.firebaseapp.com",
-                            projectId: "mock-project",
-                            storageBucket: "mock-project.appspot.com",
-                            messagingSenderId: "1234567890",
-                            appId: "1:1234567890:web:mockapp"
+                            apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+                            authDomain: "project-x-787898.firebaseapp.com",
+                            projectId: "project-x-787898",
+                            storageBucket: "project-x-787898.firebasestorage.app",
+                            messagingSenderId: "1011303841705",
+                            appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
                         };
+
                     }
                 }
             }
@@ -13486,6 +14284,8 @@
                 let currentUser = user;
                 const isLocal = window.location.hostname === 'localhost' || 
                                 window.location.hostname === '127.0.0.1' || 
+                                window.location.protocol === 'file:' || 
+                                window.location.hostname === '' || 
                                 window.location.hostname.startsWith('192.168.') || 
                                 window.location.hostname.startsWith('10.') || 
                                 window.location.hostname.startsWith('172.');
@@ -13498,16 +14298,17 @@
                     };
                 }
                 if (!currentUser) {
-                    window.location.href = '/login.html';
+                    window.location.href = 'login.html';
                     return;
                 }
 
                 if (currentUser.email !== 'ris2k29@gmail.com') {
                     firebase.auth().signOut().then(() => {
-                        window.location.href = '/login.html?error=denied';
+                        window.location.href = 'login.html?error=denied';
                     });
                     return;
                 }
+
 
                 // Authorized
                 console.log("Admin authorized:", currentUser.email);
@@ -13533,121 +14334,132 @@
                     profileAvatarEl.textContent = initial;
                 }
 
-                // Run original DOMContentLoaded setup logic
+                // Offline-first startup sequence
                 try {
-                    let stored = localStorage.getItem('studyMasterBackup');
-                    if (!stored && window.localDBHelper) {
-                        try {
-                            const dbTasks = await window.localDBHelper.readAllTasks();
-                            if (dbTasks && dbTasks.length > 0) {
-                                console.log("Found backup in local IndexedDB database layer, restoring...");
-                                const dbTracks = await window.localDBHelper.getSetting('tracks');
-                                const dbCustomPrograms = await window.localDBHelper.getSetting('customPrograms');
-                                const dbCustomSyllabus = await window.localDBHelper.getSetting('customSyllabus');
-                                const dbCustomActions = await window.localDBHelper.getSetting('customActions');
-                                const dbPaceGoals = await window.localDBHelper.getSetting('paceGoals');
-                                const dbPassedItems = await window.localDBHelper.getSetting('passedItems');
-                                const dbRevisionData = await window.localDBHelper.getSetting('revisionData');
-                                const dbSubjectTimeLinks = await window.localDBHelper.getSetting('subjectTimeLinks');
-                                const dbSuccessResults = await window.localDBHelper.getSetting('successResults');
-                                const dbScheduleBlocks = await window.localDBHelper.readAllScheduleBlocks();
-                                const dbScheduleBlocks2 = await window.localDBHelper.readAllScheduleBlocks2();
-                                const dbScheduleGroups = await window.localDBHelper.readAllScheduleGroups();
-                                const dbDashboardConfig = await window.localDBHelper.getSetting('dashboardConfig');
-                                const dbWeeklyTargetsDatabase = await window.localDBHelper.getSetting('weeklyTargetsDatabase');
-                                const dbActiveRoutineSet = await window.localDBHelper.getSetting('activeRoutineSet');
-
-                                const localData = {
-                                    tasks: dbTasks,
-                                    tracks: dbTracks || [],
-                                    customPrograms: dbCustomPrograms || {},
-                                    customSyllabus: dbCustomSyllabus || {},
-                                    customActions: dbCustomActions || [],
-                                    paceGoals: dbPaceGoals || [],
-                                    passedItems: dbPassedItems || { programs: [], subjects: [] },
-                                    revisionData: dbRevisionData || { active: [], progress: {} },
-                                    subjectTimeLinks: dbSubjectTimeLinks || {},
-                                    successResults: dbSuccessResults || [],
-                                    scheduleBlocks: dbScheduleBlocks || [],
-                                    scheduleBlocks2: dbScheduleBlocks2 || [],
-                                    scheduleGroups: dbScheduleGroups || [],
-                                    dashboardConfig: dbDashboardConfig || {},
-                                    weeklyTargetsDatabase: dbWeeklyTargetsDatabase || {},
-                                    activeRoutineSet: dbActiveRoutineSet || 1
-                                };
-                                stored = JSON.stringify(localData);
-                                localStorage.setItem('studyMasterBackup', stored);
-                            }
-                        } catch (err) {
-                            console.warn("Could not load from IndexedDB backup:", err);
-                        }
-                    }
-                    if (!stored && isLocal) {
-                        const mockData = {
-                            tracks: [
-                                { id: "track-1", name: "Math 1st", priority: 1, order: 0 }
-                            ],
-                            customPrograms: {
-                                "track-1": [
-                                    { id: "math-prog", name: "Math 1st Program", priority: 1, order: 0 }
-                                ]
-                            },
-                            customSyllabus: {
-                                "track-1": [
-                                    { subject: "Math 1st Global Baseline", program: "Math 1st Program", chapters: 10, priority: 1, order: 0 }
-                                ]
-                            },
-                            tasks: [
-                                { id: 1, date: "Jun 13", day: "Sat", type: "study", studyDay: 1, "track-1Study": false, "track-1Tasks": [{ subject: "Math 1st Global Baseline", chapter: "Ch. 1", title: "Topic 1", completed: false, id: "track-1-1" }] }
-                            ],
-                            paceGoals: [
-                                { id: "math-baseline", target: "Math 1st Global Baseline", type: "subject", startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() }
-                            ],
-                            weeklyTargetsDatabase: {
-                                "Migration Week": [
-                                    { track: "track-1", program: "Math 1st Program", subject: "Math 1st Global Baseline", chapter: "Ch. 1", completed: false }
-                                ]
-                            }
-                        };
-                        stored = JSON.stringify(mockData);
-                        localStorage.setItem('studyMasterBackup', stored);
-                    }
-                    if (stored) {
-                        const data = window.sanitizeAllData(JSON.parse(stored));
-                        if (data.tasks) {
-                            tasks = data.tasks;
-                            if (data.tracks) window.tracks = data.tracks;
-                            if (data.customPrograms) window.customPrograms = data.customPrograms;
-                            if (data.customActions) window.customActions = data.customActions;
-                            if (data.paceGoals) window.paceGoals = data.paceGoals;
-                            if (data.passedItems) window.passedItems = data.passedItems;
-                            if (data.revisionData) window.revisionData = data.revisionData;
-                            if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
-                            if (data.successResults) window.successResults = data.successResults;
-                            if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
-                            if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
-                            if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
-                            if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
-                            if (data.programVisibility) window.programVisibility = data.programVisibility;
-                            if (data.timerLogs) window.timerLogs = data.timerLogs;
-                            if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
-                            if (data.dashboardConfig) {
-                                window.dashboardConfig = data.dashboardConfig;
-                                if (window.dashboardConfig.trendStartDate) {
-                                    const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
-                                    if (!isNaN(trendStart.getTime())) {
-                                        trendStart.setHours(0, 0, 0, 0);
-                                        PLAN_START_DATE = trendStart;
+                    window.syncLogger.log('STARTUP', 'Booting offline-first: loading local Dexie DB...');
+                    let hasDexieData = false;
+                    if (window.localDB) {
+                        const tasksCount = await window.localDB.tasks.count();
+                        if (tasksCount > 0) {
+                            hasDexieData = true;
+                            // Migrate records in IndexedDB if they are missing fields
+                            const tables = ['tasks', 'timerLogs', 'scheduleBlocks', 'scheduleBlocks2', 'scheduleGroups'];
+                            const keyFields = {
+                                tasks: 'id',
+                                timerLogs: 'id',
+                                scheduleBlocks: 'id',
+                                scheduleBlocks2: 'id',
+                                scheduleGroups: 'id'
+                            };
+                            for (const table of tables) {
+                                const records = await window.localDB[table].toArray();
+                                for (const r of records) {
+                                    const originalStr = JSON.stringify(r);
+                                    const migrated = window.migrateRecord(r, r[keyFields[table]], 'synced');
+                                    if (JSON.stringify(migrated) !== originalStr) {
+                                        await window.localDB[table].put(migrated);
+                                        window.syncLogger.log('MIGRATION', `Migrated record in ${table}, ID: ${migrated.id}`);
                                     }
                                 }
                             }
-                            if (data.customSyllabus) {
-                                syllabusStructure = data.customSyllabus;
-                                recalculateTotals();
+
+                            // Also check appSettings settings
+                            const settings = await window.localDB.appSettings.toArray();
+                            for (const s of settings) {
+                                if (s.updatedAt === undefined || s.version === undefined || s.syncStatus === undefined) {
+                                    s.updatedAt = s.updatedAt || 1718880000000;
+                                    s.version = s.version || 1;
+                                    s.syncStatus = s.syncStatus || 'synced';
+                                    await window.localDB.appSettings.put(s);
+                                    window.syncLogger.log('MIGRATION', `Migrated appSetting: ${s.key}`);
+                                }
+                            }
+                            
+                            // Load to memory
+                            if (window.syncManager && window.syncManager.loadDexieToMemoryState) {
+                                await window.syncManager.loadDexieToMemoryState();
                             }
                         }
                     }
-                } catch (e) { }
+
+                    if (!hasDexieData) {
+                        window.syncLogger.log('STARTUP', 'Dexie is empty. Falling back to localStorage...');
+                        let stored = localStorage.getItem('studyMasterBackup');
+                        if (!stored && isLocal) {
+                            window.syncLogger.log('STARTUP', 'LocalStorage empty. Using mock placeholder data on localhost...');
+                            const mockData = {
+                                tracks: [
+                                    { id: "track-1", name: "Math 1st", priority: 1, order: 0 }
+                                ],
+                                customPrograms: {
+                                    "track-1": [
+                                        { id: "math-prog", name: "Math 1st Program", priority: 1, order: 0 }
+                                    ]
+                                },
+                                customSyllabus: {
+                                    "track-1": [
+                                        { subject: "Math 1st Global Baseline", program: "Math 1st Program", chapters: 10, priority: 1, order: 0 }
+                                    ]
+                                },
+                                tasks: [
+                                    { id: 1, date: "Jun 13", day: "Sat", type: "study", studyDay: 1, "track-1Study": false, "track-1Tasks": [{ subject: "Math 1st Global Baseline", chapter: "Ch. 1", title: "Topic 1", completed: false, id: "track-1-1" }] }
+                                ],
+                                paceGoals: [
+                                    { id: "math-baseline", target: "Math 1st Global Baseline", type: "subject", startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString() }
+                                ],
+                                weeklyTargetsDatabase: {
+                                    "Migration Week": [
+                                        { track: "track-1", program: "Math 1st Program", subject: "Math 1st Global Baseline", chapter: "Ch. 1", completed: false }
+                                    ]
+                                }
+                            };
+                            stored = JSON.stringify(mockData);
+                            localStorage.setItem('studyMasterBackup', stored);
+                        }
+
+                        if (stored) {
+                            const data = window.sanitizeAllData(JSON.parse(stored));
+                            if (data.tasks) {
+                                tasks = data.tasks;
+                                if (data.tracks) window.tracks = data.tracks;
+                                if (data.customPrograms) window.customPrograms = data.customPrograms;
+                                if (data.customActions) window.customActions = data.customActions;
+                                if (data.paceGoals) window.paceGoals = data.paceGoals;
+                                if (data.passedItems) window.passedItems = data.passedItems;
+                                if (data.revisionData) window.revisionData = data.revisionData;
+                                if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
+                                if (data.successResults) window.successResults = data.successResults;
+                                if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
+                                if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
+                                if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+                                if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                                if (data.programVisibility) window.programVisibility = data.programVisibility;
+                                if (data.timerLogs) window.timerLogs = data.timerLogs;
+                                if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
+                                if (data.dashboardConfig) {
+                                    window.dashboardConfig = data.dashboardConfig;
+                                    if (window.dashboardConfig.trendStartDate) {
+                                        const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
+                                        if (!isNaN(trendStart.getTime())) {
+                                            trendStart.setHours(0, 0, 0, 0);
+                                            PLAN_START_DATE = trendStart;
+                                        }
+                                    }
+                                }
+                                if (data.customSyllabus) {
+                                    syllabusStructure = data.customSyllabus;
+                                    recalculateTotals();
+                                }
+                            }
+
+                            if (window.saveCurrentStateToIndexedDB) {
+                                await window.saveCurrentStateToIndexedDB();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    window.syncLogger.log('STARTUP', 'Error during local boot sequence:', e);
+                }
 
                 window.migrateLegacyData();
                 window.sortAllCustomData();
@@ -16627,6 +17439,21 @@
                         <p id="sync-dash-error-msg" class="font-normal text-red-450 pl-6 break-words"></p>
                     </div>
 
+                    <!-- Diagnostics Panel -->
+                    <div class="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800/80 rounded-xl text-[10px]">
+                        <span class="text-[9px] uppercase font-black text-slate-400 tracking-wider block">Live Sync Diagnostics</span>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 font-bold text-slate-650 dark:text-slate-350">
+                            <div>Project ID: <span id="diag-project-id" class="font-medium text-slate-500 dark:text-slate-400">Loading...</span></div>
+                            <div>Auth State: <span id="diag-auth-state" class="font-medium text-slate-500 dark:text-slate-400">Loading...</span></div>
+                            <div>Local DB Name: <span id="diag-db-name" class="font-medium text-slate-500 dark:text-slate-400">Loading...</span></div>
+                            <div>Pending Sync: <span id="diag-pending" class="font-medium text-slate-500 dark:text-slate-400">Loading...</span></div>
+                            <div>Local Records: <span id="diag-local-records" class="font-medium text-slate-500 dark:text-slate-400">Loading...</span></div>
+                            <div>Cloud Records: <span id="diag-cloud-records" class="font-medium text-slate-500 dark:text-slate-400">Loading...</span></div>
+                            <div>Last Upload: <span id="diag-last-upload" class="font-medium text-slate-500 dark:text-slate-400">Never</span></div>
+                            <div>Last Download: <span id="diag-last-download" class="font-medium text-slate-500 dark:text-slate-400">Never</span></div>
+                        </div>
+                    </div>
+
                     <!-- Recent Operations Log -->
                     <div class="space-y-3">
                         <span class="text-[10px] uppercase font-black text-slate-400 tracking-wider">Sync Log / Queue Entries</span>
@@ -16634,6 +17461,7 @@
                             <div class="text-center py-4 text-xs text-slate-400 font-medium">No recent operations logged.</div>
                         </div>
                     </div>
+
 
                     <!-- Actions -->
                     <div class="flex gap-3 pt-2">

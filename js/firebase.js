@@ -1,3 +1,15 @@
+        window.isCloudSyncAllowed = function () {
+            const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+            if (isMockConfig) return false;
+            
+            const currentUser = window.currentUser;
+            if (!currentUser) return false;
+            
+            if (currentUser.uid === 'local-admin-uid' || currentUser.uid === 'offline-admin-uid') {
+                return false;
+            }
+            return true;
+        };
 
         // Attach window listeners
         window.addEventListener('online', () => {
@@ -7,6 +19,57 @@
         window.addEventListener('offline', () => {
             if (window.updateSyncDashboardUI) window.updateSyncDashboardUI();
         });
+
+        window.firestoreDiagnostics = {
+            logs: [],
+            log: function(operation, collection, document, error = null) {
+                const uid = (window.currentUser && window.currentUser.uid) || 'Unauthenticated';
+                const path = `${collection}/${document}`;
+                const status = error ? 'FAILED' : 'SUCCESS';
+                const logEntry = {
+                    timestamp: new Date().toISOString(),
+                    uid: uid,
+                    path: path,
+                    operation: operation,
+                    status: status,
+                    error: error ? { message: error.message, code: error.code } : null
+                };
+                this.logs.unshift(logEntry);
+                if (this.logs.length > 50) this.logs.pop(); // Keep last 50 logs
+                
+                console.log(`[Firestore Diags] ${operation} to ${path} - Status: ${status}`, error || '');
+            },
+            getReport: function() {
+                const uid = (window.currentUser && window.currentUser.uid) || 'Unauthenticated';
+                const email = (window.currentUser && window.currentUser.email) || 'None';
+                const isAllowed = window.isCloudSyncAllowed ? window.isCloudSyncAllowed() : false;
+                
+                let reason = "Access allowed";
+                if (uid === 'Unauthenticated') {
+                    reason = "User is not authenticated with Firebase Auth.";
+                } else if (uid === 'local-admin-uid' || uid === 'offline-admin-uid') {
+                    reason = "Bypassed login on localhost (Mock Local Admin mode). No Firebase credentials.";
+                } else if (!isAllowed) {
+                    reason = "Cloud sync configuration disabled or unauthorized session.";
+                }
+                
+                return {
+                    currentAuthUser: { uid: uid, email: email },
+                    isCloudSyncAllowed: isAllowed,
+                    expectedRules: {
+                        collection: "userData",
+                        document: "{uid}",
+                        rule: "allow read, write: if request.auth != null && request.auth.uid == userId;"
+                    },
+                    history: this.logs,
+                    reasonAccessDeniedFallback: reason
+                };
+            }
+        };
+        window.printFirestorePermissionsReport = function() {
+            console.log("=== FIRESTORE PERMISSIONS REPORT ===");
+            console.dir(window.firestoreDiagnostics.getReport());
+        };
 
         window.lastSyncTime = null;
         window.lastSyncError = null;
@@ -93,7 +156,13 @@
             // Error display
             if (window.lastSyncError) {
                 if (errorContainer) errorContainer.classList.remove('hidden');
-                if (errorMsg) errorMsg.textContent = window.lastSyncError;
+                if (errorMsg) {
+                    if (window.lastSyncError.includes("Authentication required")) {
+                        errorMsg.innerHTML = `${window.lastSyncError} <a href="/login.html" class="text-blue-500 hover:text-blue-600 dark:text-blue-450 dark:hover:text-blue-400 underline font-black ml-1">Sign in here &rarr;</a>`;
+                    } else {
+                        errorMsg.textContent = window.lastSyncError;
+                    }
+                }
             } else {
                 if (errorContainer) errorContainer.classList.add('hidden');
             }
@@ -253,139 +322,66 @@
 
         function loadFromCloud() {
             if (!db) return;
-            db.collection('studyPlan').doc('globalData').onSnapshot((docSnap) => {
-                if (isSyncing) return; // Prevent loop
+
+            const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+            const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+            
+            if (isMockConfig || !fbUser) {
+                console.log("loadFromCloud: Cloud sync unavailable (Offline/Mock Mode).");
+                if (isInitialLoad) { renderUI(); isInitialLoad = false; }
+                return;
+            }
+
+            const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+            db.collection('userData').doc(uid).onSnapshot((docSnap) => {
+                if (window.firestoreDiagnostics) {
+                    window.firestoreDiagnostics.log('READ/SUBSCRIBE', 'userData', uid);
+                }
+                if (window.isSyncing) {
+                    window.syncLogger.log('FIRESTORE', 'loadFromCloud: Snapshot ignored because we are currently syncing up.');
+                    return; // Prevent loop
+                }
 
                 if (docSnap.exists) {
                     const data = window.sanitizeAllData(docSnap.data());
-                    let newTasks = defaultTasks;
-
-                    if (data.tracks) window.tracks = data.tracks;
-                    if (data.customPrograms) window.customPrograms = data.customPrograms;
-                    if (data.customActions) window.customActions = data.customActions;
-                    if (data.programVisibility) window.programVisibility = data.programVisibility;
-                    if (data.paceGoals) window.paceGoals = data.paceGoals;
-                    else window.paceGoals = [];
-                    if (data.passedItems) window.passedItems = data.passedItems;
-                    else window.passedItems = { programs: [], subjects: [] };
-                    if (data.revisionData) window.revisionData = data.revisionData;
-                    else window.revisionData = { active: [], progress: {} };
-                    if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
-                    else window.subjectTimeLinks = {};
-                    if (data.successResults) window.successResults = data.successResults;
-                    else window.successResults = [];
-                    if (data.timerLogs) window.timerLogs = data.timerLogs;
-                    else window.timerLogs = [];
-                    if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
-                    else window.activeTimerState = {
-                        isRunning: false,
-                        mode: 'stopwatch',
-                        startTime: null,
-                        elapsedBeforeStart: 0,
-                        targetDuration: 0,
-                        selectedSubject: 'General Study'
-                    };
-                    if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
-                    else window.scheduleBlocks = [];
-                    if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
-                    else window.scheduleBlocks2 = [];
-                    if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
-                    else window.scheduleGroups = [];
-                    if (window.syncTimerStateFromCloud) {
-                        window.syncTimerStateFromCloud();
-                    }
-                    if (data.weeklyTargetsDatabase) {
-                        window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+                    window.syncLogger.log('FIRESTORE', 'loadFromCloud: New remote snapshot received. Resolving conflicts...');
+                    
+                    if (window.syncManager && window.syncManager.resolveAllConflicts) {
+                        window.syncManager.resolveAllConflicts(data).then(() => {
+                            if (isInitialLoad) {
+                                renderUI();
+                                isInitialLoad = false;
+                            } else {
+                                requestAnimationFrame(() => {
+                                    const scrollPos = window.scrollY; // Preserve scroll position
+                                    renderUI();
+                                    window.scrollTo(0, scrollPos); // Seamlessly restore scroll
+                                    showSync('saved');
+                                });
+                            }
+                        }).catch(err => {
+                            window.syncLogger.log('FIRESTORE', 'Error resolving snapshot conflicts:', err);
+                        });
                     } else {
-                        window.weeklyTargetsDatabase = {};
-                    }
-                    if (Array.isArray(data.weeklyTargets) && data.weeklyTargets.length > 0) {
-                        const defaultRange = window.getWeeklyTargetRange ? window.getWeeklyTargetRange() : null;
-                        if (defaultRange) {
-                            const key = window.formatDateRangeKey ? window.formatDateRangeKey(defaultRange.start, defaultRange.end) : "Migration Week";
-                            const dbKeys = Object.keys(window.weeklyTargetsDatabase || {});
-                            const isEmptyOrOnlyMigration = dbKeys.length === 0 || (dbKeys.length === 1 && dbKeys[0] === "Migration Week");
-                            if (isEmptyOrOnlyMigration && !window.weeklyTargetsDatabase[key]) {
-                                window.weeklyTargetsDatabase[key] = data.weeklyTargets.map(t => {
-                                    return {
-                                        track: t.track || "",
-                                        program: t.program || "",
-                                        subject: t.subject || "",
-                                        chapter: t.chapter || "",
-                                        completed: t.completed || false
-                                    };
-                                });
-                            }
-                        }
-                    }
-                    if (data.dashboardConfig) {
-                        window.dashboardConfig = data.dashboardConfig;
-                        if (!window.dashboardConfig.trendStartDate) {
-                            window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
-                        } else {
-                            const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
-                            if (!isNaN(trendStart.getTime())) {
-                                trendStart.setHours(0, 0, 0, 0);
-                                window.PLAN_START_DATE = trendStart;
-                            }
-                        }
-                    }
-
-                    if (data.customSyllabus) {
-                        window.syllabusStructure = data.customSyllabus;
-                        window.tracks.forEach(trackObj => {
-                            const track = trackObj.id;
-                            if (syllabusStructure[track]) {
-                                syllabusStructure[track].forEach(s => {
-                                    if (!s.program) {
-                                        s.program = trackObj.name + " Prog";
-                                    }
-                                });
-                            }
-                        });
-                        recalculateTotals();
-                        if (isInitialLoad) window.switchSysTab('chapter');
-                    }
-
-                    window.migrateLegacyData();
-                    window.sortAllCustomData();
-
-                    if (data.tasks && data.tasks.length > 0) {
-                        newTasks = data.tasks.map(t => {
-                            const formatted = { ...t };
-                            window.customActions.forEach(a => { formatted[a.id] = formatted[a.id] === true; });
-                            return formatted;
-                        });
-
-                        const lastTask = newTasks[newTasks.length - 1];
-                        if (lastTask && lastTask.id) {
-                            const newEndDate = new Date(PLAN_START_DATE.getTime());
-                            newEndDate.setDate(newEndDate.getDate() + (lastTask.id - 1));
-                            window.PLAN_END_DATE = newEndDate;
-                        }
-                    } else { if (isInitialLoad) saveToCloud(true); }
-
-                    window.tasks = newTasks;
-
-                    // Always backup to localStorage
-                    window.appState = data;
-                    localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
-                    console.log("Cloud Sync Success");
-
-                    if (isInitialLoad) { renderUI(); isInitialLoad = false; }
-                    else {
-                        requestAnimationFrame(() => {
-                            const scrollPos = window.scrollY; // Preserve scroll position
-                            renderUI();
-                            window.scrollTo(0, scrollPos); // Seamlessly restore scroll
-                            showSync('saved');
-                        });
+                        window.syncLogger.log('FIRESTORE', 'syncManager.resolveAllConflicts not found, skipping.');
                     }
                 } else {
-                    if (isInitialLoad) saveToCloud(true);
+                    window.syncLogger.log('FIRESTORE', 'loadFromCloud: Remote document empty.');
+                    if (isInitialLoad) {
+                        renderUI();
+                        isInitialLoad = false;
+                    }
                 }
             }, (error) => {
-                console.error("Sync Error:", error);
+                console.error("Sync Error in snapshot:", error);
+                const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                if (window.firestoreDiagnostics) {
+                    window.firestoreDiagnostics.log('READ/SUBSCRIBE', 'userData', uid, error);
+                }
+                window.lastSyncError = error.message || String(error);
+                if (window.updateSyncDashboardUI) {
+                    window.updateSyncDashboardUI();
+                }
                 if (isInitialLoad) { renderUI(); isInitialLoad = false; }
             });
         }
@@ -418,7 +414,82 @@
             }
         };
 
-        function saveToCloud(immediate = false) {
+        window.saveCurrentStateToIndexedDB = async function () {
+            if (window.localDBHelper) {
+                window.syncLogger.log('DEXIE', 'Differ & backup starting for current state to IndexedDB...');
+                
+                // 1. Settings (Key-Value)
+                const settingsToSave = {
+                    dashboardConfig: window.dashboardConfig,
+                    weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+                    activeTimerState: window.activeTimerState,
+                    passedItems: window.passedItems || { programs: [], subjects: [] },
+                    revisionData: window.revisionData || { active: [], progress: {} },
+                    subjectTimeLinks: window.subjectTimeLinks || {},
+                    successResults: window.successResults || [],
+                    tracks: window.tracks || [],
+                    activeRoutineSet: window.activeRoutineSet || 1,
+                    customPrograms: window.customPrograms || {},
+                    customSyllabus: syllabusStructure || {},
+                    customActions: window.customActions || [],
+                    paceGoals: window.paceGoals || []
+                };
+
+                for (const key in settingsToSave) {
+                    const enriched = await window.enrichSetting(key, settingsToSave[key]);
+                    await window.localDB.appSettings.put(enriched);
+                }
+
+                // 2. Tasks
+                const tasksResult = await window.enrichChangedRecords('tasks', tasks, 'id');
+                window.tasks = tasksResult.enrichedArray;
+                tasks = tasksResult.enrichedArray;
+                await window.localDB.tasks.clear();
+                if (window.tasks.length > 0) {
+                    await window.localDB.tasks.bulkPut(window.tasks);
+                }
+
+                // 3. Timer Logs
+                const timerLogsResult = await window.enrichChangedRecords('timerLogs', window.timerLogs || [], 'id');
+                window.timerLogs = timerLogsResult.enrichedArray;
+                await window.localDB.timerLogs.clear();
+                if (window.timerLogs.length > 0) {
+                    await window.localDB.timerLogs.bulkPut(window.timerLogs);
+                }
+
+                // 4. Schedule Blocks
+                const scheduleBlocksResult = await window.enrichChangedRecords('scheduleBlocks', window.scheduleBlocks || [], 'id');
+                window.scheduleBlocks = scheduleBlocksResult.enrichedArray;
+                await window.localDB.scheduleBlocks.clear();
+                if (window.scheduleBlocks.length > 0) {
+                    await window.localDB.scheduleBlocks.bulkPut(window.scheduleBlocks);
+                }
+
+                // 5. Schedule Blocks 2
+                const scheduleBlocks2Result = await window.enrichChangedRecords('scheduleBlocks2', window.scheduleBlocks2 || [], 'id');
+                window.scheduleBlocks2 = scheduleBlocks2Result.enrichedArray;
+                await window.localDB.scheduleBlocks2.clear();
+                if (window.scheduleBlocks2.length > 0) {
+                    await window.localDB.scheduleBlocks2.bulkPut(window.scheduleBlocks2);
+                }
+
+                // 6. Schedule Groups
+                const scheduleGroupsResult = await window.enrichChangedRecords('scheduleGroups', window.scheduleGroups || [], 'id');
+                window.scheduleGroups = scheduleGroupsResult.enrichedArray;
+                await window.localDB.scheduleGroups.clear();
+                if (window.scheduleGroups.length > 0) {
+                    await window.localDB.scheduleGroups.bulkPut(window.scheduleGroups);
+                }
+
+                window.syncLogger.log('DEXIE', 'IndexedDB local backup complete (differ & enrich executed).');
+            }
+        };
+
+        async function saveToCloud(immediate = false) {
+            if (window.saveCurrentStateToIndexedDB) {
+                await window.saveCurrentStateToIndexedDB();
+            }
+
             const payload = {
                 tasks: tasks,
                 tracks: window.tracks,
@@ -458,76 +529,37 @@
             };
             window.appState = payload;
 
-            // Backup locally
             localStorage.setItem('studyMasterBackup', JSON.stringify(window.appState));
-            console.log("Offline Backup Saved");
-
-            // Parallel save to IndexedDB via Dexie
-            if (window.localDBHelper) {
-                window.localDBHelper.setSetting('dashboardConfig', window.dashboardConfig);
-                window.localDBHelper.setSetting('weeklyTargetsDatabase', window.weeklyTargetsDatabase || {});
-                window.localDBHelper.setSetting('activeTimerState', window.activeTimerState);
-                window.localDBHelper.setSetting('passedItems', window.passedItems || { programs: [], subjects: [] });
-                window.localDBHelper.setSetting('revisionData', window.revisionData || { active: [], progress: {} });
-                window.localDBHelper.setSetting('subjectTimeLinks', window.subjectTimeLinks || {});
-                window.localDBHelper.setSetting('successResults', window.successResults || []);
-                window.localDBHelper.setSetting('tracks', window.tracks || []);
-                window.localDBHelper.setSetting('activeRoutineSet', window.activeRoutineSet || 1);
-                window.localDBHelper.setSetting('customPrograms', window.customPrograms || {});
-                window.localDBHelper.setSetting('customSyllabus', syllabusStructure || {});
-                window.localDBHelper.setSetting('customActions', window.customActions || []);
-                window.localDBHelper.setSetting('paceGoals', window.paceGoals || []);
-                
-                window.localDB.tasks.clear().then(() => {
-                    if (Array.isArray(tasks)) {
-                        window.localDB.tasks.bulkPut(tasks).catch(err => console.error("Error bulk putting tasks:", err));
-                    }
-                });
-                
-                window.localDB.timerLogs.clear().then(() => {
-                    if (Array.isArray(window.timerLogs)) {
-                        window.localDB.timerLogs.bulkPut(window.timerLogs).catch(err => console.error("Error bulk putting timerLogs:", err));
-                    }
-                });
-                
-                window.localDB.scheduleBlocks.clear().then(() => {
-                    const blocks = window.scheduleBlocks || [];
-                    if (Array.isArray(blocks)) {
-                        window.localDB.scheduleBlocks.bulkPut(blocks).catch(err => console.error("Error bulk putting scheduleBlocks:", err));
-                    }
-                });
-                
-                window.localDB.scheduleBlocks2.clear().then(() => {
-                    const blocks2 = window.scheduleBlocks2 || [];
-                    if (Array.isArray(blocks2)) {
-                        window.localDB.scheduleBlocks2.bulkPut(blocks2).catch(err => console.error("Error bulk putting scheduleBlocks2:", err));
-                    }
-                });
-                
-                window.localDB.scheduleGroups.clear().then(() => {
-                    const groups = window.scheduleGroups || [];
-                    if (Array.isArray(groups)) {
-                        window.localDB.scheduleGroups.bulkPut(groups).catch(err => console.error("Error bulk putting scheduleGroups:", err));
-                    }
-                });
-                
-                console.log("IndexedDB Local Backup Saved");
-            }
+            window.syncLogger.log('CACHE', 'Offline Backup Saved to LocalStorage');
 
             const executeSave = () => {
                 if (window.syncManager) {
                     window.syncManager.enqueue(window.appState);
                 } else if (db) {
+                    const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+                    const isMockConfig = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options && firebase.app().options.apiKey === "mock-api-key");
+                    if (isMockConfig || !fbUser) {
+                        window.syncLogger.log('FIRESTORE', 'saveToCloud: Cloud sync unavailable (Offline/Mock Mode).');
+                        showSync('error');
+                        return;
+                    }
+
                     window.isSyncing = true;
                     showSync('saving');
-
-                    db.collection('studyPlan').doc('globalData').set(window.appState)
+                    const uid = window.currentUser ? window.currentUser.uid : 'unknown';
+                    db.collection('userData').doc(uid).set(window.appState)
                         .then(() => {
-                            console.log("Cloud Sync Success");
+                            window.syncLogger.log('FIRESTORE', 'Cloud Sync Success via direct set');
+                            if (window.firestoreDiagnostics) {
+                                window.firestoreDiagnostics.log('WRITE/SET', 'userData', uid);
+                            }
                             showSync('saved');
                         })
                         .catch((error) => {
-                            console.error("Sync Error:", error);
+                            window.syncLogger.log('FIRESTORE', 'Sync Error via direct set:', error);
+                            if (window.firestoreDiagnostics) {
+                                window.firestoreDiagnostics.log('WRITE/SET', 'userData', uid, error);
+                            }
                             showSync('error');
                         })
                         .finally(() => {
@@ -537,10 +569,10 @@
             };
 
             if (immediate) {
-                if (saveTimeout) clearTimeout(saveTimeout);
+                if (window.saveTimeout) clearTimeout(window.saveTimeout);
                 executeSave();
             } else {
-                if (saveTimeout) clearTimeout(saveTimeout);
+                if (window.saveTimeout) clearTimeout(window.saveTimeout);
                 window.saveTimeout = setTimeout(executeSave, 800);
             }
         }
