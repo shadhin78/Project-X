@@ -1,0 +1,393 @@
+        /* ===== Timer Fullscreen Entry/Exit Animations ===== */
+        @keyframes timerFsEnter {
+            from {
+                opacity: 0;
+                transform: scale(0.92);
+                backdrop-filter: blur(0);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+                backdrop-filter: blur(0);
+            }
+        }
+
+        @keyframes timerFsContentEnter {
+            from {
+                opacity: 0;
+                transform: scale(0.85) translateY(20px);
+            }
+
+            60% {
+                opacity: 1;
+                transform: scale(1.02) translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes timerFsExit {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: scale(0.92);
+            }
+        }
+
+        @keyframes timerFsContentExit {
+            from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: scale(0.88) translateY(30px);
+            }
+        }
+
+        /* Timer Fullscreen Mode (Solid Minimalist Layout) */
+        #timer-active-panel.timer-fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 99999;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            border-radius: 0;
+            margin: 0;
+            padding: 1.5rem !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #f8fafc;
+            border: none;
+            box-shadow: none;
+            animation: timerFsEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Exit animation class */
+        #timer-active-panel.timer-fs-exiting {
+            animation: timerFsExit 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+
+        /* Content animation inside fullscreen */
+        #timer-active-panel.timer-fullscreen>.relative {
+            animation: timerFsContentEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+        }
+
+        #timer-active-panel.timer-fs-exiting>.relative {
+            animation: timerFsContentExit 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+
+        @media (min-width: 640px) {
+            #timer-active-panel.timer-fullscreen {
+                padding: 3rem !important;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            #timer-active-panel.timer-fullscreen {
+                padding: 4rem !important;
+            }
+        }
+
+        .dark #timer-active-panel.timer-fullscreen,
+        #timer-active-panel.timer-fullscreen.dark {
+            background: #0f172a;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #timer-active-panel.timer-fullscreen {
+                background: #0f172a;
+            }
+        }
+
+        /* Panel is moved to document.body during fullscreen, so no #page-timer hacks needed */
+
+        /* Hide scrollbars and lock body during fullscreen active mode */
+        body.timer-fullscreen-active {
+            overflow: hidden !important;
+            touch-action: none;
+        }
+
+        /* Remove bounding card style during fullscreen mode */
+        .timer-fullscreen .relative.z-10.w-full.max-w-md {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 1rem;
+            max-width: 30rem !important;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .dark .timer-fullscreen .relative.z-10.w-full.max-w-md,
+        #timer-active-panel.timer-fullscreen.dark .relative.z-10.w-full.max-w-md {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .timer-fullscreen .relative.z-10.w-full.max-w-md {
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+        }
+
+        /* ===== Fullscreen Clock Sizes ===== */
+        /* Phone (default) — keep same as normal view */
+        .timer-fullscreen #timer-clock-container {
+            width: 15rem !important;
+            height: 15rem !important;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Tablet */
+        @media (min-width: 640px) {
+            .timer-fullscreen #timer-clock-container {
+                width: 20rem !important;
+                height: 20rem !important;
+            }
+        }
+
+        /* Desktop — much bigger */
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-clock-container {
+                width: 24rem !important;
+                height: 24rem !important;
+            }
+
+            .timer-fullscreen .relative.z-10.w-full.max-w-md {
+                max-width: 40rem !important;
+                gap: 2rem;
+            }
+        }
+
+        /* Large desktop */
+        @media (min-width: 1280px) {
+            .timer-fullscreen #timer-clock-container {
+                width: 28rem !important;
+                height: 28rem !important;
+            }
+        }
+
+        /* ===== Fullscreen Clock Text Sizes ===== */
+        .timer-fullscreen #timer-clock-text {
+            font-size: 2.5rem !important;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+            color: #0f172a;
+            transition: font-size 0.3s ease;
+        }
+
+        .dark .timer-fullscreen #timer-clock-text,
+        #timer-active-panel.timer-fullscreen.dark #timer-clock-text {
+            color: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .timer-fullscreen #timer-clock-text {
+                color: #ffffff;
+            }
+        }
+
+        /* Tablet */
+        @media (min-width: 640px) {
+            .timer-fullscreen #timer-clock-text {
+                font-size: 3.5rem !important;
+            }
+        }
+
+        /* Desktop */
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-clock-text {
+                font-size: 4.5rem !important;
+                letter-spacing: 0.06em;
+            }
+        }
+
+        /* Large desktop */
+        @media (min-width: 1280px) {
+            .timer-fullscreen #timer-clock-text {
+                font-size: 5rem !important;
+            }
+        }
+
+        /* Status text bigger on desktop fullscreen */
+        .timer-fullscreen #timer-status-text {
+            font-size: 9px;
+            margin-top: 0.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-status-text {
+                font-size: 11px !important;
+                letter-spacing: 0.15em;
+                margin-top: 0.75rem;
+            }
+        }
+
+        .timer-fullscreen #timer-progress-ring {
+            filter: none !important;
+        }
+
+        /* Bigger control buttons in fullscreen on desktop */
+        .timer-fullscreen #timer-btn-toggle {
+            font-size: 0.75rem !important;
+        }
+
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-btn-toggle {
+                font-size: 0.85rem !important;
+                padding: 1rem 3.5rem !important;
+                border-radius: 1.25rem;
+            }
+        }
+
+        .timer-fullscreen #timer-btn-save {
+            font-size: 0.75rem !important;
+        }
+
+        @media (min-width: 1024px) {
+            .timer-fullscreen #timer-btn-save {
+                font-size: 0.85rem !important;
+                padding: 1rem 2rem !important;
+                border-radius: 1.25rem;
+            }
+        }
+
+        .timer-fullscreen #timer-presets-container button {
+            font-size: 0.75rem !important;
+        }
+
+        /* Hide mode switcher, subject selector, presets, and reset button in fullscreen mode */
+        .timer-fullscreen #timer-mode-switcher,
+        .timer-fullscreen #timer-subject-select-container,
+        .timer-fullscreen #timer-presets-container,
+        .timer-fullscreen #timer-btn-reset {
+            display: none !important;
+        }
+
+        .timer-fullscreen .max-w-md {
+            max-width: 32rem !important;
+        }
+
+        @media (min-width: 1024px) {
+            .timer-fullscreen .max-w-md {
+                max-width: 42rem !important;
+            }
+        }
+
+        @keyframes pageEnter {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.99);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .animate-page-enter {
+            animation: pageEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes auraPulse {
+
+            0%,
+            100% {
+                opacity: 0.65;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.95;
+                transform: scale(1.04);
+            }
+        }
+
+        .animate-aura {
+            animation: auraPulse 4s ease-in-out infinite;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        /* Render layer stabilization to fix Chromium and Safari backdrop-filter scroll glitches */
+        .sticky,
+        .backdrop-blur-xl,
+        .backdrop-blur-sm,
+        #sys-content-priority div,
+        #sys-content-priority div.flex {
+            transform: translate3d(0, 0, 0);
+            -webkit-transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+
+        /* Perfect Mobile Responsiveness Fixes */
+        @media (max-width: 639px) {
+
+            input,
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
+
+            /* Prevents iOS auto-zoom on inputs */
+        }
+
+        .touch-action-manipulation {
+            touch-action: manipulation;
+        }
+
+        /* Eliminates 300ms tap delay */
