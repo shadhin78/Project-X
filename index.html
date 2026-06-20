@@ -1604,34 +1604,38 @@
 
                 // Dashboard version (clickable shortcut to Daily Schedule)
                 dashHtml = `
-                    <div class="flex items-center justify-between mb-1.5 select-none">
-                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
-                        <span class="flex h-2 w-2 relative">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                    </div>
-                    
-                    <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 180px; background-color: ${blockColor}cc; border: 1.5px solid ${blockColor};"
-                         onclick="window.switchPage('schedule')">
-                        
-                        <div class="flex flex-col gap-1.5 min-w-0">
-                            <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
-                                  style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${category}</span>
-                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-0.5" title="${activeBlock.task}">${activeBlock.task}</h4>
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl shadow-sm flex flex-col overflow-hidden" style="height: 225px; min-height: 225px;">
+                        <div class="p-4 pb-2 border-b border-slate-100 dark:border-slate-700 select-none flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
+                            </div>
+                            <span class="flex h-2 w-2 relative">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
                         </div>
                         
-                        <div class="mt-2 space-y-2">
-                            <div class="text-center">
-                                <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${countdownStr}</span>
+                        <div class="flex-1 p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all active:scale-98 rounded-b-[22px] rounded-t-none"
+                             style="background-color: ${blockColor}cc;"
+                             onclick="window.switchPage('schedule')">
+                            
+                            <div class="flex flex-col gap-1.5 min-w-0">
+                                <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded inline-block self-start leading-none max-w-full truncate"
+                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.12);">${category}</span>
+                                <h4 class="text-sm font-black text-white leading-snug tracking-tight truncate mt-1" title="${activeBlock.task}">${activeBlock.task}</h4>
                             </div>
-                            <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
-                                <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${progressPercent}%;"></div>
-                            </div>
-                            <div class="flex items-center justify-between gap-2 shrink-0 font-sans">
-                                <span class="text-[10px] font-bold font-mono tracking-tight text-white/75">${timeRangeStr}</span>
-                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
+                            
+                            <div class="mt-2 space-y-2">
+                                <div class="text-center">
+                                    <span class="text-2xl font-black font-mono tracking-widest text-white tabular-nums" style="text-shadow: 0 2px 8px rgba(0,0,0,0.35);">${countdownStr}</span>
+                                </div>
+                                <div class="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
+                                    <div class="h-full rounded-full bg-white/70 transition-all duration-500" style="width: ${progressPercent}%;"></div>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 shrink-0 font-sans mt-1">
+                                    <span class="text-[11px] font-bold font-mono tracking-tight text-white/85">${timeRangeStr}</span>
+                                    <span class="text-[9px] font-black uppercase text-white/95 tracking-wider bg-white/15 px-2 py-0.5 rounded flex items-center gap-0.5">Go to Schedule &rarr;</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1674,21 +1678,24 @@
 
                 // Dashboard idle
                 dashHtml = `
-                    <div class="flex items-center justify-between mb-1.5 select-none">
-                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
-                        <span class="flex h-2 w-2 relative">
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
-                        </span>
-                    </div>
-                    
-                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 180px;"
-                         onclick="window.switchPage('schedule')">
-                        <div class="flex items-center gap-2">
-                            <span class="text-base">☀️</span>
-                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Time</h4>
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl shadow-sm flex flex-col overflow-hidden" style="height: 225px; min-height: 225px;">
+                        <div class="p-4 pb-2 border-b border-slate-100 dark:border-slate-700 select-none flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Active Now</h3>
+                            </div>
+                            <span class="flex h-2 w-2 relative">
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                            </span>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-450 dark:text-slate-500 mt-2">No active routine slot right now. Go to Schedule</p>
+                        
+                        <div class="bg-slate-50/40 dark:bg-slate-900/20 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98 flex-1 rounded-b-[22px] rounded-t-none p-5"
+                             onclick="window.switchPage('schedule')">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-2xl">☀️</span>
+                                <h4 class="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-450">Free Time</h4>
+                            </div>
+                            <p class="text-xs font-bold text-slate-400 dark:text-slate-555 mt-2.5">No active routine slot right now.<br>Go to Schedule &rarr;</p>
+                        </div>
                     </div>
                 `;
             }
@@ -1708,45 +1715,49 @@
                 `;
 
                 dashTimerHtml = `
-                    <div class="flex items-center justify-between mb-1.5 select-none">
-                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
-                        <span class="flex h-2 w-2 relative">
-                            ${statusDot}
-                        </span>
-                    </div>
-                    
-                    <div class="rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:shadow-md active:scale-98"
-                         style="min-height: 180px; background-color: ${timerColor}cc; border: 1.5px solid ${timerColor};"
-                         onclick="window.switchPage('timer')">
-                        
-                        <div class="flex flex-col gap-1.5 min-w-0">
-                            <div class="flex justify-between items-start gap-2">
-                                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded inline-block self-start leading-none max-w-full truncate"
-                                      style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.12);">${timerModeLabel}</span>
-                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">${timerStatusText}</span>
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl shadow-sm flex flex-col overflow-hidden" style="height: 225px; min-height: 225px;">
+                        <div class="p-4 pb-2 border-b border-slate-100 dark:border-slate-700 select-none flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
                             </div>
-                            <h4 class="text-base font-bold text-white leading-snug tracking-tight truncate mt-0.5" title="${timerSubject}">${timerSubject}</h4>
+                            <span class="flex h-2 w-2 relative">
+                                ${statusDot}
+                            </span>
                         </div>
                         
-                        <div class="mt-2 space-y-2">
-                            <div class="text-center">
-                                <span class="text-xl font-black font-mono tracking-wider text-white tabular-nums" style="text-shadow: 0 1px 4px rgba(0,0,0,0.2);">${clockText}</span>
-                            </div>
-                            <div class="w-full bg-white/15 rounded-full h-1.5 overflow-hidden">
-                                <div class="h-full rounded-full bg-white/60 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
-                            </div>
-                            <div class="flex items-center justify-between gap-2 shrink-0 mt-1">
-                                <div class="flex items-center gap-1.5">
-                                    <button onclick="event.stopPropagation(); window.toggleTimerClick();" 
-                                            class="px-2.5 py-1 bg-white/20 hover:bg-white/35 text-white font-black text-[9px] uppercase tracking-wider rounded-lg border border-white/25 active:scale-95 transition-all">
-                                        ${window.activeTimerState.isRunning ? 'PAUSE' : 'START'}
-                                    </button>
-                                    <button onclick="event.stopPropagation(); window.resetTimerClick();" 
-                                            class="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/90 font-black text-[9px] uppercase tracking-wider rounded-lg border border-white/10 active:scale-95 transition-all">
-                                        RESET
-                                    </button>
+                        <div class="flex-1 p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all active:scale-98 rounded-b-[22px] rounded-t-none"
+                             style="background-color: ${timerColor}cc;"
+                             onclick="window.switchPage('timer')">
+                            
+                            <div class="flex flex-col gap-1.5 min-w-0">
+                                <div class="flex justify-between items-center gap-2">
+                                    <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded inline-block self-start leading-none max-w-full truncate"
+                                          style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.12);">${timerModeLabel}</span>
+                                    <span class="text-[9px] font-black uppercase text-white/95 tracking-wider bg-white/15 px-2 py-0.5 rounded flex items-center gap-0.5">${timerStatusText}</span>
                                 </div>
-                                <span class="text-[8px] font-black uppercase text-white/90 tracking-wider bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">Open Timer &rarr;</span>
+                                <h4 class="text-sm font-black text-white leading-snug tracking-tight truncate mt-1" title="${timerSubject}">${timerSubject}</h4>
+                            </div>
+                            
+                            <div class="mt-2 space-y-2">
+                                <div class="text-center">
+                                    <span class="text-2xl font-black font-mono tracking-widest text-white tabular-nums" style="text-shadow: 0 2px 8px rgba(0,0,0,0.35);">${clockText}</span>
+                                </div>
+                                <div class="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
+                                    <div class="h-full rounded-full bg-white/70 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 shrink-0 mt-1">
+                                    <div class="flex items-center gap-1.5">
+                                        <button onclick="event.stopPropagation(); window.toggleTimerClick();" 
+                                                class="px-2.5 py-1 bg-white/20 hover:bg-white/35 text-white font-black text-[9px] uppercase tracking-widest rounded border border-white/25 active:scale-95 transition-all">
+                                            ${window.activeTimerState.isRunning ? 'PAUSE' : 'START'}
+                                        </button>
+                                        <button onclick="event.stopPropagation(); window.resetTimerClick();" 
+                                                class="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/90 font-black text-[9px] uppercase tracking-widest rounded border border-white/10 active:scale-95 transition-all">
+                                            RESET
+                                        </button>
+                                    </div>
+                                    <span class="text-[8px] font-black uppercase text-white/95 tracking-wider bg-white/15 px-2 py-0.5 rounded flex items-center gap-0.5">Open &rarr;</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1754,21 +1765,24 @@
             } else {
                 // Empty Focus Timer card (clickable navigation to timer page)
                 dashTimerHtml = `
-                    <div class="flex items-center justify-between mb-1.5 select-none">
-                        <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
-                        <span class="flex h-2 w-2 relative">
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
-                        </span>
-                    </div>
-                    
-                    <div class="bg-slate-50/40 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98"
-                         style="min-height: 180px;"
-                         onclick="window.switchPage('timer')">
-                        <div class="flex items-center gap-2">
-                            <span class="text-base">⏱️</span>
-                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Focus Timer</h4>
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl shadow-sm flex flex-col overflow-hidden" style="height: 225px; min-height: 225px;">
+                        <div class="p-4 pb-2 border-b border-slate-100 dark:border-slate-700 select-none flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h3>
+                            </div>
+                            <span class="flex h-2 w-2 relative">
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-350 dark:bg-slate-650"></span>
+                            </span>
                         </div>
-                        <p class="text-[9px] opacity-75 text-slate-455 dark:text-slate-500 mt-2">No active timer session. Tap to start focusing</p>
+                        
+                        <div class="bg-slate-50/40 dark:bg-slate-900/20 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98 flex-1 rounded-b-[22px] rounded-t-none p-5"
+                             onclick="window.switchPage('timer')">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-2xl">⏱️</span>
+                                <h4 class="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h4>
+                            </div>
+                            <p class="text-xs font-bold text-slate-400 dark:text-slate-555 mt-2.5">No active timer session.<br>Tap to start focusing &rarr;</p>
+                        </div>
                     </div>
                 `;
             }
@@ -5498,6 +5512,10 @@
             const dashCompactContainer = document.getElementById('dashboard-daily-actions-compact');
             if (dashCompactContainer) {
                 dashCompactContainer.innerHTML = '';
+                const rows = Math.ceil(sortedActions.length / 2) || 1;
+                dashCompactContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                dashCompactContainer.style.height = '100%';
+                
                 sortedActions.forEach(cfg => {
                     const state = todayTask ? todayTask[cfg.id] : false;
                     const cMap = twColors[cfg.color];
@@ -5510,7 +5528,7 @@
                     
                     const compactHtml = `
                     <button onclick="window.setDailyState('${cfg.id}', ${!isActive})"
-                            class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 ${cardClass}"
+                            class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 h-full ${cardClass}"
                             style="${isActive ? activeStyle : ''}">
                         <div class="flex items-center space-x-1.5 min-w-0">
                             <div class="p-1 rounded-lg ${isActive ? 'bg-white/20 text-white' : cMap.iconBg + ' ' + cMap.text + ' ' + cMap.borderLt + ' border'} shrink-0">
@@ -10814,7 +10832,10 @@
             listContainer.innerHTML = '';
 
             if (listContainer) {
-                listContainer.className = "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 overflow-y-auto max-h-[125px] pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1";
+                listContainer.className = "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1";
+                const rows = Math.ceil(targetsList.length / 2) || 1;
+                listContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                listContainer.style.height = '100%';
             }
 
             targetsList.forEach((target, idx) => {
@@ -10832,7 +10853,7 @@
 
                 const itemHtml = `
                 <button onclick="window.toggleDashboardWeeklyTargetCompletion(${idx}, ${!isCompleted})"
-                        class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 ${buttonClass}"
+                        class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 h-full ${buttonClass}"
                         style="${isCompleted ? activeStyle : ''}">
                     <div class="flex items-center space-x-1.5 min-w-0 flex-1">
                         <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
@@ -10857,9 +10878,11 @@
 
             if (totalTargets === 0) {
                 listContainer.innerHTML = `
-                <div class="py-8 text-center text-[9px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 w-full col-span-2 sm:col-span-4 lg:col-span-2">
+                <div class="py-8 text-center text-[9px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 w-full col-span-2 sm:col-span-4 lg:col-span-2 h-full flex items-center justify-center">
                     No targets set for this week.
                 </div>`;
+                listContainer.style.gridTemplateRows = '1fr';
+                listContainer.style.height = '100%';
             }
 
             const pct = totalTargets === 0 ? 0 : Math.round((completedTargets / totalTargets) * 100);
@@ -13854,7 +13877,7 @@
                     </div>
 
                     <!-- Today's Daily Actions Section -->
-                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col justify-between" style="min-height: 225px;">
+                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col" style="height: 225px; min-height: 225px;">
                         <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
                             <div>
                                 <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily Actions</h3>
@@ -13868,7 +13891,7 @@
                             </div>
                         </div>
                         
-                        <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
+                        <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 flex-1 mt-2">
                             <!-- Populated dynamically via JS -->
                         </div>
                     </div>
@@ -13879,8 +13902,8 @@
 
                     <!-- Weekly Targets Checklist Section -->
                     <div id="dashboard-weekly-targets-section"
-                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col justify-between animate-page-enter"
-                        style="min-height: 225px;">
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter"
+                        style="height: 225px; min-height: 225px;">
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center space-x-2">
                                 <div class="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0">
@@ -13899,12 +13922,14 @@
                         </div>
 
                         <!-- Progress Bar -->
-                        <div class="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full overflow-hidden mb-2.5 border border-slate-200/50 dark:border-slate-700/50 p-0.5">
-                            <div id="db-weekly-checklist-progress" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500 w-0"></div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-700/50 h-2.5 rounded-full overflow-hidden mb-2.5 shadow-inner border border-slate-200/50 dark:border-slate-600/30 relative">
+                            <div id="db-weekly-checklist-progress" class="bg-gradient-to-r from-emerald-400 to-emerald-600 h-full rounded-full transition-all duration-500 ease-out w-0 relative">
+                                <div class="absolute right-0 top-0 bottom-0 w-2 bg-white/40 rounded-full"></div>
+                            </div>
                         </div>
 
                         <!-- Targets List -->
-                        <div id="db-weekly-targets-checklist" class="space-y-1.5 overflow-y-auto max-h-[90px] pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1">
+                        <div id="db-weekly-targets-checklist" class="space-y-1.5 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1 mt-2">
                             <!-- Dynamic list items -->
                         </div>
                     </div>
