@@ -1,0 +1,22 @@
+/* css/animations.css */
+/* Verbatim extraction of inline animations from index.html */
+
+@keyframes premium-pulse {
+    0%, 100% { transform: scale(1) translateY(0); filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.35)) brightness(1); }
+    50% { transform: scale(1.04) translateY(-4px); filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.65)) brightness(1.1); }
+}
+
+.animate-premium-pulse {
+    animation: premium-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes shimmer-flow {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.shimmer-progress {
+    background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #a855f7 100%);
+    background-size: 200% 100%;
+    animation: shimmer-flow 1.5s infinite linear;
+}
