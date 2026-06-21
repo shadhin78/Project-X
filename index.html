@@ -21,6 +21,13 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
+        window.setLoadingProgress = function (pct, statusText) {
+            const bar = document.getElementById('auth-loading-bar');
+            const text = document.getElementById('auth-loading-text');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = statusText || 'Loading Application...';
+        };
+
         window.sanitizeAllData = function (val) {
             if (typeof val === 'string') {
                 return val.replace(/<[^>]*>/g, '');
@@ -2543,9 +2550,13 @@
 
                     if (isInitialLoad) {
                         // Reveal app UI
+                        if (window.setLoadingProgress) window.setLoadingProgress(100, 'Workspace ready!');
                         const loadingEl = document.getElementById('auth-loading');
                         const wrapperEl = document.getElementById('app-wrapper');
-                        if (loadingEl) loadingEl.classList.add('hidden');
+                        if (loadingEl) {
+                            loadingEl.classList.add('transition-all', 'duration-500', 'opacity-0', 'pointer-events-none');
+                            setTimeout(() => { loadingEl.remove(); }, 600);
+                        }
                         if (wrapperEl) wrapperEl.classList.remove('hidden');
 
                         renderUI();
@@ -2562,9 +2573,13 @@
                     console.log('loadFromCloud: Remote document empty.');
                     if (isInitialLoad) {
                         // Reveal app UI even if document is empty
+                        if (window.setLoadingProgress) window.setLoadingProgress(100, 'Workspace ready!');
                         const loadingEl = document.getElementById('auth-loading');
                         const wrapperEl = document.getElementById('app-wrapper');
-                        if (loadingEl) loadingEl.classList.add('hidden');
+                        if (loadingEl) {
+                            loadingEl.classList.add('transition-all', 'duration-500', 'opacity-0', 'pointer-events-none');
+                            setTimeout(() => { loadingEl.remove(); }, 600);
+                        }
                         if (wrapperEl) wrapperEl.classList.remove('hidden');
 
                         renderUI();
@@ -2574,9 +2589,13 @@
             }, (error) => {
                 console.error("Sync Error in snapshot:", error);
                 if (isInitialLoad) {
+                    if (window.setLoadingProgress) window.setLoadingProgress(100, 'Workspace ready!');
                     const loadingEl = document.getElementById('auth-loading');
                     const wrapperEl = document.getElementById('app-wrapper');
-                    if (loadingEl) loadingEl.classList.add('hidden');
+                    if (loadingEl) {
+                        loadingEl.classList.add('transition-all', 'duration-500', 'opacity-0', 'pointer-events-none');
+                        setTimeout(() => { loadingEl.remove(); }, 600);
+                    }
                     if (wrapperEl) wrapperEl.classList.remove('hidden');
 
                     renderUI();
@@ -12777,61 +12796,79 @@
             if (isAppInitialized) return;
             isAppInitialized = true;
 
-            // Diagnostics and connection status removed
+            // Start progress
+            if (window.setLoadingProgress) window.setLoadingProgress(15, 'Initializing workspace...');
 
-            // Fetch config and initialize Firebase
+            // Fast config loading optimization (bypasses network call if cached)
             let config;
-            try {
-                const res = await fetch('/api/config');
-                if (!res.ok) throw new Error("API config endpoint not available");
-                config = await res.json();
-                localStorage.setItem('firebaseConfig', JSON.stringify(config));
-            } catch (err) {
-                console.warn("API config failed, trying static .env fallback...", err);
+            const cachedConfig = localStorage.getItem('firebaseConfig');
+            if (cachedConfig) {
                 try {
-                    const res = await fetch('/.env');
-                    if (!res.ok) throw new Error(".env file not available");
-                    const envText = await res.text();
-                    const env = {};
-                    envText.split(/\r?\n/).forEach(line => {
-                        const trimmed = line.trim();
-                        if (trimmed && !trimmed.startsWith('#')) {
-                            const parts = trimmed.split('=');
-                            const key = parts[0].trim();
-                            const val = parts.slice(1).join('=').trim();
-                            env[key] = val;
-                        }
-                    });
-
-                    config = {
-                        apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
-                        authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-                        projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-                        storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-                        messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-                        appId: env.NEXT_PUBLIC_FIREBASE_APP_ID
-                    };
-
-                    if (!config.apiKey) throw new Error("No API key found in .env");
-                    console.log("Loaded Firebase config from static .env fallback successfully!");
+                    config = JSON.parse(cachedConfig);
+                    console.log("Fast-boot: Loaded Firebase config from localStorage cache.");
+                    if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                } catch (e) {
+                    console.warn("Cached config parse failed:", e);
+                }
+            }
+            
+            if (!config) {
+                if (window.setLoadingProgress) window.setLoadingProgress(25, 'Fetching configuration...');
+                try {
+                    const res = await fetch('/api/config');
+                    if (!res.ok) throw new Error("API config endpoint not available");
+                    config = await res.json();
                     localStorage.setItem('firebaseConfig', JSON.stringify(config));
-                } catch (fallbackErr) {
-                    console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
-                    const cachedConfig = localStorage.getItem('firebaseConfig');
-                    if (cachedConfig) {
-                        config = JSON.parse(cachedConfig);
-                        console.log("Loaded Firebase config from localStorage cache for offline boot.");
-                    } else {
-                        console.warn("Failed to load Firebase configuration, using offline fallback config.");
+                    if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                } catch (err) {
+                    console.warn("API config failed, trying static .env fallback...", err);
+                    try {
+                        const res = await fetch('/.env');
+                        if (!res.ok) throw new Error(".env file not available");
+                        const envText = await res.text();
+                        const env = {};
+                        envText.split(/\r?\n/).forEach(line => {
+                            const trimmed = line.trim();
+                            if (trimmed && !trimmed.startsWith('#')) {
+                                const parts = trimmed.split('=');
+                                const key = parts[0].trim();
+                                const val = parts.slice(1).join('=').trim();
+                                env[key] = val;
+                            }
+                        });
+
                         config = {
-                            apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
-                            authDomain: "project-x-787898.firebaseapp.com",
-                            projectId: "project-x-787898",
-                            storageBucket: "project-x-787898.firebasestorage.app",
-                            messagingSenderId: "1011303841705",
-                            appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                            apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                            authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                            projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                            storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                            messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+                            appId: env.NEXT_PUBLIC_FIREBASE_APP_ID
                         };
 
+                        if (!config.apiKey) throw new Error("No API key found in .env");
+                        console.log("Loaded Firebase config from static .env fallback successfully!");
+                        localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                        if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                    } catch (fallbackErr) {
+                        console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
+                        const cachedConfigFallback = localStorage.getItem('firebaseConfig');
+                        if (cachedConfigFallback) {
+                            config = JSON.parse(cachedConfigFallback);
+                            console.log("Loaded Firebase config from localStorage cache for offline boot.");
+                            if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                        } else {
+                            console.warn("Failed to load Firebase configuration, using offline fallback config.");
+                            config = {
+                                apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+                                authDomain: "project-x-787898.firebaseapp.com",
+                                projectId: "project-x-787898",
+                                storageBucket: "project-x-787898.firebasestorage.app",
+                                messagingSenderId: "1011303841705",
+                                appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                            };
+                            if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                        }
                     }
                 }
             }
@@ -12840,6 +12877,7 @@
                 firebase.initializeApp(config);
                 db = firebase.firestore();
                 console.log("Firebase Connected");
+                if (window.setLoadingProgress) window.setLoadingProgress(55, 'Authenticating session...');
             } catch (e) {
                 console.error("Firebase init error:", e);
             }
@@ -12861,6 +12899,7 @@
                 // Authorized
                 console.log("Admin authorized:", user.email);
                 window.currentUser = user;
+                if (window.setLoadingProgress) window.setLoadingProgress(70, 'Loading cloud workspace...');
 
                 // Update profile section with local settings override if available
                 const localName = localStorage.getItem('studyPlan_profileName');
@@ -13621,6 +13660,24 @@
         });
     </script>
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        @keyframes premium-pulse {
+            0%, 100% { transform: scale(1) translateY(0); filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.35)) brightness(1); }
+            50% { transform: scale(1.04) translateY(-4px); filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.65)) brightness(1.1); }
+        }
+        .animate-premium-pulse {
+            animation: premium-pulse 2.2s ease-in-out infinite;
+        }
+        @keyframes shimmer-flow {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .shimmer-progress {
+            background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #a855f7 100%);
+            background-size: 200% 100%;
+            animation: shimmer-flow 1.5s infinite linear;
+        }
+    </style>
 </head>
 
 <body
@@ -13628,11 +13685,28 @@
 
     <!-- Full-screen Loading Overlay -->
     <div id="auth-loading"
-        class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0f172a] text-white">
-        <div class="flex flex-col items-center space-y-4">
-            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-xs font-black uppercase tracking-widest text-slate-400 animate-pulse">Loading
-                Application...</div>
+        class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0b0f19] text-white">
+        <!-- Ambient radial glows in background -->
+        <div class="absolute w-[500px] h-[500px] rounded-full bg-blue-900/10 blur-[100px] pointer-events-none"></div>
+        <div class="absolute w-[400px] h-[400px] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none"></div>
+
+        <div class="flex flex-col items-center z-10 select-none">
+            <!-- Pulsing premium logo -->
+            <img src="icons/logo-sticker.png" alt="Project X Logo" class="w-24 h-24 object-contain animate-premium-pulse">
+            
+            <h1 class="text-2xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 uppercase mt-6 mb-8 font-sans">
+                PROJECT X
+            </h1>
+
+            <!-- Sleek Loading Bar Container -->
+            <div class="w-56 bg-slate-900/80 h-1.5 rounded-full overflow-hidden border border-white/5 relative p-[1px] shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
+                <div id="auth-loading-bar" class="shimmer-progress h-full rounded-full transition-all duration-300 w-[10%]"></div>
+            </div>
+
+            <!-- Loader Status Text -->
+            <div id="auth-loading-text" class="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-4 animate-pulse">
+                Initializing workspace...
+            </div>
         </div>
     </div>
 
