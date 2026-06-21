@@ -5531,9 +5531,17 @@
             const dashCompactContainer = document.getElementById('dashboard-daily-actions-compact');
             if (dashCompactContainer) {
                 dashCompactContainer.innerHTML = '';
-                const rows = Math.ceil(sortedActions.length / 2) || 1;
-                dashCompactContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-                dashCompactContainer.style.height = '100%';
+                
+                if (sortedActions.length <= 4) {
+                    const rows = Math.ceil(sortedActions.length / 2) || 1;
+                    dashCompactContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                    dashCompactContainer.style.gridAutoRows = 'unset';
+                    dashCompactContainer.style.height = '100%';
+                } else {
+                    dashCompactContainer.style.gridTemplateRows = 'unset';
+                    dashCompactContainer.style.gridAutoRows = 'minmax(38px, auto)';
+                    dashCompactContainer.style.height = 'auto';
+                }
                 
                 sortedActions.forEach(cfg => {
                     const state = todayTask ? todayTask[cfg.id] : false;
@@ -10851,10 +10859,17 @@
             listContainer.innerHTML = '';
 
             if (listContainer) {
-                listContainer.className = "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1";
-                const rows = Math.ceil(targetsList.length / 2) || 1;
-                listContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-                listContainer.style.height = '100%';
+                listContainer.className = "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 text-[10px] flex-1 min-h-0";
+                if (targetsList.length <= 4) {
+                    const rows = Math.ceil(targetsList.length / 2) || 1;
+                    listContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                    listContainer.style.gridAutoRows = 'unset';
+                    listContainer.style.height = '100%';
+                } else {
+                    listContainer.style.gridTemplateRows = 'unset';
+                    listContainer.style.gridAutoRows = 'minmax(38px, auto)';
+                    listContainer.style.height = 'auto';
+                }
             }
 
             targetsList.forEach((target, idx) => {
@@ -13965,7 +13980,7 @@
                             </div>
                         </div>
                         
-                        <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 flex-1 mt-2">
+                        <div id="dashboard-daily-actions-compact" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 flex-1 min-h-0 overflow-y-auto mt-2 pr-0.5">
                             <!-- Populated dynamically via JS -->
                         </div>
                     </div>
