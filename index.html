@@ -5762,8 +5762,8 @@
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
-            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
+            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
+            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -5794,8 +5794,8 @@
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop' };
-            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content' };
+            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
+            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -11514,6 +11514,13 @@
                             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">List of
                                 recorded study sessions</p>
                         </div>
+                        <button onclick="window.openAddTimerSessionModal()"
+                            class="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-md active:scale-95 transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Add Session</span>
+                        </button>
                     </div>
 
                     <div class="overflow-x-auto w-full">
@@ -14181,6 +14188,118 @@
                     <button onclick="window.submitCustomTimer()"
                         class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
                         Set Timer
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Timer Session Modal (Manual Entry) -->
+        <div id="add-timer-session-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="atsm-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="closeModal('add-timer-session-modal')"></div>
+            <div id="atsm-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                <div
+                    class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 dark:text-slate-100">Add Session</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Manually
+                                log a study session</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal('add-timer-session-modal')"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4 my-2 overflow-y-auto max-h-[60vh] pr-1">
+                    <!-- Date -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</label>
+                        <input type="date" id="atsm-date"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-inner" />
+                    </div>
+
+                    <!-- Duration Input Method Toggle -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Enter Duration By</label>
+                        <div class="flex bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/80 shadow-inner">
+                            <button type="button" id="atsm-tab-hours" onclick="window.switchAtsmTab('hours')"
+                                class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-emerald-600 text-white shadow">Hours</button>
+                            <button type="button" id="atsm-tab-range" onclick="window.switchAtsmTab('range')"
+                                class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800/80">Time Range</button>
+                        </div>
+                    </div>
+
+                    <!-- Hours/Minutes Duration Panel -->
+                    <div id="atsm-panel-hours" class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Duration</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center">Hours</label>
+                                <input type="number" id="atsm-hours" value="0" min="0" max="23"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-inner text-center" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center">Minutes</label>
+                                <input type="number" id="atsm-minutes" value="25" min="0" max="59"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-inner text-center" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time Range Panel (hidden by default) -->
+                    <div id="atsm-panel-range" class="hidden flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Time Range</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center">Start Time</label>
+                                <input type="time" id="atsm-range-start"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-inner text-center" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center">End Time</label>
+                                <input type="time" id="atsm-range-end"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-inner text-center" />
+                            </div>
+                        </div>
+                        <div id="atsm-range-preview" class="text-center text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mt-1 hidden">
+                            Duration: --
+                        </div>
+                    </div>
+
+                    <!-- Subject -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</label>
+                        <select id="atsm-subject"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-inner cursor-pointer">
+                            <option value="General Study">General Study</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div
+                    class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                    <button onclick="closeModal('add-timer-session-modal')"
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                        Cancel
+                    </button>
+                    <button onclick="window.submitManualTimerSession()"
+                        class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
+                        Add Session
                     </button>
                 </div>
             </div>

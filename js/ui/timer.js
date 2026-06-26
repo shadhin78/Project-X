@@ -546,6 +546,8 @@ window.renderTimerPage = function () {
 
                 const modeBadge = log.mode === 'timer' ?
                     `<span class="px-2 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-black text-[9px] uppercase tracking-wider rounded border border-blue-100 dark:border-blue-900/30">Timer</span>` :
+                    log.mode === 'addx' ?
+                    `<span class="px-2 py-0.5 bg-orange-50 dark:bg-orange-950 text-orange-600 dark:text-orange-400 font-black text-[9px] uppercase tracking-wider rounded border border-orange-100 dark:border-orange-900/30">Added</span>` :
                     `<span class="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-black text-[9px] uppercase tracking-wider rounded border border-emerald-100 dark:border-emerald-900/30">Stopwatch</span>`;
 
                 historyHtml += `
@@ -577,6 +579,183 @@ document.addEventListener('change', (e) => {
         }
     }
 });
+
+window._atsmActiveTab = 'hours';
+
+window.switchAtsmTab = function (tab) {
+    window._atsmActiveTab = tab;
+    const tabHours = document.getElementById('atsm-tab-hours');
+    const tabRange = document.getElementById('atsm-tab-range');
+    const panelHours = document.getElementById('atsm-panel-hours');
+    const panelRange = document.getElementById('atsm-panel-range');
+
+    const activeClass = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-emerald-600 text-white shadow';
+    const inactiveClass = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800/80';
+
+    if (tab === 'hours') {
+        if (tabHours) tabHours.className = activeClass;
+        if (tabRange) tabRange.className = inactiveClass;
+        if (panelHours) { panelHours.classList.remove('hidden'); panelHours.classList.add('flex'); }
+        if (panelRange) { panelRange.classList.add('hidden'); panelRange.classList.remove('flex'); }
+    } else {
+        if (tabHours) tabHours.className = inactiveClass;
+        if (tabRange) tabRange.className = activeClass;
+        if (panelHours) { panelHours.classList.add('hidden'); panelHours.classList.remove('flex'); }
+        if (panelRange) { panelRange.classList.remove('hidden'); panelRange.classList.add('flex'); }
+    }
+};
+
+window.updateAtsmRangePreview = function () {
+    const startInput = document.getElementById('atsm-range-start');
+    const endInput = document.getElementById('atsm-range-end');
+    const preview = document.getElementById('atsm-range-preview');
+    if (!startInput || !endInput || !preview) return;
+
+    if (startInput.value && endInput.value) {
+        const toMinutes = (t) => { const p = t.split(':').map(Number); return (p[0] || 0) * 60 + (p[1] || 0); };
+        let diff = toMinutes(endInput.value) - toMinutes(startInput.value);
+        if (diff <= 0) diff += 24 * 60; // cross-midnight
+        const hrs = Math.floor(diff / 60);
+        const mins = diff % 60;
+        let durStr = '';
+        if (hrs > 0) durStr += `${hrs}h `;
+        durStr += `${mins}m`;
+        preview.textContent = `Duration: ${durStr}`;
+        preview.classList.remove('hidden');
+    } else {
+        preview.classList.add('hidden');
+    }
+};
+
+// Listen for time range changes to show preview
+document.addEventListener('input', (e) => {
+    if (e.target && (e.target.id === 'atsm-range-start' || e.target.id === 'atsm-range-end')) {
+        window.updateAtsmRangePreview();
+    }
+});
+
+window.openAddTimerSessionModal = function () {
+    // Set date to today
+    const now = new Date();
+    const dateInput = document.getElementById('atsm-date');
+    if (dateInput) {
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Reset duration fields
+    const hoursInput = document.getElementById('atsm-hours');
+    const minutesInput = document.getElementById('atsm-minutes');
+    if (hoursInput) hoursInput.value = '0';
+    if (minutesInput) minutesInput.value = '25';
+
+    // Reset time range fields
+    const rangeStart = document.getElementById('atsm-range-start');
+    const rangeEnd = document.getElementById('atsm-range-end');
+    if (rangeStart) rangeStart.value = '';
+    if (rangeEnd) rangeEnd.value = '';
+    const preview = document.getElementById('atsm-range-preview');
+    if (preview) preview.classList.add('hidden');
+
+    // Reset tab to 'hours'
+    window.switchAtsmTab('hours');
+
+    // Populate subjects dropdown
+    const subjectSelect = document.getElementById('atsm-subject');
+    if (subjectSelect) {
+        let optionsHtml = `<option value="General Study">General Study</option>`;
+        const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
+        const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
+        uniqueSubjects.forEach(sub => {
+            optionsHtml += `<option value="${sub}">${sub}</option>`;
+        });
+        subjectSelect.innerHTML = optionsHtml;
+    }
+
+    openModal('add-timer-session-modal');
+};
+
+window.submitManualTimerSession = function () {
+    const dateInput = document.getElementById('atsm-date');
+    const subjectSelect = document.getElementById('atsm-subject');
+
+    if (!dateInput || !dateInput.value) {
+        showToast("Please select a date.", "error");
+        return;
+    }
+
+    let totalSeconds = 0;
+    let sessionTimeStr = '12:00'; // default noon
+
+    if (window._atsmActiveTab === 'hours') {
+        const hoursInput = document.getElementById('atsm-hours');
+        const minutesInput = document.getElementById('atsm-minutes');
+        const hours = parseInt(hoursInput?.value || '0', 10);
+        const minutes = parseInt(minutesInput?.value || '0', 10);
+
+        if (isNaN(hours) || isNaN(minutes)) {
+            showToast("Please enter valid duration numbers.", "error");
+            return;
+        }
+        totalSeconds = (hours * 3600) + (minutes * 60);
+        if (totalSeconds <= 0) {
+            showToast("Duration must be greater than zero.", "error");
+            return;
+        }
+    } else {
+        // Time range mode
+        const startInput = document.getElementById('atsm-range-start');
+        const endInput = document.getElementById('atsm-range-end');
+
+        if (!startInput?.value || !endInput?.value) {
+            showToast("Please enter both start and end times.", "error");
+            return;
+        }
+
+        const toMinutes = (t) => { const p = t.split(':').map(Number); return (p[0] || 0) * 60 + (p[1] || 0); };
+        let diffMinutes = toMinutes(endInput.value) - toMinutes(startInput.value);
+        if (diffMinutes <= 0) diffMinutes += 24 * 60; // cross-midnight
+
+        totalSeconds = diffMinutes * 60;
+        sessionTimeStr = startInput.value; // use start time as the session time
+    }
+
+    // Build date
+    const timeParts = sessionTimeStr.split(':').map(Number);
+    const sessionDate = new Date(dateInput.value + 'T' + String(timeParts[0] || 0).padStart(2, '0') + ':' + String(timeParts[1] || 0).padStart(2, '0') + ':00');
+
+    if (isNaN(sessionDate.getTime())) {
+        showToast("Invalid date entered.", "error");
+        return;
+    }
+
+    const subject = subjectSelect?.value || 'General Study';
+
+    const newLog = {
+        id: 'timer-log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        subject: subject,
+        duration: totalSeconds,
+        date: sessionDate.toISOString(),
+        mode: 'addx'
+    };
+
+    if (!window.timerLogs) window.timerLogs = [];
+    window.timerLogs.unshift(newLog);
+
+    // Sort logs by date descending so the manual entry appears in the correct position
+    window.timerLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    saveToCloud(true);
+    window.renderTimerPage();
+    closeModal('add-timer-session-modal');
+
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const durationStr = (hrs > 0 ? `${hrs}h ` : '') + `${mins}m`;
+    showToast(`Session added: ${durationStr} for ${subject}.`, "success");
+};
 
 // Store original parent so we can return the panel after exiting fullscreen
 window._timerFsOriginalParent = null;
