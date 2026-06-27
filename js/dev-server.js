@@ -2,9 +2,11 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const ROOT_DIR = path.join(__dirname, '..');
+
 // Helper to parse .env file
 function parseEnv() {
-  const envPath = path.join(__dirname, '.env');
+  const envPath = path.join(ROOT_DIR, '.env');
   const env = {};
   if (fs.existsSync(envPath)) {
     const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
@@ -62,10 +64,10 @@ const server = http.createServer((req, res) => {
     url = '/index.html';
   }
 
-  const filePath = path.join(__dirname, url);
+  const filePath = path.join(ROOT_DIR, url);
 
   // Prevent directory traversal
-  const relativePath = path.relative(__dirname, filePath);
+  const relativePath = path.relative(ROOT_DIR, filePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('403 Forbidden');

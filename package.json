@@ -2,9 +2,9 @@
   "name": "project-x",
   "version": "1.0.0",
   "description": "Dynamic Multi-Track Execution & Tracking Dashboard",
-  "main": "dev-server.js",
+  "main": "js/dev-server.js",
   "scripts": {
-    "dev": "node dev-server.js"
+    "dev": "node js/dev-server.js"
   },
   "dependencies": {}
 }

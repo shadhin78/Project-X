@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const content = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+const content = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const lines = content.split('\n');
 
 let jsLines = [];
