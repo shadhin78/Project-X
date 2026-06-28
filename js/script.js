@@ -259,6 +259,9 @@ window.monthlyChartActions = null;
 window.yearlyChartActions = null;
 window.subjectTrendChart = null;
 window.paceTrendChartInstance = null;
+window.spectraPaceTrendChartInstance = null;
+window.globalPaceTrendChartInstance = null;
+window.dbProgressChartInstance = null;
 window.revisionTrendChartInstance = null;
 window.globalHistoryChartInstance = null;
 window.dadbTrendChartInstance = null;
@@ -3985,17 +3988,26 @@ window.toggleTimerFullscreen = function () {
 
                     const remaining = Math.max(0, total - completed);
                     let finishDisplay = '--';
+                    const reqPaceVal = daysRemain > 0 ? (remaining / daysRemain) : 0;
+                    let curPaceVal = 0;
+                    if (daysPassed > 0) {
+                        curPaceVal = completed / daysPassed;
+                    }
+
+                    const barReqPaceVal = document.getElementById('trends-bar-req-pace');
+                    if (barReqPaceVal) {
+                        barReqPaceVal.textContent = `${reqPaceVal.toFixed(2)} Ch/Day`;
+                    }
+                    const barActualPaceVal = document.getElementById('trends-bar-actual-pace');
+                    if (barActualPaceVal) {
+                        barActualPaceVal.textContent = `${curPaceVal.toFixed(2)} Ch/Day`;
+                    }
 
                     if (total === 0) {
                         finishDisplay = 'No Target';
                     } else if (remaining <= 0) {
                         finishDisplay = 'Finished';
                     } else {
-                        let curPaceVal = 0;
-                        if (daysPassed > 0) {
-                            curPaceVal = completed / daysPassed;
-                        }
-
                         if (curPaceVal <= 0) {
                             if (today < startDate) finishDisplay = 'Future';
                             else if (today > targetDate) finishDisplay = 'Overdue';
@@ -4004,7 +4016,7 @@ window.toggleTimerFullscreen = function () {
                             const daysToFinish = remaining / curPaceVal;
                             const projectedDate = new Date(today); projectedDate.setDate(today.getDate() + daysToFinish);
                             const finishDateStr = projectedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                            finishDisplay = `${finishDateStr} (${Math.ceil(daysToFinish)} Days @ ${curPaceVal.toFixed(2)} Ch/Day)`;
+                            finishDisplay = `${finishDateStr} (${Math.ceil(daysToFinish)} Days)`;
                         }
                     }
                     barEstFinishVal.textContent = finishDisplay;
@@ -4013,6 +4025,10 @@ window.toggleTimerFullscreen = function () {
                     barPassedVal.textContent = '--';
                     barRemainVal.textContent = '--';
                     barRemainContainer.classList.add('hidden');
+                    const barReqPaceVal = document.getElementById('trends-bar-req-pace');
+                    if (barReqPaceVal) barReqPaceVal.textContent = '--';
+                    const barActualPaceVal = document.getElementById('trends-bar-actual-pace');
+                    if (barActualPaceVal) barActualPaceVal.textContent = '--';
                     barEstFinishVal.textContent = '--';
                 }
             }
@@ -5289,6 +5305,40 @@ window.toggleTimerFullscreen = function () {
 
             if (progressChart) { progressChart.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted]; progressChart.update(); }
 
+            // Compact Global Completion for Dashboard
+            safeSetText('db-progress-text', `${percentage}%`);
+            safeSetText('db-progress-detail', `${displayCompleted} / ${scopeTotalChapters} Chapters`);
+            const dbBar = document.getElementById('db-progress-bar');
+            if (dbBar) dbBar.style.width = `${percentage}%`;
+
+            const dbCanvas = document.getElementById('dbProgressChart');
+            if (dbCanvas) {
+                if (window.dbProgressChartInstance) {
+                    window.dbProgressChartInstance.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted];
+                    window.dbProgressChartInstance.update();
+                } else {
+                    window.dbProgressChartInstance = new Chart(dbCanvas.getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            datasets: [{
+                                data: [displayCompleted, scopeTotalChapters - displayCompleted],
+                                backgroundColor: ['#3b82f6', 'rgba(148, 163, 184, 0.1)'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '80%',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { enabled: false }
+                            }
+                        }
+                    });
+                }
+            }
+
             // Live Sync for Modals
             if (document.getElementById('pace-trend-modal') && !document.getElementById('pace-trend-modal').classList.contains('hidden')) {
                 window.renderPaceTrendChart(window.activeTrendGoalId);
@@ -5732,13 +5782,64 @@ window.toggleTimerFullscreen = function () {
                         const perc = totalChap > 0 ? Math.round((doneChap / totalChap) * 100) : 0;
                         const color = colors[catIdx % colors.length]; const shadow = shadows[catIdx % shadows.length];
 
-                        html += `<div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-3xl md:rounded-[2rem] shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-100 dark:border-slate-700/60 flex items-center justify-between group"><div><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight group-hover:translate-x-1 transition-transform">${progName}</h3><p class="text-[10px] text-slate-400 uppercase font-black mt-1 tracking-widest">${Math.round(doneChap)} / ${totalChap} Chapters</p></div><div class="relative flex items-center justify-center w-12 h-12 md:w-14 md:h-14 ${shadow} rounded-full bg-white dark:bg-slate-800 shrink-0"><svg class="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 36 36"><path class="text-slate-100 dark:text-slate-700/50" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="${color}" stroke-width="3.5" stroke-dasharray="${perc}, 100" stroke="currentColor" fill="none" stroke-linecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg><span class="absolute text-[9px] md:text-[10px] font-black ${color}">${perc}%</span></div></div>`;
+                        html += `<div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-3xl md:rounded-[2rem] shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-100 dark:border-slate-700/60 flex items-center justify-between group"><div><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight group-hover:translate-x-1 transition-transform">${progName}</h3><p class="text-[10px] text-slate-400 uppercase font-black mt-1 tracking-widest">${Math.round(doneChap)} / ${totalChap} Chapters</p></div><button onclick="window.openProgramCompletionsModal('${track}', '${progName.replace(/'/g, "\\'")}')" class="relative flex items-center justify-center w-12 h-12 md:w-14 md:h-14 ${shadow} rounded-full bg-white dark:bg-slate-800 shrink-0 hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer border-0 p-0" title="View Subject Completions"><svg class="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 36 36"><path class="text-slate-100 dark:text-slate-700/50" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="${color}" stroke-width="3.5" stroke-dasharray="${perc}, 100" stroke="currentColor" fill="none" stroke-linecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg><span class="absolute text-[9px] md:text-[10px] font-black ${color}">${perc}%</span></button></div>`;
                         catIdx++;
                     });
                 }
             });
             container.innerHTML = html;
         }
+
+        window.openProgramCompletionsModal = function (track, programName) {
+            const subjectStats = window.lastSubjectStats || {};
+            const subs = syllabusStructure[track] ? syllabusStructure[track].filter(s => s.program === programName) : [];
+
+            document.getElementById('pcm-completions-title').textContent = programName + ' Completion Status';
+            document.getElementById('pcm-completions-subtitle').textContent = `Subject completions inside the ${programName} program`;
+
+            const container = document.getElementById('pcm-completions-container');
+            if (!container) return;
+
+            let html = '';
+            if (subs.length === 0) {
+                html = '<div class="text-center text-xs text-slate-500 font-bold py-6">No subjects found in this program.</div>';
+            } else {
+                html = '<div class="flex flex-col gap-4 py-2">';
+                
+                const colorPairs = [
+                    { bg: "bg-gradient-to-r from-indigo-400 to-indigo-600", text: "text-indigo-500" }, { bg: "bg-gradient-to-r from-emerald-400 to-emerald-600", text: "text-emerald-500" },
+                    { bg: "bg-gradient-to-r from-violet-400 to-violet-600", text: "text-violet-500" }, { bg: "bg-gradient-to-r from-rose-400 to-rose-600", text: "text-rose-500" },
+                    { bg: "bg-gradient-to-r from-amber-400 to-amber-600", text: "text-amber-500" }, { bg: "bg-gradient-to-r from-cyan-400 to-cyan-600", text: "text-cyan-500" }
+                ];
+                
+                subs.forEach((sub, idx) => {
+                    const stats = subjectStats[sub.subject] || { totalChapters: 0, effectiveChapters: 0 };
+                    const perc = stats.totalChapters > 0 ? Math.min(100, (stats.effectiveChapters / stats.totalChapters) * 100) : 0;
+                    
+                    let cleanSubName = sub.subject;
+                    if (cleanSubName.startsWith(programName + ' - ')) cleanSubName = cleanSubName.replace(programName + ' - ', '');
+                    else if (cleanSubName.startsWith(programName + ' ')) cleanSubName = cleanSubName.replace(programName + ' ', '');
+
+                    const cp = colorPairs[idx % colorPairs.length];
+
+                    html += `
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 shadow-sm flex flex-col gap-2.5">
+                        <div class="flex justify-between items-center text-xs font-black">
+                            <span class="text-slate-800 dark:text-slate-200">${cleanSubName}</span>
+                            <span class="text-slate-500 font-bold">${Math.round(stats.effectiveChapters)} / ${stats.totalChapters} Ch <span class="${cp.text}">(${Math.round(perc)}%)</span></span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-700/50 h-2.5 rounded-full overflow-hidden border border-slate-200/40 dark:border-slate-600/30 shadow-inner">
+                            <div class="${cp.bg} h-full rounded-full transition-all duration-500 ease-out" style="width: ${perc}%"></div>
+                        </div>
+                    </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+            openModal('program-completions-modal');
+        };
 
         function renderChart() {
             const canvas = document.getElementById('progressChart');
@@ -5774,8 +5875,18 @@ window.toggleTimerFullscreen = function () {
             const ctx2 = document.getElementById('monthlyActionsChart');
             const ctxSub = document.getElementById('subjectTrendChart');
 
-            let chartStart = new Date(PLAN_START_DATE.getTime());
-            let chartEnd = new Date(PLAN_END_DATE.getTime());
+            let activeGoalId = window.dashboardConfig.activePaceGoalId;
+            if (!activeGoalId && window.paceGoals && window.paceGoals.length > 0) {
+                activeGoalId = window.paceGoals[0].id;
+                window.dashboardConfig.activePaceGoalId = activeGoalId;
+            }
+            const activeGoal = activeGoalId ? window.paceGoals.find(g => g.id === activeGoalId) : null;
+
+            let chartStart = activeGoal && activeGoal.startDate ? parseDateSafe(activeGoal.startDate) : new Date(PLAN_START_DATE);
+            let chartEnd = activeGoal && activeGoal.deadline ? parseDateSafe(activeGoal.deadline) : new Date(PLAN_END_DATE);
+            chartStart.setHours(0, 0, 0, 0);
+            chartEnd.setHours(23, 59, 59, 999);
+
             const todayObj = new Date();
 
             if (window.trendTimeFilter === '1Y') {
@@ -5791,7 +5902,6 @@ window.toggleTimerFullscreen = function () {
                 chartEnd.setFullYear(chartEnd.getFullYear() + 3);
                 chartEnd.setMonth(chartEnd.getMonth() - 1);
             } else {
-                chartStart = new Date(PLAN_START_DATE.getTime());
                 chartEnd = new Date(todayObj.getTime());
                 if (chartEnd < chartStart) {
                     chartEnd = new Date(chartStart.getTime());
@@ -5894,7 +6004,7 @@ window.toggleTimerFullscreen = function () {
             // 2. Scan tasks for custom action calculations
             tasks.forEach(t => {
                 const taskDate = getTaskDate(t);
-                if (taskDate < PLAN_START_DATE) return; // Sync baseline start date!
+                if (taskDate < chartStart) return; // Sync baseline start date!
                 const tYear = taskDate.getFullYear();
                 const tMonth = taskDate.getMonth();
                 const rawMidx = (tYear - sYear) * 12 + (tMonth - sMonth);
@@ -6056,9 +6166,9 @@ window.toggleTimerFullscreen = function () {
                 const msgBar = document.getElementById('daily-actions-msg-bar');
                 if (msgBar) {
                     let elapsedDays = todayObj.getDate();
-                    if (PLAN_START_DATE.getFullYear() === todayObj.getFullYear() && PLAN_START_DATE.getMonth() === todayObj.getMonth()) {
-                        elapsedDays = todayObj.getDate() - PLAN_START_DATE.getDate() + 1;
-                    } else if (PLAN_START_DATE > todayObj) {
+                    if (chartStart.getFullYear() === todayObj.getFullYear() && chartStart.getMonth() === todayObj.getMonth()) {
+                        elapsedDays = todayObj.getDate() - chartStart.getDate() + 1;
+                    } else if (chartStart > todayObj) {
                         elapsedDays = 0;
                     }
                     if (elapsedDays < 0) elapsedDays = 0;
@@ -6068,7 +6178,7 @@ window.toggleTimerFullscreen = function () {
 
                     tasks.forEach(t => {
                         const taskDate = getTaskDate(t);
-                        if (taskDate < PLAN_START_DATE) return; // Skip if before start date
+                        if (taskDate < chartStart) return; // Skip if before start date
                         if (taskDate.getFullYear() === todayObj.getFullYear() && taskDate.getMonth() === todayObj.getMonth()) {
                             window.customActions.forEach(a => {
                                 if (t[a.id]) completedCount++;
@@ -6102,7 +6212,7 @@ window.toggleTimerFullscreen = function () {
                     while (true) {
                         const dStr = formatDate(checkDate);
                         const tObj = tasks.find(t => t.date === dStr);
-                        if (checkDate < PLAN_START_DATE) break; // Streak cannot start before PLAN_START_DATE
+                        if (checkDate < chartStart) break; // Streak cannot start before PLAN_START_DATE
                         let hasAction = false;
                         window.customActions.forEach(a => { if (tObj && tObj[a.id]) hasAction = true; });
                         if (hasAction) {
@@ -6240,6 +6350,10 @@ window.toggleTimerFullscreen = function () {
                 const daysRem = Math.max(0, Math.ceil(diffRem / (1000 * 60 * 60 * 24)));
                 daysRemainEl.textContent = daysRem;
             }
+
+            // Render Spectra pace trend chart for the active goal (X Bar)
+            window.renderSpectraPaceTrendChart(activeGoalId);
+            window.renderGlobalPaceTrendChart();
 
             window.updateLegends();
             renderHeatmap();
@@ -9334,8 +9448,8 @@ window.toggleTimerFullscreen = function () {
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
-            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -9366,8 +9480,8 @@ window.toggleTimerFullscreen = function () {
         };
 
         window.closeModal = function (modalId) {
-            const backdrops = { 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
-            const contents = { 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
 
@@ -10208,6 +10322,703 @@ window.toggleTimerFullscreen = function () {
             const isMobile = window.innerWidth < 640;
 
             window.paceTrendChartInstance = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Required Target',
+                            data: reqData,
+                            borderColor: '#10b981',
+                            borderWidth: isMobile ? 2 : 2.5,
+                            borderDash: [8, 6],
+                            pointRadius: 0,
+                            pointHitRadius: 15,
+                            fill: false,
+                            tension: 0,
+                            z: 2
+                        },
+                        {
+                            label: 'Actual Progression',
+                            data: actData,
+                            borderColor: '#6366f1',
+                            backgroundColor: actGradient,
+                            borderWidth: isMobile ? 3 : 4,
+                            pointRadius: 0,
+                            pointHoverRadius: 7,
+                            pointBackgroundColor: '#6366f1',
+                            pointHoverBackgroundColor: '#ffffff',
+                            pointHoverBorderColor: '#6366f1',
+                            pointHoverBorderWidth: 3,
+                            fill: true,
+                            tension: 0.3,
+                            z: 3
+                        },
+                        {
+                            label: 'Estimated Trajectory',
+                            data: estData,
+                            borderColor: '#f59e0b',
+                            backgroundColor: estGradient,
+                            borderWidth: isMobile ? 2 : 2.5,
+                            borderDash: [4, 4],
+                            pointRadius: 0,
+                            pointHitRadius: 15,
+                            fill: true,
+                            tension: 0.3,
+                            z: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: isMobile ? 'center' : 'end',
+                            labels: {
+                                color: '#94a3b8',
+                                font: { family: 'Inter', weight: '800', size: isMobile ? 9 : 11 },
+                                usePointStyle: true,
+                                boxWidth: isMobile ? 6 : 10,
+                                padding: isMobile ? 10 : 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f8fafc',
+                            titleFont: { size: isMobile ? 11 : 13, weight: 'bold' },
+                            bodyColor: '#cbd5e1',
+                            bodyFont: { size: isMobile ? 10 : 12 },
+                            borderColor: 'rgba(99, 102, 241, 0.2)',
+                            borderWidth: 1,
+                            padding: isMobile ? 10 : 14,
+                            cornerRadius: 12,
+                            usePointStyle: true,
+                            boxPadding: 8,
+                            callbacks: {
+                                label: c => {
+                                    if (c.parsed.y === null) return null;
+                                    return ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)} Ch`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: total > 0 ? Math.ceil(total * 1.1) : 10,
+                            ticks: {
+                                font: { size: isMobile ? 8 : 10, weight: 'bold' },
+                                color: '#64748b',
+                                padding: isMobile ? 4 : 8
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.08)',
+                                drawBorder: false,
+                                borderDash: [5, 5]
+                            },
+                            border: { display: false }
+                        },
+                        x: {
+                            ticks: {
+                                font: { size: isMobile ? 8 : 10, weight: 'bold' },
+                                color: '#64748b',
+                                maxTicksLimit: isMobile ? 5 : 12,
+                                maxRotation: 0,
+                                padding: isMobile ? 4 : 8
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(148, 163, 184, 0.03)',
+                                drawBorder: false
+                            },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+        };
+
+        window.renderSpectraPaceTrendChart = function (goalId) {
+            let paceData = null;
+            if (goalId && window.paceGoals) {
+                const goal = window.paceGoals.find(g => g.id === goalId);
+                if (goal) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const msPerDay = 1000 * 60 * 60 * 24;
+                    const subjectStats = window.lastSubjectStats || {};
+                    let total = 0;
+                    let completed = 0;
+
+                    if (goal.type === 'global') {
+                        let targetedSubjects = new Set();
+                        const isManual = goal.subjects || goal.secondaryPaces;
+                        if (isManual) {
+                            if (goal.subjects) goal.subjects.forEach(s => targetedSubjects.add(s));
+                            if (goal.secondaryPaces) {
+                                goal.secondaryPaces.forEach(pid => {
+                                    const g = window.paceGoals.find(x => x.id === pid);
+                                    if (g) {
+                                        if (g.type === 'bundle') {
+                                            if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                            if (g.programs) {
+                                                window.tracks.map(t => t.id).forEach(track => {
+                                                    if (syllabusStructure[track]) {
+                                                        syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                                    }
+                                                });
+                                            }
+                                        } else if (g.type === 'subject') {
+                                            targetedSubjects.add(g.target);
+                                        } else if (g.type === 'program') {
+                                            window.tracks.map(t => t.id).forEach(track => {
+                                                if (syllabusStructure[track]) {
+                                                    syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            window.paceGoals.forEach(g => {
+                                if (g.id === goal.id) return;
+                                if (!globalStartDate || !globalEndDate) return;
+                                const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                                const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
+                                gStart.setHours(0, 0, 0, 0);
+                                gEnd.setHours(23, 59, 59, 999);
+                                if (gEnd < globalStartDate || gStart > globalEndDate) return;
+                                if (g.type === 'bundle') {
+                                    if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
+                                    if (g.programs) {
+                                        window.tracks.map(t => t.id).forEach(track => {
+                                            if (syllabusStructure[track]) {
+                                                syllabusStructure[track].forEach(s => { if (g.programs.includes(s.program)) targetedSubjects.add(s.subject); });
+                                            }
+                                        });
+                                    }
+                                } else if (g.type === 'subject') {
+                                    targetedSubjects.add(g.target);
+                                } else if (g.type === 'program') {
+                                    window.tracks.map(t => t.id).forEach(track => {
+                                        if (syllabusStructure[track]) {
+                                            syllabusStructure[track].forEach(s => { if (g.target === s.program) targetedSubjects.add(s.subject); });
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                        targetedSubjects.forEach(sub => {
+                            if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                        });
+                    } else if (goal.type === 'bundle') {
+                        if (goal.subjects) {
+                            goal.subjects.forEach(sub => {
+                                if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                            });
+                        } else if (goal.programs) {
+                            let programSubs = [];
+                            window.tracks.map(t => t.id).forEach(track => {
+                                if (syllabusStructure[track]) {
+                                    syllabusStructure[track].forEach(s => {
+                                        if (goal.programs.includes(s.program)) programSubs.push(s.subject);
+                                    });
+                                }
+                            });
+                            programSubs.forEach(sub => {
+                                if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; }
+                            });
+                        }
+                    } else if (goal.type === 'subject') {
+                        if (subjectStats[goal.target]) { total = subjectStats[goal.target].totalChapters; completed = subjectStats[goal.target].effectiveChapters; }
+                    } else if (goal.type === 'program') {
+                        const programSubs = [];
+                        window.tracks.map(t => t.id).forEach(track => {
+                            if (syllabusStructure[track]) {
+                                syllabusStructure[track].forEach(s => { if (s.program === goal.target) programSubs.push(s.subject); });
+                            }
+                        });
+                        programSubs.forEach(sub => { if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; } });
+                    }
+
+                    const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                    const targetDate = parseDateSafe(goal.deadline);
+                    startDate.setHours(0, 0, 0, 0); targetDate.setHours(23, 59, 59, 999);
+
+                    const remaining = Math.max(0, total - completed);
+                    const totalDays = Math.max(1, Math.ceil((targetDate - startDate) / msPerDay));
+                    const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+                    const daysRemaining = Math.max(0, Math.ceil((targetDate - today) / msPerDay));
+
+                    let reqPaceVal = 0;
+                    let curPaceVal = 0;
+
+                    if (total > 0) {
+                        if (today < startDate) {
+                            reqPaceVal = total / totalDays;
+                            curPaceVal = 0;
+                        } else if (today > targetDate) {
+                            reqPaceVal = remaining > 0 ? remaining : 0;
+                            curPaceVal = completed / daysElapsed;
+                        } else {
+                            reqPaceVal = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
+                            curPaceVal = completed / daysElapsed;
+                        }
+                    }
+
+                    let projectedDate = new Date(today);
+                    if (remaining <= 0) {
+                        projectedDate = new Date(today);
+                    } else if (curPaceVal > 0) {
+                        const daysToFinish = remaining / curPaceVal;
+                        projectedDate.setDate(today.getDate() + daysToFinish);
+                    } else {
+                        projectedDate = new Date(0);
+                    }
+
+                    const targetSubjects = window.getTargetedSubjectsForGoal(goal);
+
+                    paceData = {
+                        total: total,
+                        completed: completed,
+                        start: startDate,
+                        end: targetDate,
+                        today: today,
+                        reqPace: reqPaceVal,
+                        curPace: curPaceVal,
+                        projectedDate: projectedDate,
+                        subjects: Array.from(targetSubjects),
+                        title: goal.target + " Trend",
+                        description: "Burn-up comparison of Required vs Actual trajectories for " + goal.target + "."
+                    };
+                }
+            }
+
+            if (!paceData) {
+                if (!window.latestPaceData) return;
+                paceData = {
+                    ...window.latestPaceData,
+                    title: "Pace Trend Analysis",
+                    description: "Burn-up comparison of Required vs Actual trajectories."
+                };
+            }
+
+            const canvas = document.getElementById('spectraPaceTrendCanvas');
+            if (!canvas) return;
+
+            const { total, completed, start, end, today, reqPace, curPace, projectedDate, subjects, title, description } = paceData;
+
+            safeSetText('spectra-pace-title', title + ' (X Bar)');
+            safeSetText('spectra-pace-desc', description);
+
+            safeSetText('spectra-pace-req', `${reqPace.toFixed(2)} Ch/Day`);
+            safeSetText('spectra-pace-act', `${curPace.toFixed(2)} Ch/Day`);
+
+            let finishDisplay = '--';
+            if (total > 0 && completed >= total) {
+                finishDisplay = 'Finished';
+            } else if (total > 0 && curPace > 0) {
+                const dateOpts = window.innerWidth < 640 ? { day: '2-digit', month: 'short', year: '2-digit' } : { day: '2-digit', month: 'long', year: 'numeric' };
+                finishDisplay = projectedDate.toLocaleDateString('en-GB', dateOpts);
+            }
+            safeSetText('spectra-pace-finish', finishDisplay);
+
+            let labels = []; let reqData = []; let actData = []; let estData = [];
+
+            let completedPerDate = {};
+            tasks.forEach(t => {
+                if (t.type === 'study') {
+                    let count = 0;
+                    window.tracks.forEach(track => {
+                        const key = track.id + 'Tasks';
+                        if (Array.isArray(t[key])) {
+                            t[key].forEach(b => { if (b.completed && subjects.includes(b.subject)) count++; });
+                        }
+                    });
+                    completedPerDate[t.date] = (completedPerDate[t.date] || 0) + count;
+                }
+            });
+
+            let loopStart = new Date(Math.min(start.getTime(), today.getTime()));
+            loopStart.setHours(0, 0, 0, 0);
+
+            let maxDt = new Date(end);
+            if (projectedDate.getTime() > 0 && projectedDate > maxDt) maxDt = new Date(projectedDate);
+            if (today > maxDt) maxDt = new Date(today);
+
+            const capDt = new Date(end);
+            capDt.setFullYear(capDt.getFullYear() + 1);
+            if (maxDt > capDt) maxDt = new Date(capDt);
+
+            let daysBuffer = Math.ceil((maxDt - loopStart) / (1000 * 60 * 60 * 24) * 0.05);
+            maxDt.setDate(maxDt.getDate() + Math.max(3, daysBuffer));
+
+            let currentDt = new Date(loopStart);
+            let cumulativeAct = 0;
+            const totalDaysTarget = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+            const reqPacePerDay = total / totalDaysTarget;
+
+            while (currentDt <= maxDt) {
+                labels.push(currentDt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+
+                if (currentDt < start) {
+                    reqData.push(0);
+                } else {
+                    let daysSinceStart = Math.max(0, Math.floor((currentDt - start) / (1000 * 60 * 60 * 24)));
+                    let rVal = daysSinceStart * reqPacePerDay;
+                    if (rVal > total) rVal = total;
+                    reqData.push(rVal);
+                }
+
+                if (currentDt <= today) {
+                    let dStr = formatDate(currentDt);
+                    cumulativeAct += (completedPerDate[dStr] || 0);
+                    actData.push(cumulativeAct);
+
+                    if (currentDt.getTime() === today.getTime()) {
+                        estData.push(cumulativeAct);
+                    } else {
+                        estData.push(null);
+                    }
+                } else {
+                    actData.push(null);
+                    let daysFromToday = Math.ceil((currentDt - today) / (1000 * 60 * 60 * 24));
+                    let eVal = cumulativeAct + (curPace * daysFromToday);
+                    if (eVal > total) eVal = total;
+                    estData.push(eVal);
+                }
+
+                currentDt.setDate(currentDt.getDate() + 1);
+            }
+
+            if (window.spectraPaceTrendChartInstance) window.spectraPaceTrendChartInstance.destroy();
+
+            let chartCtx = canvas.getContext('2d');
+
+            let actGradient = chartCtx.createLinearGradient(0, 0, 0, 450);
+            actGradient.addColorStop(0, 'rgba(99, 102, 241, 0.6)');
+            actGradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.15)');
+            actGradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+            let estGradient = chartCtx.createLinearGradient(0, 0, 0, 450);
+            estGradient.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+            estGradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+            const isMobile = window.innerWidth < 640;
+
+            window.spectraPaceTrendChartInstance = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Required Target',
+                            data: reqData,
+                            borderColor: '#10b981',
+                            borderWidth: isMobile ? 2 : 2.5,
+                            borderDash: [8, 6],
+                            pointRadius: 0,
+                            pointHitRadius: 15,
+                            fill: false,
+                            tension: 0,
+                            z: 2
+                        },
+                        {
+                            label: 'Actual Progression',
+                            data: actData,
+                            borderColor: '#6366f1',
+                            backgroundColor: actGradient,
+                            borderWidth: isMobile ? 3 : 4,
+                            pointRadius: 0,
+                            pointHoverRadius: 7,
+                            pointBackgroundColor: '#6366f1',
+                            pointHoverBackgroundColor: '#ffffff',
+                            pointHoverBorderColor: '#6366f1',
+                            pointHoverBorderWidth: 3,
+                            fill: true,
+                            tension: 0.3,
+                            z: 3
+                        },
+                        {
+                            label: 'Estimated Trajectory',
+                            data: estData,
+                            borderColor: '#f59e0b',
+                            backgroundColor: estGradient,
+                            borderWidth: isMobile ? 2 : 2.5,
+                            borderDash: [4, 4],
+                            pointRadius: 0,
+                            pointHitRadius: 15,
+                            fill: true,
+                            tension: 0.3,
+                            z: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: isMobile ? 'center' : 'end',
+                            labels: {
+                                color: '#94a3b8',
+                                font: { family: 'Inter', weight: '800', size: isMobile ? 9 : 11 },
+                                usePointStyle: true,
+                                boxWidth: isMobile ? 6 : 10,
+                                padding: isMobile ? 10 : 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f8fafc',
+                            titleFont: { size: isMobile ? 11 : 13, weight: 'bold' },
+                            bodyColor: '#cbd5e1',
+                            bodyFont: { size: isMobile ? 10 : 12 },
+                            borderColor: 'rgba(99, 102, 241, 0.2)',
+                            borderWidth: 1,
+                            padding: isMobile ? 10 : 14,
+                            cornerRadius: 12,
+                            usePointStyle: true,
+                            boxPadding: 8,
+                            callbacks: {
+                                label: c => {
+                                    if (c.parsed.y === null) return null;
+                                    return ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)} Ch`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: total > 0 ? Math.ceil(total * 1.1) : 10,
+                            ticks: {
+                                font: { size: isMobile ? 8 : 10, weight: 'bold' },
+                                color: '#64748b',
+                                padding: isMobile ? 4 : 8
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.08)',
+                                drawBorder: false,
+                                borderDash: [5, 5]
+                            },
+                            border: { display: false }
+                        },
+                        x: {
+                            ticks: {
+                                font: { size: isMobile ? 8 : 10, weight: 'bold' },
+                                color: '#64748b',
+                                maxTicksLimit: isMobile ? 5 : 12,
+                                maxRotation: 0,
+                                padding: isMobile ? 4 : 8
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(148, 163, 184, 0.03)',
+                                drawBorder: false
+                            },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+        };
+
+        window.renderGlobalPaceTrendChart = function () {
+            let goal = window.paceGoals ? window.paceGoals.find(g => g.type === 'global') : null;
+            if (!goal) {
+                goal = {
+                    id: 'global-timeline',
+                    type: 'global',
+                    target: 'Global Scope',
+                    startDate: PLAN_START_DATE.toISOString().split('T')[0],
+                    deadline: PLAN_END_DATE.toISOString().split('T')[0]
+                };
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const msPerDay = 1000 * 60 * 60 * 24;
+            const subjectStats = window.lastSubjectStats || {};
+            let total = 0;
+            let completed = 0;
+
+            let targetedSubjects = new Set();
+            window.getAllSubjects().forEach(s => targetedSubjects.add(s.subject));
+
+            targetedSubjects.forEach(sub => {
+                if (subjectStats[sub]) {
+                    total += subjectStats[sub].totalChapters;
+                    completed += subjectStats[sub].effectiveChapters;
+                }
+            });
+
+            const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+            const targetDate = goal.deadline ? parseDateSafe(goal.deadline) : new Date(PLAN_END_DATE);
+            startDate.setHours(0, 0, 0, 0);
+            targetDate.setHours(23, 59, 59, 999);
+
+            const remaining = Math.max(0, total - completed);
+            const totalDays = Math.max(1, Math.ceil((targetDate - startDate) / msPerDay));
+            const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
+            const daysRemaining = Math.max(0, Math.ceil((targetDate - today) / msPerDay));
+
+            let reqPaceVal = 0;
+            let curPaceVal = 0;
+
+            if (total > 0) {
+                if (today < startDate) {
+                    reqPaceVal = total / totalDays;
+                    curPaceVal = 0;
+                } else if (today > targetDate) {
+                    reqPaceVal = remaining > 0 ? remaining : 0;
+                    curPaceVal = completed / daysElapsed;
+                } else {
+                    reqPaceVal = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
+                    curPaceVal = completed / daysElapsed;
+                }
+            }
+
+            let projectedDate = new Date(today);
+            if (remaining <= 0) {
+                projectedDate = new Date(today);
+            } else if (curPaceVal > 0) {
+                const daysToFinish = remaining / curPaceVal;
+                projectedDate.setDate(today.getDate() + daysToFinish);
+            } else {
+                projectedDate = new Date(0);
+            }
+
+            const paceData = {
+                total: total,
+                completed: completed,
+                start: startDate,
+                end: targetDate,
+                today: today,
+                reqPace: reqPaceVal,
+                curPace: curPaceVal,
+                projectedDate: projectedDate,
+                subjects: Array.from(targetedSubjects),
+                title: "Global Scope Trend",
+                description: "Burn-up comparison of Required vs Actual trajectories for all subjects."
+            };
+
+            const canvas = document.getElementById('globalPaceTrendCanvas');
+            if (!canvas) return;
+
+            const { reqPace, curPace, projectedDate: projDt, title, description } = paceData;
+
+            safeSetText('global-pace-title', title);
+            safeSetText('global-pace-desc', description);
+
+            safeSetText('global-pace-req', `${reqPace.toFixed(2)} Ch/Day`);
+            safeSetText('global-pace-act', `${curPace.toFixed(2)} Ch/Day`);
+
+            let finishDisplay = '--';
+            if (total > 0 && completed >= total) {
+                finishDisplay = 'Finished';
+            } else if (total > 0 && curPace > 0) {
+                const dateOpts = window.innerWidth < 640 ? { day: '2-digit', month: 'short', year: '2-digit' } : { day: '2-digit', month: 'long', year: 'numeric' };
+                finishDisplay = projDt.toLocaleDateString('en-GB', dateOpts);
+            }
+            safeSetText('global-pace-finish', finishDisplay);
+
+            let labels = []; let reqData = []; let actData = []; let estData = [];
+
+            let completedPerDate = {};
+            tasks.forEach(t => {
+                if (t.type === 'study') {
+                    let count = 0;
+                    window.tracks.forEach(track => {
+                        const key = track.id + 'Tasks';
+                        if (Array.isArray(t[key])) {
+                            t[key].forEach(b => { if (b.completed && paceData.subjects.includes(b.subject)) count++; });
+                        }
+                    });
+                    completedPerDate[t.date] = (completedPerDate[t.date] || 0) + count;
+                }
+            });
+
+            let loopStart = new Date(Math.min(startDate.getTime(), today.getTime()));
+            loopStart.setHours(0, 0, 0, 0);
+
+            let maxDt = new Date(targetDate);
+            if (projDt.getTime() > 0 && projDt > maxDt) maxDt = new Date(projDt);
+            if (today > maxDt) maxDt = new Date(today);
+
+            const capDt = new Date(targetDate);
+            capDt.setFullYear(capDt.getFullYear() + 1);
+            if (maxDt > capDt) maxDt = new Date(capDt);
+
+            let daysBuffer = Math.ceil((maxDt - loopStart) / (1000 * 60 * 60 * 24) * 0.05);
+            maxDt.setDate(maxDt.getDate() + Math.max(3, daysBuffer));
+
+            let currentDt = new Date(loopStart);
+            let cumulativeAct = 0;
+            const totalDaysTarget = Math.max(1, Math.ceil((targetDate - startDate) / (1000 * 60 * 60 * 24)));
+            const reqPacePerDay = total / totalDaysTarget;
+
+            while (currentDt <= maxDt) {
+                labels.push(currentDt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+
+                if (currentDt < startDate) {
+                    reqData.push(0);
+                } else {
+                    let daysSinceStart = Math.max(0, Math.floor((currentDt - startDate) / (1000 * 60 * 60 * 24)));
+                    let rVal = daysSinceStart * reqPacePerDay;
+                    if (rVal > total) rVal = total;
+                    reqData.push(rVal);
+                }
+
+                if (currentDt <= today) {
+                    let dStr = formatDate(currentDt);
+                    cumulativeAct += (completedPerDate[dStr] || 0);
+                    actData.push(cumulativeAct);
+
+                    if (currentDt.getTime() === today.getTime()) {
+                        estData.push(cumulativeAct);
+                    } else {
+                        estData.push(null);
+                    }
+                } else {
+                    actData.push(null);
+                    let daysFromToday = Math.ceil((currentDt - today) / (1000 * 60 * 60 * 24));
+                    let eVal = cumulativeAct + (curPace * daysFromToday);
+                    if (eVal > total) eVal = total;
+                    estData.push(eVal);
+                }
+
+                currentDt.setDate(currentDt.getDate() + 1);
+            }
+
+            if (window.globalPaceTrendChartInstance) window.globalPaceTrendChartInstance.destroy();
+
+            let chartCtx = canvas.getContext('2d');
+
+            let actGradient = chartCtx.createLinearGradient(0, 0, 0, 450);
+            actGradient.addColorStop(0, 'rgba(99, 102, 241, 0.6)');
+            actGradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.15)');
+            actGradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+            let estGradient = chartCtx.createLinearGradient(0, 0, 0, 450);
+            estGradient.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+            estGradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+            const isMobile = window.innerWidth < 640;
+
+            window.globalPaceTrendChartInstance = new Chart(chartCtx, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -13801,6 +14612,7 @@ window.toggleTimerFullscreen = function () {
                 const charts = [
                     progressChart, window.mainChartPrograms, window.monthlyChartActions,
                     window.yearlyChartActions, window.subjectTrendChart, window.paceTrendChartInstance,
+                    window.spectraPaceTrendChartInstance, window.globalPaceTrendChartInstance, window.dbProgressChartInstance,
                     window.revisionTrendChartInstance, window.globalHistoryChartInstance, masterLineChart,
                     window.dadbTrendChartInstance, window.resultsTrendChartInstance, window.programTrendChartInstance
                 ];
@@ -14158,6 +14970,9 @@ window.toggleTimerFullscreen = function () {
                     if (window.mainChartPrograms) window.mainChartPrograms.resize();
                     if (window.monthlyChartActions) window.monthlyChartActions.resize();
                     if (window.yearlyChartActions) window.yearlyChartActions.resize();
+                    if (window.spectraPaceTrendChartInstance) window.spectraPaceTrendChartInstance.resize();
+                    if (window.globalPaceTrendChartInstance) window.globalPaceTrendChartInstance.resize();
+                    if (window.dbProgressChartInstance) window.dbProgressChartInstance.resize();
                 }, 50);
             } else if (pageId === 'subjects') {
                 setTimeout(() => {
