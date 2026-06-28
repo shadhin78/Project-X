@@ -15334,7 +15334,18 @@ window.toggleTimerFullscreen = function () {
                 }, 50);
             } else if (pageId === 'subjects') {
                 setTimeout(() => {
-                    if (progressChart) progressChart.resize();
+                    if (progressChart) {
+                        const oldData = progressChart.data.datasets[0].data.slice();
+                        progressChart.destroy();
+                        const canvas = document.getElementById('progressChart');
+                        if (canvas) {
+                            progressChart = new Chart(canvas.getContext('2d'), {
+                                type: 'doughnut',
+                                data: { datasets: [{ data: oldData, backgroundColor: ['#3b82f6', 'rgba(148, 163, 184, 0.1)'], borderWidth: 0 }] },
+                                options: { responsive: true, maintainAspectRatio: false, cutout: '82%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+                            });
+                        }
+                    }
                 }, 50);
             } else if (pageId === 'outcome') {
                 setTimeout(() => {
