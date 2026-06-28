@@ -630,13 +630,17 @@ window.normalizePriorities = function () {
 };
 
 window.populateTrackDropdowns = function () {
-    const trackDropdowns = ['add-ch-track', 'add-sub-track', 'add-prog-track', 'manage-track', 'esm-track'];
+    const trackDropdowns = ['add-ch-track', 'add-sub-track', 'add-prog-track', 'manage-track', 'esm-track', 'add-act-track', 'adt-todo-track'];
     trackDropdowns.forEach(id => {
         const select = document.getElementById(id);
         if (!select) return;
         const currentVal = select.value;
-        select.innerHTML = window.tracks.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-        if (currentVal && window.tracks.some(t => t.id === currentVal)) {
+        if (id === 'add-act-track' || id === 'adt-todo-track') {
+            select.innerHTML = '<option value="">-- No Track (Optional) --</option>' + window.tracks.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        } else {
+            select.innerHTML = window.tracks.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        }
+        if (currentVal && (window.tracks.some(t => t.id === currentVal) || currentVal === '')) {
             select.value = currentVal;
         }
     });
@@ -4278,6 +4282,12 @@ window.toggleTimerFullscreen = function () {
                 }
             });
 
+            for (const sub in grouped) {
+                const group = grouped[sub];
+                const skippedCount = group.tasks.filter(x => x.taskObj.skipped).length;
+                group.totalChapters = Math.max(0, group.totalChapters - skippedCount);
+            }
+
             let html = '';
             const shadowMap = { indigo: 'shadow-[0_0_10px_rgba(99,102,241,0.6)]', emerald: 'shadow-[0_0_10px_rgba(16,185,129,0.6)]', violet: 'shadow-[0_0_10px_rgba(139,92,246,0.6)]' };
 
@@ -4560,11 +4570,24 @@ window.toggleTimerFullscreen = function () {
                             </div>
                         </div>`;
                         } else {
-                            let revCompletedCount = window.revisionData.progress[sub] ? Object.values(window.revisionData.progress[sub]).filter(Boolean).length : 0;
+                            const sObj = window.getAllSubjects().find(s => s.subject === sub);
+                            const staticChapters = sObj ? sObj.chapters : 0;
+
+                            let revCompletedCount = 0;
+                            if (window.revisionData.progress[sub]) {
+                                for (let i = 1; i <= staticChapters; i++) {
+                                    let isChapterSkipped = tasks.some(t => t.type === 'study' && window.tracks.some(trackObj => Array.isArray(t[trackObj.id + 'Tasks']) && t[trackObj.id + 'Tasks'].some(b => b.subject === sub && b.chapter === `Ch. ${i}` && b.skipped)));
+                                    if (!isChapterSkipped && window.revisionData.progress[sub][i]) {
+                                        revCompletedCount++;
+                                    }
+                                }
+                            }
                             let revPct = group.totalChapters > 0 ? Math.round((revCompletedCount / group.totalChapters) * 100) : 0;
 
                             let revGridHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5 mt-4">`;
-                            for (let i = 1; i <= group.totalChapters; i++) {
+                            for (let i = 1; i <= staticChapters; i++) {
+                                let isChapterSkipped = tasks.some(t => t.type === 'study' && window.tracks.some(trackObj => Array.isArray(t[trackObj.id + 'Tasks']) && t[trackObj.id + 'Tasks'].some(b => b.subject === sub && b.chapter === `Ch. ${i}` && b.skipped)));
+                                if (isChapterSkipped) continue;
                                 let isCompleted = window.revisionData.progress[sub] && window.revisionData.progress[sub][i];
                                 revGridHtml += generateRevisionTaskHtml(sub, i, isCompleted);
                             }
@@ -4642,14 +4665,28 @@ window.toggleTimerFullscreen = function () {
                 colorBg = classes[trackIdx % classes.length];
             }
 
+            const isSkipped = !!taskObj.skipped;
+            const isCompleted = !isSkipped && !!taskObj.completed;
+
+            let cardClass = 'relative bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 dark:border-slate-700 flex flex-col justify-between min-h-[110px] overflow-hidden group';
+            let barBg = colorBg;
+
+            if (isSkipped) {
+                cardClass += ' ring-1 ring-slate-350 bg-slate-50/50 dark:bg-slate-900/20 !border-slate-300 dark:!border-slate-800 opacity-60';
+                barBg = 'bg-slate-400 dark:bg-slate-600';
+            } else if (isCompleted) {
+                cardClass += ' ring-1 ring-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10 !border-emerald-200 dark:!border-emerald-800';
+                barBg = 'bg-emerald-500';
+            }
+
             return `
-                <div id="single-task-${taskObj.id}-${dayObj.studyDay}" class="relative bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 dark:border-slate-700 flex flex-col justify-between min-h-[110px] overflow-hidden group ${taskObj.completed ? 'ring-1 ring-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10 !border-emerald-200 dark:!border-emerald-800' : ''}">
+                <div id="single-task-${taskObj.id}-${dayObj.studyDay}" class="${cardClass}">
                     
                     <!-- Color Accent Bar -->
-                    <div class="absolute top-0 left-0 w-full h-1 ${taskObj.completed ? 'bg-emerald-500' : colorBg} transition-colors"></div>
+                    <div class="absolute top-0 left-0 w-full h-1 ${barBg} transition-colors"></div>
                     
                     <div class="flex justify-between items-start mb-3 mt-1">
-                        <span class="text-[9px] px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 rounded-md font-black tracking-widest uppercase">DAY ${dayObj.studyDay}</span>
+                        <span class="text-[9px] px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 rounded-md font-black tracking-widest uppercase">DAY ${dayObj.studyDay} ${isSkipped ? '<span class="text-amber-600 dark:text-amber-400 font-extrabold ml-1">(SKIPPED)</span>' : ''}</span>
                         <button onclick="openEditModal(${dayObj.id}, '${type}', '${taskObj.id}')" class="text-slate-400 hover:text-blue-500 active:scale-90 transition-all opacity-0 group-hover:opacity-100 p-1.5 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700" title="Edit/Delete Task">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
@@ -4657,12 +4694,12 @@ window.toggleTimerFullscreen = function () {
 
                     <div class="flex items-end justify-between mt-auto gap-3">
                         <div class="flex flex-col pr-1">
-                            <span class="font-black text-slate-800 dark:text-slate-100 text-sm md:text-base tracking-tight leading-tight mb-0.5 ${taskObj.completed ? 'line-through text-emerald-700 dark:text-emerald-400 opacity-70' : ''}">${taskObj.chapter}</span>
-                            <span class="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 leading-snug line-clamp-2 ${taskObj.completed ? 'line-through opacity-60' : ''}">${taskObj.title}</span>
+                            <span class="font-black text-slate-800 dark:text-slate-100 text-sm md:text-base tracking-tight leading-tight mb-0.5 ${isCompleted ? 'line-through text-emerald-700 dark:text-emerald-400 opacity-70' : ''} ${isSkipped ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400' : ''}">${taskObj.chapter}</span>
+                            <span class="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 leading-snug line-clamp-2 ${isCompleted ? 'line-through opacity-60' : ''} ${isSkipped ? 'opacity-55' : ''}">${taskObj.title}</span>
                         </div>
                         <div class="shrink-0 mb-0.5">
                             <div class="relative flex items-center justify-center">
-                                <input type="checkbox" data-stud-id="${dayObj.studyDay}" data-subtask-id="${taskObj.id}" data-type="${type}" class="task-checkbox peer relative appearance-none w-6 h-6 border-2 border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-800 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none cursor-pointer transition-all shadow-sm hover:border-emerald-400" ${taskObj.completed ? 'checked' : ''}>
+                                <input type="checkbox" data-stud-id="${dayObj.studyDay}" data-subtask-id="${taskObj.id}" data-type="${type}" class="task-checkbox peer relative appearance-none w-6 h-6 border-2 border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-800 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none cursor-pointer transition-all shadow-sm hover:border-emerald-400" ${isCompleted ? 'checked' : ''} ${isSkipped ? 'disabled bg-slate-100 dark:bg-slate-800 border-slate-200 cursor-not-allowed' : ''}>
                                 <svg class="absolute w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
                             </div>
                         </div>
@@ -4921,6 +4958,12 @@ window.toggleTimerFullscreen = function () {
                     if (Array.isArray(task[key])) {
                         task[key].forEach(subTask => {
                             if (subjectStats[subTask.subject]) {
+                                if (subTask.skipped) {
+                                    if (subjectStats[subTask.subject].totalChapters > 0) {
+                                        subjectStats[subTask.subject].totalChapters--;
+                                    }
+                                    return;
+                                }
                                 subjectStats[subTask.subject].tasksAssigned++;
                                 if (subTask.completed) {
                                     subjectStats[subTask.subject].tasksCompleted++;
@@ -5032,6 +5075,8 @@ window.toggleTimerFullscreen = function () {
                 const currentPaceDisplay = globalCurPace.toFixed(2);
                 safeSetText('target-req-pace', `--`);
                 safeSetText('current-pace-stat', `${currentPaceDisplay} Ch/Day`);
+                safeSetText('db-target-req-pace', `--`);
+                safeSetText('db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
 
                 let finishDisplay = '';
                 let globalDaysLeftStr = '<span class="opacity-50">--</span>';
@@ -5064,6 +5109,7 @@ window.toggleTimerFullscreen = function () {
                 }
 
                 safeSetHtml('projected-finish', finishDisplay);
+                safeSetHtml('db-projected-finish', finishDisplay);
 
                 const globalLeftEl = document.getElementById('global-days-left');
                 if (globalLeftEl) globalLeftEl.innerHTML = globalDaysLeftStr;
@@ -5074,13 +5120,30 @@ window.toggleTimerFullscreen = function () {
                 const globalPassedEl = document.getElementById('global-days-passed');
                 if (globalPassedEl) globalPassedEl.innerHTML = globalDaysPassedStr;
 
+                const dbLeftEl = document.getElementById('db-global-days-left');
+                if (dbLeftEl) dbLeftEl.innerHTML = globalDaysLeftStr;
+
+                const dbNeedEl = document.getElementById('db-global-days-needed');
+                if (dbNeedEl) dbNeedEl.innerHTML = globalDaysNeededStr;
+
+                const dbPassedEl = document.getElementById('db-global-days-passed');
+                if (dbPassedEl) dbPassedEl.innerHTML = globalDaysPassedStr;
+
                 let timelineText = earliestDate ? `Started: ${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}` : `Not Started`;
+                let dbTimelineText = earliestDate ? `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : `Not Started`;
                 safeSetHtml('pace-timeline-info', `<span class="text-slate-500 font-bold">Global Baseline</span> <span class="mx-1 opacity-50">|</span> <span class="tracking-widest text-[9px] uppercase">${timelineText}</span>`);
+                safeSetHtml('db-pace-timeline-info', dbTimelineText);
 
                 const statusLabel = document.getElementById('target-status-label');
                 if (statusLabel) {
                     statusLabel.className = "text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest drop-shadow-sm";
                     statusLabel.textContent = "NO TARGETS SET";
+                }
+
+                const dbStatusLabel = document.getElementById('db-target-status-label');
+                if (dbStatusLabel) {
+                    dbStatusLabel.className = "text-[7px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider mt-1 truncate";
+                    dbStatusLabel.textContent = "NO GOAL";
                 }
 
                 let progComment = { text: "No global pace goal is set. Actual pace is calculating dynamically from your first completed chapter.", icon: "📊", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800/50" };
@@ -5243,6 +5306,10 @@ window.toggleTimerFullscreen = function () {
                 safeSetText('current-pace-stat', `${currentPaceDisplay} Ch/Day`);
                 safeSetHtml('projected-finish', finishDisplay);
 
+                safeSetText('db-target-req-pace', `${reqPaceDisplay} Ch/Day`);
+                safeSetText('db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
+                safeSetHtml('db-projected-finish', finishDisplay);
+
                 const globalLeftEl = document.getElementById('global-days-left');
                 if (globalLeftEl) globalLeftEl.innerHTML = globalDaysLeftStr;
 
@@ -5252,8 +5319,19 @@ window.toggleTimerFullscreen = function () {
                 const globalPassedEl = document.getElementById('global-days-passed');
                 if (globalPassedEl) globalPassedEl.innerHTML = globalDaysPassedStr;
 
+                const dbLeftEl = document.getElementById('db-global-days-left');
+                if (dbLeftEl) dbLeftEl.innerHTML = globalDaysLeftStr;
+
+                const dbNeedEl = document.getElementById('db-global-days-needed');
+                if (dbNeedEl) dbNeedEl.innerHTML = globalDaysNeededStr;
+
+                const dbPassedEl = document.getElementById('db-global-days-passed');
+                if (dbPassedEl) dbPassedEl.innerHTML = globalDaysPassedStr;
+
                 let timelineText = `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} &rarr; ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+                let dbTimelineText = `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} &rarr; ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`;
                 safeSetHtml('pace-timeline-info', `<span class="text-blue-500 font-bold">Global Baseline</span> <span class="mx-1 opacity-50">|</span> <span class="tracking-widest text-[9px] uppercase">${timelineText}</span>`);
+                safeSetHtml('db-pace-timeline-info', dbTimelineText);
 
                 const statusLabel = document.getElementById('target-status-label');
                 if (statusLabel) {
@@ -5272,6 +5350,26 @@ window.toggleTimerFullscreen = function () {
                     } else {
                         statusLabel.className = "text-[9px] md:text-[10px] font-black text-red-500 uppercase tracking-widest drop-shadow-sm";
                         statusLabel.textContent = `TARGET: ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+                    }
+                }
+
+                const dbStatusLabel = document.getElementById('db-target-status-label');
+                if (dbStatusLabel) {
+                    if (paceTotalChapters === 0) {
+                        dbStatusLabel.className = "text-[7px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider mt-1 truncate";
+                        dbStatusLabel.textContent = "NO TARGETS";
+                    } else if (today < start) {
+                        dbStatusLabel.className = "text-[7px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wider mt-1 truncate";
+                        dbStatusLabel.textContent = "FUTURE";
+                    } else if (today > end && remaining > 0) {
+                        dbStatusLabel.className = "text-[7px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider mt-1 truncate";
+                        dbStatusLabel.textContent = "OVERDUE";
+                    } else if (remaining <= 0) {
+                        dbStatusLabel.className = "text-[7px] font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-wider mt-1 truncate";
+                        dbStatusLabel.textContent = "DONE";
+                    } else {
+                        dbStatusLabel.className = "text-[7px] font-bold text-blue-400 dark:text-blue-400 uppercase tracking-wider mt-1 truncate";
+                        dbStatusLabel.textContent = `Target: ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`;
                     }
                 }
 
@@ -5792,10 +5890,22 @@ window.toggleTimerFullscreen = function () {
 
         window.openProgramCompletionsModal = function (track, programName) {
             const subjectStats = window.lastSubjectStats || {};
-            const subs = syllabusStructure[track] ? syllabusStructure[track].filter(s => s.program === programName) : [];
+            let subs = [];
+            let title = '';
+            let subtitle = '';
 
-            document.getElementById('pcm-completions-title').textContent = programName + ' Completion Status';
-            document.getElementById('pcm-completions-subtitle').textContent = `Subject completions inside the ${programName} program`;
+            if (track === 'Global' || programName === 'Global' || !track || !programName) {
+                subs = window.getAllSubjects();
+                title = 'Global Completion Status';
+                subtitle = 'Subject completions across the entire syllabus';
+            } else {
+                subs = syllabusStructure[track] ? syllabusStructure[track].filter(s => s.program === programName) : [];
+                title = programName + ' Completion Status';
+                subtitle = `Subject completions inside the ${programName} program`;
+            }
+
+            document.getElementById('pcm-completions-title').textContent = title;
+            document.getElementById('pcm-completions-subtitle').textContent = subtitle;
 
             const container = document.getElementById('pcm-completions-container');
             if (!container) return;
@@ -5817,8 +5927,9 @@ window.toggleTimerFullscreen = function () {
                     const perc = stats.totalChapters > 0 ? Math.min(100, (stats.effectiveChapters / stats.totalChapters) * 100) : 0;
                     
                     let cleanSubName = sub.subject;
-                    if (cleanSubName.startsWith(programName + ' - ')) cleanSubName = cleanSubName.replace(programName + ' - ', '');
-                    else if (cleanSubName.startsWith(programName + ' ')) cleanSubName = cleanSubName.replace(programName + ' ', '');
+                    const pName = sub.program || programName;
+                    if (pName && cleanSubName.startsWith(pName + ' - ')) cleanSubName = cleanSubName.replace(pName + ' - ', '');
+                    else if (pName && cleanSubName.startsWith(pName + ' ')) cleanSubName = cleanSubName.replace(pName + ' ', '');
 
                     const cp = colorPairs[idx % colorPairs.length];
 
@@ -6554,7 +6665,14 @@ window.toggleTimerFullscreen = function () {
                             </div>
                             <div>
                                 <h3 class="font-black text-xs sm:text-sm md:text-base tracking-tight">${cfg.title}</h3>
-                                <p class="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">${cfg.desc}</p>
+                                <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    <p class="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 uppercase font-bold tracking-wider">${cfg.desc}</p>
+                                    ${cfg.track ? `
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200/50 dark:border-slate-600/30">
+                                            ${(window.tracks.find(t => t.id === cfg.track)?.name || 'Track')}
+                                        </span>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                         <button onclick="openModal('analytics-modal', '${cfg.id}')" class="group flex items-center justify-center p-2 md:p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700/80 hover:bg-white dark:hover:bg-slate-800 active:scale-95 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 shrink-0"><svg class="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400 group-hover:${cMap.iconColor} transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg></button>
@@ -6604,7 +6722,14 @@ window.toggleTimerFullscreen = function () {
                             </div>
                             <div class="min-w-0 leading-tight">
                                 <span class="block text-[10px] md:text-xs font-black truncate">${cfg.title}</span>
-                                <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${isActive ? 'YES' : 'NO'}</span>
+                                <div class="flex items-center space-x-1 flex-wrap">
+                                    <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${isActive ? 'YES' : 'NO'}</span>
+                                    ${cfg.track ? `
+                                        <span class="inline-block px-1 rounded-[3px] text-[6px] font-black uppercase tracking-widest ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300'}">
+                                            ${(window.tracks.find(t => t.id === cfg.track)?.name || 'Track')}
+                                        </span>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                         <div class="shrink-0">
@@ -9448,20 +9573,20 @@ window.toggleTimerFullscreen = function () {
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
-            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
-
+ 
             modal.classList.remove('hidden'); void modal.offsetWidth;
             backdrop.classList.remove('opacity-0'); backdrop.classList.add('opacity-100');
             content.classList.remove('scale-95', 'opacity-0', 'translate-y-4'); content.classList.add('scale-100', 'opacity-100', 'translate-y-0');
             document.body.classList.add('overflow-hidden');
-
+ 
             if (modalId === 'revision-trend-modal') {
                 window.renderRevisionTrendChart();
             }
-
+ 
             // Critical Fix: Sync all charts properly by giving the CSS transform transition time (300ms) to complete
             // before recalculating canvas dimensions. This applies to Analytics, Yearly, Pace, and Subject modals perfectly.
             setTimeout(() => {
@@ -9478,13 +9603,13 @@ window.toggleTimerFullscreen = function () {
                 if (modalId === 'pace-candle-modal' && window.paceCandleChartInstance) window.paceCandleChartInstance.resize();
             }, 320);
         };
-
+ 
         window.closeModal = function (modalId) {
-            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop' };
-            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
-
+ 
             backdrop.classList.remove('opacity-100'); backdrop.classList.add('opacity-0');
             content.classList.remove('scale-100', 'opacity-100', 'translate-y-0'); content.classList.add('scale-95', 'opacity-0', 'translate-y-4');
             setTimeout(() => { modal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }, 300);
@@ -11455,7 +11580,50 @@ window.toggleTimerFullscreen = function () {
             let chNum = taskObj.chapter.replace('Ch. ', ''); if (taskObj.subject === 'Revision') chNum = '';
             document.getElementById('edit-task-num').value = chNum;
             document.getElementById('edit-task-title').value = taskObj.title === 'Practice' ? '' : taskObj.title;
+
+            const skipBtn = document.getElementById('etm-skip-btn');
+            const skipText = document.getElementById('etm-skip-btn-text');
+            if (skipBtn && skipText) {
+                if (taskObj.subject === 'Revision') {
+                    skipBtn.classList.add('hidden');
+                } else {
+                    skipBtn.classList.remove('hidden');
+                    if (taskObj.skipped) {
+                        skipText.textContent = "Unskip Chapter";
+                        skipBtn.className = "text-slate-650 dark:text-slate-350 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 hover:dark:bg-slate-700 border border-slate-200 dark:border-slate-700/80 font-black text-[10px] uppercase tracking-widest py-2 px-4 rounded-lg transition-colors flex items-center space-x-1.5 active:scale-95 shadow-sm";
+                    } else {
+                        skipText.textContent = "Skip Chapter";
+                        skipBtn.className = "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-black text-[10px] uppercase tracking-widest py-2 px-4 rounded-lg transition-colors flex items-center space-x-1.5 active:scale-95";
+                    }
+                }
+            }
+
             openModal('edit-task-modal');
+        };
+
+        window.toggleSkipTask = function () {
+            if (!window.editingTask) return;
+            const { taskId, type, subTaskId } = window.editingTask;
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) return;
+
+            const key = type + 'Tasks';
+            if (Array.isArray(tasks[taskIndex][key])) {
+                const bIdx = tasks[taskIndex][key].findIndex(b => b.id === subTaskId);
+                if (bIdx > -1) {
+                    const isSkipped = !!tasks[taskIndex][key][bIdx].skipped;
+                    tasks[taskIndex][key][bIdx].skipped = !isSkipped;
+                    if (!isSkipped) {
+                        tasks[taskIndex][key][bIdx].completed = false;
+                        tasks[taskIndex][key][bIdx].completedAt = null;
+                    }
+                }
+            }
+            recalculateTotals();
+            saveToCloud();
+            renderUI();
+            closeModal('edit-task-modal');
+            showToast("Chapter status updated!", "success");
         };
 
         window.saveTaskEdit = function () {
@@ -12004,15 +12172,28 @@ window.toggleTimerFullscreen = function () {
             const desc = document.getElementById('add-act-desc').value.trim();
             const color = document.getElementById('add-act-color').value;
             const icon = document.getElementById('add-act-icon').value;
+            const trackSelect = document.getElementById('add-act-track');
+            const trackVal = trackSelect ? trackSelect.value : '';
 
             if (!title || !desc) return showToast("Please provide a Title and Description.", "error");
             const newId = 'act_' + title.toLowerCase().replace(/[^a-z0-9]/g, '') + Date.now().toString().slice(-4);
 
             const nextOrder = window.customActions.length;
-            window.customActions.push({ id: newId, title: title, desc: desc, color: color, icon: icon, priority: 3, order: nextOrder });
+            window.customActions.push({ 
+                id: newId, 
+                title: title, 
+                desc: desc, 
+                color: color, 
+                icon: icon, 
+                priority: 3, 
+                order: nextOrder,
+                track: trackVal || null 
+            });
             window.sortAllCustomData();
 
-            document.getElementById('add-act-title').value = ''; document.getElementById('add-act-desc').value = '';
+            document.getElementById('add-act-title').value = ''; 
+            document.getElementById('add-act-desc').value = '';
+            if (trackSelect) trackSelect.value = '';
             saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
         };
 
@@ -12198,7 +12379,7 @@ window.toggleTimerFullscreen = function () {
             tasks.forEach(t => {
                 if (t.type === 'study' && Array.isArray(t[key])) {
                     t[key].forEach(b => {
-                        if (b.subject === subject && b.chapter) {
+                        if (b.subject === subject && b.chapter && !b.skipped) {
                             chapters.add(b.chapter);
                         }
                     });
@@ -12276,11 +12457,13 @@ window.toggleTimerFullscreen = function () {
             const subSelectEl = document.getElementById('wt-select-sub');
             const chSelectEl = document.getElementById('wt-select-ch');
             const daySelectEl = document.getElementById('wt-select-day');
+            const scopeEl = document.getElementById('wt-target-scope');
             
             const progName = progSelectEl ? progSelectEl.value : '';
             const subject = subSelectEl ? subSelectEl.value : '';
             const chapter = chSelectEl ? chSelectEl.value : '';
             const dayName = daySelectEl ? daySelectEl.value : '';
+            const scopeVal = scopeEl ? (scopeEl.value.trim() || 'Whole Chapter') : 'Whole Chapter';
 
             if (!progName || !subject || !chapter) {
                 return showToast("Please select a Program, Subject, and Chapter.", "error");
@@ -12310,13 +12493,16 @@ window.toggleTimerFullscreen = function () {
                 chapter: chapter,
                 completed: isCompletedBefore,
                 completedAt: completedAtBefore,
-                dayName: dayName || null
+                dayName: dayName || null,
+                scope: scopeVal
             });
 
             if (daySelectEl) daySelectEl.value = '';
+            if (scopeEl) scopeEl.value = '';
 
             saveToCloud();
             renderUI();
+            closeModal('add-weekly-target-modal');
             showToast("Weekly target chapter added!", "success");
         };
 
@@ -12522,6 +12708,7 @@ window.toggleTimerFullscreen = function () {
                     starsHtml = `<span class="inline-flex text-amber-500 text-[10px] ml-1.5" title="Added as target ${occurrenceCount} times">${'★'.repeat(occurrenceCount)}</span>`;
                 }
 
+                const targetScope = target.scope || 'Whole Chapter';
                 const itemHtml = `
                 <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300">
                     <div class="flex items-center space-x-3 min-w-0">
@@ -12531,7 +12718,14 @@ window.toggleTimerFullscreen = function () {
                             ${isCompleted ? 'checked' : ''}>
                         <div class="min-w-0">
                             <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}${starsHtml}</span>
-                            <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${target.program}${target.dayName ? ` • ${target.dayName}` : ''}</span>
+                            <div class="flex items-center space-x-1.5 flex-wrap">
+                                <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${target.program}${target.dayName ? ` • ${target.dayName}` : ''}</span>
+                                ${targetScope !== 'Whole Chapter' && targetScope !== 'Whole' ? `
+                                    <span class="inline-block px-1 py-0.5 rounded-[3px] text-[7px] font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
+                                        ${targetScope}
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                     <button onclick="window.deleteWeeklyTarget(${idx})" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 rounded-lg transition-all active:scale-90 shadow-sm shrink-0">
@@ -12729,7 +12923,108 @@ window.toggleTimerFullscreen = function () {
 
             saveToCloud();
             renderUI();
+            closeModal('add-daily-target-modal');
             showToast("Daily target chapter added!", "success");
+        };
+
+        window.openAddDailyTargetModal = function () {
+            window.switchAdtTab('todo');
+            window.populateTrackDropdowns();
+            
+            const progDropdown = document.getElementById('dt-select-prog');
+            if (progDropdown) {
+                const activeProgs = [];
+                window.tracks.forEach(track => {
+                    if (window.customPrograms[track.id]) {
+                        window.customPrograms[track.id].forEach(p => {
+                            activeProgs.push(p.name || p);
+                        });
+                    }
+                });
+                progDropdown.innerHTML = '';
+                activeProgs.forEach(p => {
+                    progDropdown.innerHTML += `<option value="${p}">${p}</option>`;
+                });
+                if (activeProgs.length > 0) {
+                    window.updateDailyTargetSubjectDropdown();
+                }
+            }
+            
+            window.openModal('add-daily-target-modal');
+        };
+
+        window.openAddWeeklyTargetModal = function () {
+            const progDropdown = document.getElementById('wt-select-prog');
+            if (progDropdown) {
+                const activeProgs = [];
+                window.tracks.forEach(track => {
+                    if (window.customPrograms[track.id]) {
+                        window.customPrograms[track.id].forEach(p => {
+                            activeProgs.push(p.name || p);
+                        });
+                    }
+                });
+                progDropdown.innerHTML = '';
+                activeProgs.forEach(p => {
+                    progDropdown.innerHTML += `<option value="${p}">${p}</option>`;
+                });
+                if (activeProgs.length > 0) {
+                    window.updateWeeklyTargetSubjectDropdown();
+                }
+            }
+            window.openModal('add-weekly-target-modal');
+        };
+
+        window.switchAdtTab = function (tab) {
+            const btnTodo = document.getElementById('adt-tab-btn-todo');
+            const btnStudy = document.getElementById('adt-tab-btn-study');
+            const viewTodo = document.getElementById('adt-view-todo');
+            const viewStudy = document.getElementById('adt-view-study');
+
+            if (!btnTodo || !btnStudy || !viewTodo || !viewStudy) return;
+
+            if (tab === 'todo') {
+                btnTodo.className = "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-blue-600 text-white shadow";
+                btnStudy.className = "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 dark:text-slate-400";
+                viewTodo.classList.remove('hidden');
+                viewStudy.classList.add('hidden');
+            } else {
+                btnStudy.className = "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-blue-600 text-white shadow";
+                btnTodo.className = "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 dark:text-slate-400";
+                viewStudy.classList.remove('hidden');
+                viewTodo.classList.add('hidden');
+            }
+        };
+
+        window.addCustomTodoTarget = function () {
+            const titleInput = document.getElementById('adt-todo-title');
+            const trackInput = document.getElementById('adt-todo-track');
+            const title = titleInput ? titleInput.value.trim() : '';
+            const track = trackInput ? trackInput.value : '';
+
+            if (!title) return showToast("Please enter a task title.", "error");
+
+            if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
+            const targetDateKey = formatDate(window.currentDailyTargetsDate);
+
+            if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
+            if (!window.dailyTargetsDatabase[targetDateKey]) window.dailyTargetsDatabase[targetDateKey] = [];
+
+            window.dailyTargetsDatabase[targetDateKey].push({
+                isTodo: true,
+                title: title,
+                track: track || null,
+                completed: false,
+                completedAt: null
+            });
+
+            if (titleInput) titleInput.value = '';
+            if (trackInput) trackInput.value = '';
+
+            saveToCloud();
+            renderUI();
+            closeModal('add-daily-target-modal');
+            showToast("Custom to-do task added!", "success");
         };
 
         window.deleteDailyTarget = function (idx) {
@@ -12753,6 +13048,13 @@ window.toggleTimerFullscreen = function () {
             const target = window.dailyTargetsDatabase[selectedDateKey][idx];
             target.completed = isCompleted;
             target.completedAt = isCompleted ? new Date().toISOString() : null;
+
+            if (target.isTodo) {
+                saveToCloud();
+                renderUI();
+                showToast("To-Do task updated!", "success");
+                return;
+            }
 
             // Sync with Weekly Target (if exists)
             const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate);
@@ -12847,14 +13149,24 @@ window.toggleTimerFullscreen = function () {
             const targetsList = window.dailyTargetsDatabase[targetDateKey] || [];
 
             targetsList.forEach((target, idx) => {
-                const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
-                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
+                const isTodo = target.isTodo === true;
+                const isCompleted = isTodo ? (target.completed || false) : (target.completed || (window.findTaskChapter(target.track, target.subject, target.chapter)?.subTask.completed ?? false));
 
                 const statusColor = isCompleted
                     ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
                     : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30';
 
-                let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
+                let displayTitle = '';
+                let displaySubtitle = '';
+                if (isTodo) {
+                    displayTitle = target.title;
+                    const trackName = target.track ? (window.tracks.find(t => t.id === target.track)?.name || '') : '';
+                    displaySubtitle = trackName ? `Custom Task • ${trackName}` : 'Custom Task';
+                } else {
+                    let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
+                    displayTitle = `${target.chapter}: ${displaySub}`;
+                    displaySubtitle = target.program;
+                }
 
                 const itemHtml = `
                 <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300">
@@ -12864,8 +13176,8 @@ window.toggleTimerFullscreen = function () {
                             class="form-checkbox h-4.5 w-4.5 text-emerald-500 dark:text-emerald-500 rounded border-slate-350 focus:ring-emerald-500 transition-all cursor-pointer" 
                             ${isCompleted ? 'checked' : ''}>
                         <div class="min-w-0">
-                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}</span>
-                            <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${target.program}</span>
+                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate ${isCompleted ? 'line-through opacity-60' : ''}">${displayTitle}</span>
+                            <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${displaySubtitle}</span>
                         </div>
                     </div>
                     <button onclick="window.deleteDailyTarget(${idx})" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 rounded-lg transition-all active:scale-90 shadow-sm shrink-0">
@@ -12919,12 +13231,32 @@ window.toggleTimerFullscreen = function () {
             }
 
             targetsList.forEach((target, idx) => {
-                const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
-                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
+                const isTodo = target.isTodo === true;
+                if (!isTodo) {
+                    const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
+                    if (foundTask && foundTask.subTask.skipped) {
+                        totalTargets--;
+                        return;
+                    }
+                }
+                const isCompleted = isTodo ? (target.completed || false) : (target.completed || (window.findTaskChapter(target.track, target.subject, target.chapter)?.subTask.completed ?? false));
                 if (isCompleted) completedTargets++;
 
-                let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
-                const subjectColor = window.getSubjectColor ? window.getSubjectColor(target.subject) : '#3b82f6';
+                let displayTitle = '';
+                let displaySubtitle = '';
+                let subjectColor = '#3b82f6';
+
+                if (isTodo) {
+                    displayTitle = target.title;
+                    const trackName = target.track ? (window.tracks.find(t => t.id === target.track)?.name || '') : '';
+                    displaySubtitle = trackName ? `Task | ${trackName}` : 'Task';
+                    subjectColor = '#8b5cf6';
+                } else {
+                    let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
+                    displayTitle = `${target.chapter}: ${displaySub}`;
+                    displaySubtitle = target.program;
+                    subjectColor = window.getSubjectColor ? window.getSubjectColor(target.subject) : '#3b82f6';
+                }
 
                 const activeStyle = `background-color: ${subjectColor}cc; border-color: ${subjectColor}; color: white; box-shadow: 0 4px 12px ${subjectColor}33;`;
                 const buttonClass = isCompleted
@@ -12942,8 +13274,8 @@ window.toggleTimerFullscreen = function () {
                             </svg>
                         </div>
                         <div class="min-w-0 leading-tight">
-                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${target.chapter}: ${displaySub}</span>
-                            <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${target.program} | ${isCompleted ? 'YES' : 'NO'}</span>
+                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${displayTitle}</span>
+                            <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${displaySubtitle} | ${isCompleted ? 'YES' : 'NO'}</span>
                         </div>
                     </div>
                     <div class="shrink-0">
@@ -12978,6 +13310,13 @@ window.toggleTimerFullscreen = function () {
             const target = window.dailyTargetsDatabase[todayStr][idx];
             target.completed = isCompleted;
             target.completedAt = isCompleted ? new Date().toISOString() : null;
+
+            if (target.isTodo) {
+                saveToCloud();
+                renderUI();
+                showToast("To-Do task updated!", "success");
+                return;
+            }
 
             // Sync with Weekly Target (if exists)
             const currentRange = window.getWeeklyTargetRange();
@@ -13038,6 +13377,10 @@ window.toggleTimerFullscreen = function () {
 
             targetsList.forEach((target, idx) => {
                 const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
+                if (foundTask && foundTask.subTask.skipped) {
+                    totalTargets--;
+                    return;
+                }
                 const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
                 if (isCompleted) completedTargets++;
 
@@ -13049,6 +13392,7 @@ window.toggleTimerFullscreen = function () {
                     ? `text-white border-transparent`
                     : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
 
+                const targetScope = target.scope || 'Whole Chapter';
                 const itemHtml = `
                 <button onclick="window.toggleDashboardWeeklyTargetCompletion(${idx}, ${!isCompleted})"
                         class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 h-full ${buttonClass}"
@@ -13061,7 +13405,14 @@ window.toggleTimerFullscreen = function () {
                         </div>
                         <div class="min-w-0 leading-tight">
                             <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${target.chapter}: ${displaySub}</span>
-                            <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${target.program}${target.dayName ? ' | ' + target.dayName.toUpperCase() : ''} | ${isCompleted ? 'YES' : 'NO'}</span>
+                            <div class="flex items-center space-x-1.5 flex-wrap">
+                                <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${target.program}${target.dayName ? ' | ' + target.dayName.toUpperCase() : ''} | ${isCompleted ? 'YES' : 'NO'}</span>
+                                ${targetScope !== 'Whole Chapter' && targetScope !== 'Whole' ? `
+                                    <span class="inline-block px-1 rounded-[3px] text-[6px] font-black uppercase tracking-widest ${isCompleted ? 'bg-white/20 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}">
+                                        ${targetScope}
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                     <div class="shrink-0">
@@ -14783,6 +15134,13 @@ window.toggleTimerFullscreen = function () {
 
             // Remove from tracks
             window.tracks = window.tracks.filter(t => t.id !== id);
+
+            // Clean up customActions track association
+            if (Array.isArray(window.customActions)) {
+                window.customActions.forEach(a => {
+                    if (a.track === id) a.track = null;
+                });
+            }
 
             // Clean up customPrograms & syllabusStructure
             if (window.customPrograms[id]) delete window.customPrograms[id];
