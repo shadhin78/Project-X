@@ -483,9 +483,9 @@
                                     <span id="db-progress-text" class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 drop-shadow-sm leading-none">0%</span>
                                     <span id="db-progress-detail" class="block text-[8px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-wider mt-1 truncate">0 / 0 Chapters Completed</span>
                                 </div>
-                                <button onclick="window.openProgramCompletionsModal('Global', 'Global')"
+                                <button onclick="window.switchPage('subjects')"
                                     class="relative shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-900/30 p-1.5 rounded-xl border border-slate-100 dark:border-slate-800/80 hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer group shadow-sm w-12 h-12"
-                                    title="View All Subject Completions">
+                                    title="Go to Subjects Page">
                                     <canvas id="dbProgressChart" class="w-10 h-10 max-w-[40px] max-h-[40px] drop-shadow-md pointer-events-none"></canvas>
                                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none text-[5px] font-black text-slate-350 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors uppercase tracking-widest leading-none text-center">Info</div>
                                 </button>
@@ -496,7 +496,7 @@
                                 <div id="db-progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-1000 w-0 shadow-[0_0_8px_rgba(99,102,241,0.4)]"></div>
                             </div>
 
-                            <button onclick="window.openProgramCompletionsModal('Global', 'Global')"
+                            <button onclick="window.switchPage('subjects')"
                                 class="mt-2.5 w-full py-1.5 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/80 rounded-xl text-[8px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900/60 active:scale-95 transition-all shadow-sm">
                                 View Subject Details
                             </button>
@@ -697,9 +697,9 @@
                 </div>
 
                 <!-- Charts and Custom Filter Panel -->
-                <div class="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
                     <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-6 border-b border-slate-100 dark:border-slate-700 gap-4">
-                        <div class="space-y-1">
+                        <div class="space-y-1 hidden md:block">
                             <h3 class="text-base font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Visual Analysis</h3>
                             <p class="text-[10px] text-slate-400 dark:text-slate-500">Interactive trends visualization and tracking metrics</p>
                         </div>
@@ -718,7 +718,48 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- Program Completion & Daily Actions Grid (First) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                            <div class="flex justify-between items-center mb-4 md:mb-6">
+                                <div class="space-y-0.5">
+                                    <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                                        Program Completion Trend</h4>
+                                    <p class="text-[9px] text-slate-400 dark:text-slate-500 font-semibold">Cumulative progress percentages over time</p>
+                                </div>
+                                <button onclick="openSubjectTrendModal()"
+                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all">Subject View</button>
+                            </div>
+                            <div class="relative h-[220px] md:h-[280px] mt-auto w-full"><canvas
+                                    id="mainChartPrograms"></canvas></div>
+                            <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                                <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                                <div id="prog-comment" class="text-[9px] text-slate-400 dark:text-slate-500 font-medium"></div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                            <div class="flex justify-between items-center mb-4 md:mb-6">
+                                <div class="space-y-0.5">
+                                    <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest"
+                                        id="daily-actions-month-title">
+                                        Daily Actions (Month)</h4>
+                                    <p class="text-[9px] text-slate-400 dark:text-slate-500 font-semibold">Daily habits tracking and success rate</p>
+                                </div>
+                                <button onclick="openYearlyActionsModal()"
+                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all">Year View</button>
+                            </div>
+                            <div class="relative h-[220px] md:h-[280px] mt-auto w-full"><canvas
+                                    id="monthlyActionsChart"></canvas></div>
+                            <div class="mt-4 md:mt-6 flex flex-col gap-3">
+                                <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
+                                <div id="daily-actions-msg-bar" class="mt-2 text-[9px] font-bold"></div>
+                                <div id="act-comment" class="text-[9px] text-slate-400 dark:text-slate-500 font-medium"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pacing Trend charts (Second) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <!-- X Bar Pacing Trend (Burn-up Chart) -->
                         <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
@@ -758,45 +799,6 @@
                             </div>
                             <div class="relative h-[240px] md:h-[320px] w-full">
                                 <canvas id="globalPaceTrendCanvas"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-                            <div class="flex justify-between items-center mb-4 md:mb-6">
-                                <div class="space-y-0.5">
-                                    <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
-                                        Program Completion Trend</h4>
-                                    <p class="text-[9px] text-slate-400 dark:text-slate-500 font-semibold">Cumulative progress percentages over time</p>
-                                </div>
-                                <button onclick="openSubjectTrendModal()"
-                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all">Subject View</button>
-                            </div>
-                            <div class="relative h-[220px] md:h-[280px] mt-auto w-full"><canvas
-                                    id="mainChartPrograms"></canvas></div>
-                            <div class="mt-4 md:mt-6 flex flex-col gap-3">
-                                <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
-                                <div id="prog-comment" class="text-[9px] text-slate-400 dark:text-slate-500 font-medium"></div>
-                            </div>
-                        </div>
-                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
-                            <div class="flex justify-between items-center mb-4 md:mb-6">
-                                <div class="space-y-0.5">
-                                    <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest"
-                                        id="daily-actions-month-title">
-                                        Daily Actions (Month)</h4>
-                                    <p class="text-[9px] text-slate-400 dark:text-slate-500 font-semibold">Daily habits tracking and success rate</p>
-                                </div>
-                                <button onclick="openYearlyActionsModal()"
-                                    class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all">Year View</button>
-                            </div>
-                            <div class="relative h-[220px] md:h-[280px] mt-auto w-full"><canvas
-                                    id="monthlyActionsChart"></canvas></div>
-                            <div class="mt-4 md:mt-6 flex flex-col gap-3">
-                                <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
-                                <div id="daily-actions-msg-bar" class="mt-2 text-[9px] font-bold"></div>
-                                <div id="act-comment" class="text-[9px] text-slate-400 dark:text-slate-500 font-medium"></div>
                             </div>
                         </div>
                     </div>
