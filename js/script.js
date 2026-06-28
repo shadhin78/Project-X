@@ -5752,6 +5752,7 @@ window.toggleTimerFullscreen = function () {
         }
 
         function renderTrendCharts() {
+            let activeStreak = 0;
             // CLEANUP ORPHANED DATA
             let validProgs = window.getAllPrograms().map(p => p.name || p);
             Object.keys(window.latestChartStats.prog).forEach(k => { if (!validProgs.includes(k)) delete window.latestChartStats.prog[k]; });
@@ -6134,6 +6135,7 @@ window.toggleTimerFullscreen = function () {
                             <span class="bg-orange-100 dark:bg-orange-900/60 px-2 py-1 rounded border border-orange-200/55 dark:border-orange-800">Streak: ${streak} Days</span>
                         </div>
                     </div>`;
+                    activeStreak = streak;
                 }
 
                 const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
@@ -6193,6 +6195,50 @@ window.toggleTimerFullscreen = function () {
                 } else {
                     window.subjectTrendChart = new Chart(ctxSub.getContext('2d'), { type: 'line', data: { labels: months, datasets: subDatasets }, options: { ...chartOptions, interaction: { mode: 'nearest', axis: 'x', intersect: false } } });
                 }
+            }
+
+            // Update Spectra Pulse stats cards if they exist
+            const avgCompEl = document.getElementById('analytics-avg-completion');
+            const avgCompBar = document.getElementById('analytics-avg-completion-bar');
+            if (avgCompEl) {
+                let totalSubs = 0;
+                let passedSubs = 0;
+                window.tracks.map(t => t.id).forEach(track => {
+                    if (syllabusStructure[track]) {
+                        syllabusStructure[track].forEach(s => {
+                            totalSubs++;
+                            if (window.passedItems && (window.passedItems.programs.includes(s.program) || window.passedItems.subjects.includes(s.subject))) {
+                                passedSubs++;
+                            }
+                        });
+                    }
+                });
+                const pct = totalSubs > 0 ? Math.round((passedSubs / totalSubs) * 100) : 0;
+                avgCompEl.textContent = pct + '%';
+                if (avgCompBar) avgCompBar.style.width = pct + '%';
+            }
+
+            const totalActEl = document.getElementById('analytics-total-actions');
+            if (totalActEl) {
+                let totalLoggedActions = 0;
+                tasks.forEach(t => {
+                    window.customActions.forEach(a => {
+                        if (t[a.id]) totalLoggedActions++;
+                    });
+                });
+                totalActEl.textContent = totalLoggedActions;
+            }
+
+            const activeStreakEl = document.getElementById('analytics-active-streak');
+            if (activeStreakEl) {
+                activeStreakEl.textContent = activeStreak + ' days';
+            }
+
+            const daysRemainEl = document.getElementById('analytics-days-remaining');
+            if (daysRemainEl) {
+                const diffRem = PLAN_END_DATE.getTime() - todayObj.getTime();
+                const daysRem = Math.max(0, Math.ceil(diffRem / (1000 * 60 * 60 * 24)));
+                daysRemainEl.textContent = daysRem;
             }
 
             window.updateLegends();
@@ -14061,7 +14107,7 @@ window.toggleTimerFullscreen = function () {
         };
 
         window.switchPage = function (pageId) {
-            const pages = ['dashboard', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome'];
+            const pages = ['dashboard', 'spectra-analytics', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome'];
             pages.forEach(p => {
                 const el = document.getElementById(`page-${p}`);
                 if (el) {
@@ -14077,6 +14123,7 @@ window.toggleTimerFullscreen = function () {
 
             const buttons = {
                 'dashboard': { active: 'bg-slate-900 dark:bg-blue-600 text-white border-slate-900 dark:border-blue-600 shadow-lg', hover: 'hover:border-blue-400' },
+                'spectra-analytics': { active: 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white border-transparent shadow-lg shadow-fuchsia-500/20', hover: 'hover:border-fuchsia-400' },
                 'daily-actions': { active: 'bg-orange-500 text-white border-orange-500 shadow-lg', hover: 'hover:border-orange-400' },
                 'subjects': { active: 'bg-violet-600 text-white border-violet-600 shadow-lg', hover: 'hover:border-violet-400' },
                 'paces-management': { active: 'bg-red-600 text-white border-red-600 shadow-lg', hover: 'hover:border-red-400' },
@@ -14106,7 +14153,7 @@ window.toggleTimerFullscreen = function () {
             }
 
             // Handle chart resizing or rendering when visible
-            if (pageId === 'dashboard') {
+            if (pageId === 'dashboard' || pageId === 'spectra-analytics') {
                 setTimeout(() => {
                     if (window.mainChartPrograms) window.mainChartPrograms.resize();
                     if (window.monthlyChartActions) window.monthlyChartActions.resize();
