@@ -2139,9 +2139,9 @@
                     class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
                     onclick="closeModal('edit-task-modal')"></div>
                 <div id="etm-content"
-                    class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                    class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col max-h-[90vh] overflow-y-auto">
                     <div
-                        class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
+                        class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
                         <div class="flex items-center space-x-3">
                             <div
                                 class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
@@ -2175,8 +2175,8 @@
                             <select id="edit-task-subject"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold w-full"></select>
                         </div>
-                        <div class="flex gap-4">
-                            <div class="flex flex-col gap-1.5 w-1/3">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <div class="flex flex-col gap-1.5 w-full sm:w-1/3">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Ch.
                                     No</label>
                                 <input type="text" id="edit-task-num"
@@ -2194,10 +2194,10 @@
                     </div>
 
                     <div
-                        class="flex justify-between items-center mt-auto pt-4 border-t border-slate-100 dark:border-slate-700">
-                        <div class="flex gap-2">
+                        class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 gap-4">
+                        <div class="flex flex-col sm:flex-row gap-2">
                             <button onclick="window.requestDeleteTask()"
-                                class="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 font-black text-[10px] uppercase tracking-widest py-2 px-4 rounded-lg transition-colors flex items-center space-x-1.5 active:scale-95">
+                                class="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center space-x-1.5 active:scale-95 w-full sm:w-auto">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
@@ -2206,7 +2206,7 @@
                                 <span>Clear Slot</span>
                             </button>
                             <button id="etm-skip-btn" onclick="window.toggleSkipTask()"
-                                class="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-black text-[10px] uppercase tracking-widest py-2 px-4 rounded-lg transition-colors flex items-center space-x-1.5 active:scale-95">
+                                class="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center space-x-1.5 active:scale-95 w-full sm:w-auto">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                         d="M13 5l7 7-7 7M5 5l7 7-7 7">
@@ -2215,11 +2215,11 @@
                                 <span id="etm-skip-btn-text">Skip Chapter</span>
                             </button>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 justify-end">
                             <button onclick="closeModal('edit-task-modal')"
-                                class="text-slate-500 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors active:scale-95">Cancel</button>
+                                class="text-slate-500 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 font-black text-[10px] uppercase tracking-widest py-2.5 px-4 rounded-lg transition-colors active:scale-95 flex-1 sm:flex-none">Cancel</button>
                             <button onclick="window.saveTaskEdit()"
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-2.5 px-6 rounded-lg transition-colors shadow-md active:scale-95">Save</button>
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-2.5 px-6 rounded-lg transition-colors shadow-md active:scale-95 flex-1 sm:flex-none">Save</button>
                         </div>
                     </div>
                 </div>

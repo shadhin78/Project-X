@@ -4687,8 +4687,8 @@ window.toggleTimerFullscreen = function () {
                     
                     <div class="flex justify-between items-start mb-3 mt-1">
                         <span class="text-[9px] px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 rounded-md font-black tracking-widest uppercase">DAY ${dayObj.studyDay} ${isSkipped ? '<span class="text-amber-600 dark:text-amber-400 font-extrabold ml-1">(SKIPPED)</span>' : ''}</span>
-                        <button onclick="openEditModal(${dayObj.id}, '${type}', '${taskObj.id}')" class="text-slate-400 hover:text-blue-500 active:scale-90 transition-all opacity-0 group-hover:opacity-100 p-1.5 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700" title="Edit/Delete Task">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        <button onclick="openEditModal(${dayObj.id}, '${type}', '${taskObj.id}')" class="text-slate-400 hover:text-blue-500 active:scale-90 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700" title="Edit/Delete Task">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
                     </div>
 
