@@ -154,6 +154,8 @@ window.FirebaseService = {
             subjectTimeLinks: window.subjectTimeLinks,
             successResults: window.successResults,
             timerLogs: window.timerLogs || [],
+            dailyFocusHoursTarget: window.dailyFocusHoursTarget || 4.0,
+            dailyFocusHoursTargetDate: window.dailyFocusHoursTargetDate || "",
             activeTimerState: window.activeTimerState || {
                 isRunning: false,
                 mode: 'stopwatch',
@@ -234,6 +236,8 @@ window.FirebaseService = {
                 if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
                 if (data.successResults) window.successResults = data.successResults;
                 if (data.timerLogs) window.timerLogs = data.timerLogs;
+                if (data.dailyFocusHoursTarget !== undefined) window.dailyFocusHoursTarget = data.dailyFocusHoursTarget;
+                if (data.dailyFocusHoursTargetDate !== undefined) window.dailyFocusHoursTargetDate = data.dailyFocusHoursTargetDate;
                 if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
                 if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
                 if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;

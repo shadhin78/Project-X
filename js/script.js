@@ -281,6 +281,9 @@ window.migrateLegacyData = function () {
     if (!window.timerLogs) {
         window.timerLogs = [];
     }
+    if (window.dailyFocusHoursTarget === undefined || window.dailyFocusHoursTarget === null) {
+        window.dailyFocusHoursTarget = 4.0;
+    }
     if (!window.activeTimerState || typeof window.activeTimerState !== 'object') {
         window.activeTimerState = {
             isRunning: false,
@@ -8400,8 +8403,8 @@ window.openDailyActionsDBModal = function () {
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
-            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
  
@@ -8413,11 +8416,15 @@ window.openDailyActionsDBModal = function () {
             if (modalId === 'revision-trend-modal') {
                 window.renderRevisionTrendChart();
             }
+            if (modalId === 'timer-analytics-modal') {
+                window.renderTimerAnalyticsChart();
+            }
  
             // Critical Fix: Sync all charts properly by giving the CSS transform transition time (300ms) to complete
             // before recalculating canvas dimensions. This applies to Analytics, Yearly, Pace, and Subject modals perfectly.
             setTimeout(() => {
                 if (modalId === 'yearly-actions-modal' && window.yearlyChartActions) window.yearlyChartActions.resize();
+                if (modalId === 'timer-analytics-modal' && window.timerAnalyticsChartInstance) window.timerAnalyticsChartInstance.resize();
                 if (modalId === 'subject-trend-modal' && window.subjectTrendChart) window.subjectTrendChart.resize();
                 if (modalId === 'revision-trend-modal' && window.revisionTrendChartInstance) window.revisionTrendChartInstance.resize();
                 if (modalId === 'pace-trend-modal' && window.paceTrendChartInstance) window.paceTrendChartInstance.resize();
@@ -8432,8 +8439,8 @@ window.openDailyActionsDBModal = function () {
         };
  
         window.closeModal = function (modalId) {
-            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
-            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
  
@@ -11732,6 +11739,51 @@ window.renderWeeklyTargets = function () {
                     chSelect.innerHTML += `<option value="${ch}">${ch}</option>`;
                 });
             }
+            window.handleDailyTargetChapterChange();
+        };
+
+        window.handleDailyTargetChapterChange = function () {
+            const progSelectEl = document.getElementById('dt-select-prog');
+            const progName = progSelectEl ? progSelectEl.value : '';
+            const subSelectEl = document.getElementById('dt-select-sub');
+            const subject = subSelectEl ? subSelectEl.value : '';
+            const chSelect = document.getElementById('dt-select-ch');
+            const chapter = chSelect ? chSelect.value : '';
+
+            if (!progName || !subject || !chapter) return;
+
+            const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+            if (!trackId) return;
+
+            const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate || new Date());
+            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+            const wtList = (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) || [];
+            const matchingWt = wtList.find(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
+
+            const sizeInput = document.getElementById('dt-input-size');
+            const totalSizeInput = document.getElementById('dt-input-total-size');
+
+            if (matchingWt && matchingWt.totalChapterSize !== undefined && matchingWt.totalChapterSize !== null) {
+                if (totalSizeInput) {
+                    totalSizeInput.value = matchingWt.totalChapterSize;
+                    totalSizeInput.disabled = true;
+                    totalSizeInput.classList.add('bg-slate-100', 'dark:bg-slate-800/80', 'cursor-not-allowed', 'opacity-70');
+                }
+                if (sizeInput) {
+                    const completedSize = window.getCompletedSizeForWeeklyTarget(matchingWt, currentWeekKey);
+                    const remainingSize = Math.max(0, matchingWt.totalChapterSize - completedSize);
+                    sizeInput.value = remainingSize;
+                }
+            } else {
+                if (totalSizeInput) {
+                    totalSizeInput.value = '';
+                    totalSizeInput.disabled = false;
+                    totalSizeInput.classList.remove('bg-slate-100', 'dark:bg-slate-800/80', 'cursor-not-allowed', 'opacity-70');
+                }
+                if (sizeInput) {
+                    sizeInput.value = '';
+                }
+            }
         };
 
         window.handleSelectFromWeeklyTargetChange = function () {
@@ -11759,23 +11811,8 @@ window.renderWeeklyTargets = function () {
             if (chSelect) {
                 chSelect.value = chapter;
             }
-
-            // Pre-populate Daily Target input size with remaining weekly target size
-            const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate || new Date());
-            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
-            const wtList = (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) || [];
-            const matchingWt = wtList.find(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
             
-            const sizeInput = document.getElementById('dt-input-size');
-            if (sizeInput) {
-                if (matchingWt && matchingWt.totalChapterSize !== undefined && matchingWt.totalChapterSize !== null) {
-                    const completedSize = window.getCompletedSizeForWeeklyTarget(matchingWt, currentWeekKey);
-                    const remainingSize = Math.max(0, matchingWt.totalChapterSize - completedSize);
-                    sizeInput.value = remainingSize;
-                } else {
-                    sizeInput.value = '';
-                }
-            }
+            window.handleDailyTargetChapterChange();
         };
 
         window.addDailyTarget = function () {
@@ -11786,10 +11823,13 @@ window.renderWeeklyTargets = function () {
             const subSelectEl = document.getElementById('dt-select-sub');
             const chSelectEl = document.getElementById('dt-select-ch');
             const sizeEl = document.getElementById('dt-input-size');
+            const totalSizeEl = document.getElementById('dt-input-total-size');
+
             const progName = progSelectEl ? progSelectEl.value : '';
             const subject = subSelectEl ? subSelectEl.value : '';
             const chapter = chSelectEl ? chSelectEl.value : '';
-            const totalSize = sizeEl && sizeEl.value ? parseInt(sizeEl.value, 10) : null;
+            const dailySize = sizeEl && sizeEl.value ? parseInt(sizeEl.value, 10) : null;
+            const newTotalSize = totalSizeEl && totalSizeEl.value ? parseInt(totalSizeEl.value, 10) : null;
 
             if (!progName || !subject || !chapter) {
                 return showToast("Please select a Program, Subject, and Chapter.", "error");
@@ -11826,6 +11866,30 @@ window.renderWeeklyTargets = function () {
                 }
             }
 
+            // Auto-create / sync with Weekly Target
+            if (!window.weeklyTargetsDatabase) window.weeklyTargetsDatabase = {};
+            if (!window.weeklyTargetsDatabase[currentWeekKey]) window.weeklyTargetsDatabase[currentWeekKey] = [];
+            
+            let matchingWtObj = matchingWt;
+            if (matchingWtObj) {
+                if (newTotalSize !== null) {
+                    matchingWtObj.totalChapterSize = newTotalSize;
+                }
+            } else if (newTotalSize !== null) {
+                matchingWtObj = {
+                    track: trackId,
+                    program: progName,
+                    subject: subject,
+                    chapter: chapter,
+                    completed: isCompletedBefore,
+                    completedAt: completedAtBefore,
+                    dayName: null,
+                    scope: 'Whole Chapter',
+                    totalChapterSize: newTotalSize
+                };
+                window.weeklyTargetsDatabase[currentWeekKey].push(matchingWtObj);
+            }
+
             window.dailyTargetsDatabase[targetDateKey].push({
                 track: trackId,
                 program: progName,
@@ -11833,10 +11897,12 @@ window.renderWeeklyTargets = function () {
                 chapter: chapter,
                 completed: isCompletedBefore,
                 completedAt: completedAtBefore,
-                totalChapterSize: totalSize
+                totalChapterSize: dailySize,
+                scope: 'Whole Chapter'
             });
 
             if (sizeEl) sizeEl.value = '';
+            if (totalSizeEl) totalSizeEl.value = '';
 
             FirebaseService.saveToCloud();
             renderUI();
@@ -12093,7 +12159,11 @@ window.renderWeeklyTargets = function () {
                             class="form-checkbox h-4.5 w-4.5 text-emerald-500 dark:text-emerald-500 rounded border-slate-350 focus:ring-emerald-500 transition-all cursor-pointer" 
                             ${isCompleted ? 'checked' : ''}>
                         <div class="min-w-0">
-                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate ${isCompleted ? 'line-through opacity-60' : ''}">${displayTitle}</span>
+                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate ${isCompleted ? 'line-through opacity-60' : ''}">
+                                ${displayTitle}
+                                ${target.totalChapterSize ? `<span class="text-[9px] text-blue-500 font-bold ml-1">(${target.totalChapterSize} p)</span>` : ''}
+                                ${target.scope && target.scope !== 'Whole Chapter' && target.scope !== 'Whole' ? `<span class="inline-block px-1 py-0.5 rounded-[3px] text-[7px] font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 ml-1">${target.scope}</span>` : ''}
+                            </span>
                             <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${displaySubtitle}</span>
                         </div>
                     </div>
@@ -12191,7 +12261,11 @@ window.renderWeeklyTargets = function () {
                             </svg>
                         </div>
                         <div class="min-w-0 leading-tight">
-                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${displayTitle}</span>
+                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">
+                                ${displayTitle}
+                                ${target.totalChapterSize ? `<span class="text-[9px] text-blue-500 font-bold ml-1">(${target.totalChapterSize} p)</span>` : ''}
+                                ${target.scope && target.scope !== 'Whole Chapter' && target.scope !== 'Whole' ? `<span class="inline-block px-1 rounded-[3px] text-[6px] font-black uppercase tracking-widest ${isCompleted ? 'bg-white/20 text-white' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'} ml-1">${target.scope}</span>` : ''}
+                            </span>
                             <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${displaySubtitle} | ${isCompleted ? 'YES' : 'NO'}</span>
                         </div>
                     </div>
@@ -13000,7 +13074,7 @@ window.addWtdbTarget = function () {
                         <td class="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 text-[10px]">${dateKey}</td>
                         <td class="py-3 px-4 uppercase text-[10px] text-slate-400">${target.program || 'Custom'}</td>
                         <td class="py-3 px-4 truncate max-w-[150px]" title="${isTodo ? 'To-Do Task' : target.subject}">${isTodo ? 'Custom Task' : displaySub}</td>
-                        <td class="py-3 px-4 text-blue-600 dark:text-blue-400 font-bold max-w-[150px] truncate" title="${displayTitle}">${displayTitle}</td>
+                        <td class="py-3 px-4 text-blue-600 dark:text-blue-400 font-bold max-w-[150px] truncate" title="${displayTitle}">${displayTitle}${target.scope && target.scope !== 'Whole Chapter' && target.scope !== 'Whole' ? ` <span class="inline-block px-1 py-0.5 rounded-[3px] text-[7px] font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 ml-1">${target.scope}</span>` : ''}</td>
                         <td class="py-3 px-4 text-center">
                             ${isTodo ? '<span class="text-slate-400 font-normal">-</span>' : `
                             <input type="number" value="${sizeVal}" min="0" placeholder="-" 

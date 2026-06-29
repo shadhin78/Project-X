@@ -482,6 +482,132 @@
         );
     };
 
+    window.openTimerAnalyticsModal = function () {
+        const targetInput = document.getElementById('timer-target-input');
+        if (targetInput) {
+            targetInput.value = window.dailyFocusHoursTarget || 4.0;
+        }
+        window.openModal('timer-analytics-modal');
+    };
+
+    window.updateDailyFocusHoursTarget = function (value) {
+        const parsed = parseFloat(value);
+        if (!isNaN(parsed) && parsed > 0) {
+            window.dailyFocusHoursTarget = parsed;
+            if (window.FirebaseService) {
+                window.FirebaseService.saveToCloud(true);
+            }
+            window.renderTimerAnalyticsChart();
+        }
+    };
+
+    window.renderTimerAnalyticsChart = function () {
+        const ctx = document.getElementById('timerAnalyticsChart');
+        if (!ctx) return;
+
+        if (window.timerAnalyticsChartInstance) {
+            window.timerAnalyticsChartInstance.destroy();
+        }
+
+        const labels = [];
+        const actualData = [];
+        const targetData = [];
+        const targetHours = window.dailyFocusHoursTarget || 4.0;
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+
+            const label = window.Utils.formatDate(d);
+            labels.push(label);
+
+            const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+            const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+
+            let totalSeconds = 0;
+            if (AppState.timerLogs) {
+                AppState.timerLogs.forEach(log => {
+                    const logTime = new Date(log.date).getTime();
+                    if (logTime >= dayStart && logTime <= dayEnd) {
+                        totalSeconds += parseInt(log.duration || 0, 10);
+                    }
+                });
+            }
+
+            const actualHrs = parseFloat((totalSeconds / 3600).toFixed(2));
+            actualData.push(actualHrs);
+            targetData.push(targetHours);
+        }
+
+        const maxVal = Math.max(...actualData, targetHours);
+        const yMax = maxVal > 0 ? Math.ceil(maxVal * 1.25) : 5;
+
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui';
+
+        window.timerAnalyticsChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Actual Focus Hours',
+                        data: actualData,
+                        backgroundColor: '#10b981',
+                        borderRadius: 4,
+                        borderSkipped: false
+                    },
+                    {
+                        label: 'Target Focus Hours',
+                        data: targetData,
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4,
+                        borderSkipped: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            boxWidth: 12,
+                            font: { weight: 'bold', size: 10 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#fff',
+                        bodyColor: '#cbd5e1',
+                        cornerRadius: 8,
+                        padding: 10,
+                        callbacks: {
+                            label: c => ` ${c.dataset.label}: ${c.parsed.y} hrs`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: yMax,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false },
+                        ticks: {
+                            font: { weight: 'bold' },
+                            callback: v => `${v}h`
+                        }
+                    },
+                    x: {
+                        grid: { display: false, drawBorder: false },
+                        ticks: { font: { weight: 'bold', size: 10 } }
+                    }
+                }
+            }
+        });
+    };
+
     window.renderTimerPage = function () {
         if (!AppState.timerLogs) AppState.timerLogs = [];
 
