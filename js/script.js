@@ -1,17 +1,32 @@
 /* ===== CONSOLIDATED JAVASCRIPT ===== */
 
-/******************************************************************
- * UTILITIES
- ******************************************************************/
-// js/utils.js (Left behind utilities depending on DOM/Global states)
+/* ==========================================
+   1. Common Utilities (js/utils.js)
+   ========================================== */
+// js/utils.js
+// Verbatim extraction of utility functions from index.html
+
+window.formatDaysPassed = function (daysPassed) {
+    if (daysPassed > 30) {
+        const months = Math.floor(daysPassed / 30);
+        const days = daysPassed % 30;
+        const monthStr = months === 1 ? "1 Month" : `${months} Months`;
+        if (days > 0) {
+            const dayStr = days === 1 ? "1 Day" : `${days} Days`;
+            return `${monthStr}, ${dayStr}`;
+        }
+        return monthStr;
+    }
+    return daysPassed === 1 ? "1 Day" : `${daysPassed} Days`;
+};
 
 function getSubjectColor(subjName) {
-    if (AppState.subjectColors[subjName]) return AppState.subjectColors[subjName];
+    if (subjectColors[subjName]) return subjectColors[subjName];
     const colors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e'];
     let hash = 0;
     for (let i = 0; i < subjName.length; i++) hash = subjName.charCodeAt(i) + ((hash << 5) - hash);
     const color = colors[Math.abs(hash) % colors.length];
-    AppState.subjectColors[subjName] = color;
+    subjectColors[subjName] = color;
     return color;
 }
 
@@ -19,7 +34,7 @@ window.getProgramColor = function (pName) {
     const allProgs = window.getAllPrograms().map(p => p.name || p);
     const idx = allProgs.indexOf(pName);
     if (idx !== -1) {
-        return AppState.dynamicLineColors[idx % AppState.dynamicLineColors.length];
+        return dynamicLineColors[idx % dynamicLineColors.length];
     }
     return '#6366f1';
 };
@@ -27,15 +42,111 @@ window.getProgramColor = function (pName) {
 function safeSetText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 function safeSetHtml(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html; }
 function safeSetClass(id, className) { const el = document.getElementById(id); if (el) el.className = className; }
+function formatDate(dateObj) { return `${dateObj.toLocaleString('en-US', { month: 'short' })} ${dateObj.getDate()}`; }
 
 function getTaskDate(task) {
-    const baseDate = new Date(AppState.PLAN_START_DATE.getTime());
+    const baseDate = new Date(PLAN_START_DATE.getTime());
     baseDate.setDate(baseDate.getDate() + (task.id - 1));
     return baseDate;
 }
 
+function parseDateSafe(dateStr) {
+    if (!dateStr) return new Date();
+    if (dateStr instanceof Date) return new Date(dateStr.getTime());
+    if (typeof dateStr === 'object') {
+        if (typeof dateStr.toDate === 'function') return dateStr.toDate();
+        if (dateStr.seconds !== undefined) return new Date(dateStr.seconds * 1000);
+    }
+    // Try parsing directly first
+    let parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) return parsed;
+
+    // Fallback split logic if direct parsing failed and it has dashes
+    if (typeof dateStr === 'string' && dateStr.includes('-')) {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length === 3) {
+            const [y, m, d] = parts.map(Number);
+            if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                return new Date(y, m - 1, d);
+            }
+        }
+    }
+    return new Date();
+}
+
+// Grade-based: A=4.00, B=3.00, C=2.25, D=2.00, E=0.00, F=0.00
+window.mapGradeToNumeric = function (grade, evalType = 'cgpa') {
+    if (!grade) return 0.0;
+    const g = grade.toUpperCase().trim();
+    if (evalType === 'grade') {
+        switch (g) {
+            case 'A': return 4.0;
+            case 'B': return 3.0;
+            case 'C': return 2.25;
+            case 'D': return 2.00;
+            case 'E': return 0.0;
+            case 'F': return 0.0;
+            default: return 0.0;
+        }
+    } else {
+        switch (g) {
+            case 'A+': return 4.0;
+            case 'A': return 3.75;
+            case 'A-': return 3.50;
+            case 'B+': return 3.25;
+            case 'B': return 3.00;
+            case 'B-': return 2.75;
+            case 'C+': return 2.50;
+            case 'C': return 2.25;
+            case 'D': return 2.00;
+            case 'F': return 0.00;
+            default: return 0.0;
+        }
+    }
+};
+
+// CGPA-based: estimate grade with +/- from numeric CGPA (4.0 scale)
+window.mapCgpaToGrade = function (cgpa, evalType = 'cgpa') {
+    const v = parseFloat(cgpa);
+    if (isNaN(v)) return '';
+    if (evalType === 'grade') {
+        if (v >= 4.0) return 'A';
+        if (v >= 3.0) return 'B';
+        if (v >= 2.25) return 'C';
+        if (v >= 2.0) return 'D';
+        if (v >= 0.01) return 'E';
+        return 'F';
+    } else {
+        if (v >= 4.0) return 'A+';
+        if (v >= 3.75) return 'A';
+        if (v >= 3.5) return 'A-';
+        if (v >= 3.25) return 'B+';
+        if (v >= 3.0) return 'B';
+        if (v >= 2.75) return 'B-';
+        if (v >= 2.5) return 'C+';
+        if (v >= 2.25) return 'C';
+        if (v >= 2.0) return 'D';
+        return 'F';
+    }
+};
+
+window.formatCgpaMin2Dec = function (val) {
+    let parsed = parseFloat(val);
+    if (isNaN(parsed)) return '';
+    return parsed.toFixed(2);
+};
+
+window.validateAndFormatCgpa = function (valStr) {
+    if (!valStr || valStr.trim() === '') return '';
+    let val = parseFloat(valStr);
+    if (isNaN(val)) return '';
+    if (val < 0) val = 0.00;
+    if (val > 4.0) val = 4.00;
+    return window.formatCgpaMin2Dec(val);
+};
+
 window.onCgpaBlur = function (inputEl) {
-    const formatted = Utils.validateAndFormatCgpa(inputEl.value);
+    const formatted = window.validateAndFormatCgpa(inputEl.value);
     inputEl.value = formatted;
     window.onCgpaInput(inputEl);
 };
@@ -62,7 +173,7 @@ window.onCgpaInput = function (inputEl) {
 
     const badge = inputEl.parentElement.querySelector('.auto-grade-badge');
     if (badge) {
-        const g = Utils.mapCgpaToGrade(inputEl.value);
+        const g = window.mapCgpaToGrade(inputEl.value);
         badge.textContent = g || '—';
         badge.classList.toggle('opacity-40', !g);
     }
@@ -72,8 +183,8 @@ window.onCgpaInput = function (inputEl) {
 window.updateCgpaBadge = function (gradeVal, badge) {
     if (badge) {
         const evalType = document.getElementById('res-evaluation-type')?.value || 'cgpa';
-        const c = Utils.mapGradeToNumeric(gradeVal, evalType);
-        badge.textContent = gradeVal ? Utils.formatCgpaMin2Dec(c) : '—';
+        const c = window.mapGradeToNumeric(gradeVal, evalType);
+        badge.textContent = gradeVal ? window.formatCgpaMin2Dec(c) : '—';
         badge.classList.toggle('opacity-40', !gradeVal);
     }
 };
@@ -85,9 +196,9 @@ window.onGradeSelect = function (selectEl) {
 };
 
 
-/******************************************************************
- * STATE
- ******************************************************************/
+/* ==========================================
+   2. State & Globals (js/state.js)
+   ========================================== */
 // js/state.js
 // Verbatim extraction of state and global definitions from index.html
 
@@ -117,20 +228,106 @@ window.sanitizeAllData = function (val) {
     return val;
 };
 
-/**
- * Master application configuration and user state model.
- */
-// State variables isolated in js/state.js
+window.appState = {};
+window.tracks = [];
+window.timerLogs = [];
+window.activeTimerState = {
+    isRunning: false,
+    mode: 'stopwatch',
+    startTime: null,
+    elapsedBeforeStart: 0,
+    targetDuration: 0,
+    selectedSubject: 'General Study'
+};
+window.timerInterval = null;
+let db;
+window.isSyncing = false;
+let isAppInitialized = false;
+let tasks = [];
+let progressChart;
+let masterLineChart;
+window.localDataJSON = "";
+let saveTimeout = null;
+let isSaving = false;
+let needsSave = false;
 
+window.activeRoutineSet = 1;
 
+// Navigation & State globals
+window.mainChartPrograms = null;
+window.monthlyChartActions = null;
+window.yearlyChartActions = null;
+window.subjectTrendChart = null;
+window.paceTrendChartInstance = null;
+window.spectraPaceTrendChartInstance = null;
+window.globalPaceTrendChartInstance = null;
+window.dbProgressChartInstance = null;
+window.revisionTrendChartInstance = null;
+window.globalHistoryChartInstance = null;
+window.dadbTrendChartInstance = null;
+window.resultsTrendChartInstance = null;
+window.latestPaceData = null;
+window.activeTrendGoalId = null;
+window.activeSingleSubjectTrend = null;
 
-/**
- * Sanitizes and migrates old AppState.appState values to keep data structure parity.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
+// Dynamic State Objects
+window.chartVisibility = { prog: {}, monthly: {}, yearly: {}, subjects: {}, revSubjects: {} };
+window.latestChartStats = { prog: {}, monthly: {}, yearly: {}, subjects: {}, revSubjects: {} };
+window.editingTask = null;
+window.editingPaceId = null;
+window.trendTimeFilter = 'ALL';
+window.subjectTimeLinks = {};
+window.subjectDetailsState = {};
+window.currentDadbTab = 'date';
+window.hasShownCongrats = false;
+window.successResults = [];
+window.editingResultId = null;
+window.trendDatasetVisibility = { actual: true, target: true };
+
+window.dashboardConfig = {
+    topTag: "",
+    mainTitle: "Study Dashboard",
+    subTitle: "",
+    trendStartDate: "",
+    trendEndDate: "",
+    showDaysRemaining: false,
+    independentPaces: { tracks: {}, programs: {}, subjects: {} }
+};
+
+// Pass/Freeze & Revision System State
+window.passedItems = { programs: [], subjects: [] };
+window.revisionData = { active: [], progress: {} };
+window.currentGhmTab = 'timeline';
+
+const subjectColors = {};
+
+const twColors = {
+    indigo: { hex: '#6366f1', border: 'border-indigo-500', btn: 'bg-indigo-500', bgLt: 'bg-indigo-50 dark:bg-indigo-900/20', borderLt: 'border-indigo-100 dark:border-indigo-800/50', text: 'text-indigo-600 dark:text-indigo-400', iconBg: 'bg-indigo-100 dark:bg-indigo-500/10', iconColor: 'text-indigo-500' },
+    violet: { hex: '#8b5cf6', border: 'border-violet-500', btn: 'bg-violet-500', bgLt: 'bg-violet-50 dark:bg-violet-900/20', borderLt: 'border-violet-100 dark:border-violet-800/50', text: 'text-violet-600 dark:text-violet-400', iconBg: 'bg-violet-100 dark:bg-violet-500/10', iconColor: 'text-violet-500' },
+    orange: { hex: '#f97316', border: 'border-orange-500', btn: 'bg-orange-500', bgLt: 'bg-orange-50 dark:bg-orange-900/20', borderLt: 'border-orange-100 dark:border-orange-800/50', text: 'text-orange-600 dark:text-orange-400', iconBg: 'bg-orange-100 dark:bg-orange-500/10', iconColor: 'text-orange-500' },
+    purple: { hex: '#a855f7', border: 'border-purple-500', btn: 'bg-purple-500', bgLt: 'bg-purple-50 dark:bg-purple-900/20', borderLt: 'border-purple-100 dark:border-purple-800/50', text: 'text-purple-600 dark:text-purple-400', iconBg: 'bg-purple-100 dark:bg-purple-500/10', iconColor: 'text-purple-500' },
+    emerald: { hex: '#10b981', border: 'border-emerald-500', btn: 'bg-emerald-500', bgLt: 'bg-emerald-50 dark:bg-emerald-900/20', borderLt: 'border-emerald-100 dark:border-emerald-800/50', text: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-100 dark:bg-emerald-500/10', iconColor: 'text-emerald-500' },
+    rose: { hex: '#f43f5e', border: 'border-rose-500', btn: 'bg-rose-500', bgLt: 'bg-rose-50 dark:bg-rose-900/20', borderLt: 'border-rose-100 dark:border-rose-800/50', text: 'text-rose-600 dark:text-rose-400', iconBg: 'bg-rose-100 dark:bg-rose-500/10', iconColor: 'text-rose-500' },
+    cyan: { hex: '#06b6d4', border: 'border-cyan-500', btn: 'bg-cyan-500', bgLt: 'bg-cyan-50 dark:bg-cyan-900/20', borderLt: 'border-cyan-100 dark:border-cyan-800/50', text: 'text-cyan-600 dark:text-cyan-400', iconBg: 'bg-cyan-100 dark:bg-cyan-500/10', iconColor: 'text-cyan-500' },
+    amber: { hex: '#f59e0b', border: 'border-amber-500', btn: 'bg-amber-500', bgLt: 'bg-amber-50 dark:bg-amber-900/20', borderLt: 'border-amber-100 dark:border-amber-800/50', text: 'text-amber-600 dark:text-amber-400', iconBg: 'bg-amber-100 dark:bg-amber-500/10', iconColor: 'text-amber-500' }
+};
+
+window.customActions = [];
+window.paceGoals = [];
+let globalStartDate = null;
+let globalEndDate = null;
+
+const dynamicLineColors = ['#6366f1', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#0ea5e9', '#ec4899', '#14b8a6'];
+
+let isInitialLoad = true;
+let currentFilter = 'All';
+
+let PLAN_START_DATE = new Date();
+PLAN_START_DATE.setHours(0, 0, 0, 0);
+let PLAN_END_DATE = new Date();
+PLAN_END_DATE.setMonth(PLAN_END_DATE.getMonth() + 10);
+PLAN_END_DATE.setHours(23, 59, 59, 999);
+
 window.migrateLegacyData = function () {
     let dataPurged = false;
 
@@ -266,7 +463,7 @@ window.migrateLegacyData = function () {
         }
     }
 
-    // And AppState.customActions
+    // And customActions
     if (Array.isArray(window.customActions)) {
         window.customActions.forEach((a, idx) => {
             if (a.priority === undefined) a.priority = 3;
@@ -350,7 +547,7 @@ window.ensureConfigDefaults = function () {
         window.dashboardConfig.activePaceGoalId = defaultGoal ? defaultGoal.id : null;
     }
     if (!window.dashboardConfig.trendStartDate) {
-        window.dashboardConfig.trendStartDate = AppState.PLAN_START_DATE.toISOString().split('T')[0];
+        window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
     }
     if (window.dashboardConfig.trendEndDate === undefined) {
         window.dashboardConfig.trendEndDate = "";
@@ -480,7 +677,7 @@ window.sortAllCustomData = function () {
         }
     });
 
-    // 3. Sort AppState.customActions
+    // 3. Sort customActions
     if (Array.isArray(window.customActions)) {
         window.customActions.sort((a, b) => {
             const pA = a.priority !== undefined ? a.priority : 3;
@@ -493,17 +690,11 @@ window.sortAllCustomData = function () {
     }
 };
 
-// Deprecated
-// Currently unused
-// Retained for compatibility
 window.getSortedPrograms = function (track) {
     if (!window.customPrograms || !window.customPrograms[track]) return [];
     return [...window.customPrograms[track]];
 };
 
-// Deprecated
-// Currently unused
-// Retained for compatibility
 window.sortAllSubjects = function (subjects, track) {
     if (!Array.isArray(subjects)) return [];
     return [...subjects].sort((a, b) => {
@@ -522,29 +713,1097 @@ window.getSortedTrackSubjects = function (track) {
 };
 
 
-/******************************************************************
- * FIREBASE
- ******************************************************************/
-// js/firebase.js (Firebase service delegation wrapper)
+/* ==========================================
+   3. Firebase Core (js/firebase.js)
+   ========================================== */
+// js/firebase.js
+// Verbatim extraction of Firebase database and auth functions from index.html
+
+function initializeFirebase() {
+    // Deprecated. Initialization is now handled asynchronously in DOMContentLoaded.
+}
+window.initializeFirebase = initializeFirebase;
 
 window.handleLogout = function () {
-    FirebaseService.logout().then(() => {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+        firebase.auth().signOut().then(() => {
+            window.location.href = 'login.html';
+        }).catch(err => {
+            console.error("Logout error:", err);
+            window.location.href = 'login.html';
+        });
+    } else {
         window.location.href = 'login.html';
-    }).catch(err => {
-        console.error("Logout error:", err);
-        window.location.href = 'login.html';
+    }
+};
+
+function loadFromCloud() {
+    if (!db) return;
+
+    const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (!fbUser) {
+        console.log("loadFromCloud: Cloud sync unavailable (Unauthenticated).");
+        if (isInitialLoad) { renderUI(); isInitialLoad = false; }
+        return;
+    }
+
+    const uid = fbUser.uid;
+    db.collection('userData').doc(uid).onSnapshot((docSnap) => {
+        if (window.isSyncing) {
+            return; // Prevent local save from triggering loop
+        }
+
+        if (docSnap.exists) {
+            const data = window.sanitizeAllData(docSnap.data());
+            
+            // Direct in-memory load
+            if (data.tasks) { tasks = data.tasks; window.tasks = data.tasks; }
+            if (data.tracks) window.tracks = data.tracks;
+            if (data.customSyllabus) syllabusStructure = data.customSyllabus;
+            if (data.customPrograms) window.customPrograms = data.customPrograms;
+            if (data.customActions) window.customActions = data.customActions;
+            if (data.paceGoals) window.paceGoals = data.paceGoals;
+            if (data.passedItems) window.passedItems = data.passedItems;
+            if (data.revisionData) window.revisionData = data.revisionData;
+            if (data.programVisibility) window.programVisibility = data.programVisibility;
+            if (data.subjectTimeLinks) window.subjectTimeLinks = data.subjectTimeLinks;
+            if (data.successResults) window.successResults = data.successResults;
+            if (data.timerLogs) window.timerLogs = data.timerLogs;
+            if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
+            if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
+            if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+            if (data.dailyTargetsDatabase) window.dailyTargetsDatabase = data.dailyTargetsDatabase;
+            if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
+            if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
+            if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+
+            window.ensureConfigDefaults();
+            window.migrateLegacyData();
+            window.sortAllCustomData();
+            recalculateTotals();
+
+            if (isInitialLoad) {
+                // Reveal app UI
+                if (window.setLoadingProgress) window.setLoadingProgress(100, 'Workspace ready!');
+                const loadingEl = document.getElementById('auth-loading');
+                const wrapperEl = document.getElementById('app-wrapper');
+                if (loadingEl) {
+                    loadingEl.classList.add('transition-all', 'duration-500', 'opacity-0', 'pointer-events-none');
+                    setTimeout(() => { loadingEl.remove(); }, 600);
+                }
+                if (wrapperEl) wrapperEl.classList.remove('hidden');
+
+                renderUI();
+                isInitialLoad = false;
+            } else {
+                requestAnimationFrame(() => {
+                    const scrollPos = window.scrollY; // Preserve scroll position
+                    renderUI();
+                    window.scrollTo(0, scrollPos); // Seamlessly restore scroll
+                    showSync('saved');
+                });
+            }
+        } else {
+            console.log('loadFromCloud: Remote document empty.');
+            if (isInitialLoad) {
+                // Reveal app UI even if document is empty
+                if (window.setLoadingProgress) window.setLoadingProgress(100, 'Workspace ready!');
+                const loadingEl = document.getElementById('auth-loading');
+                const wrapperEl = document.getElementById('app-wrapper');
+                if (loadingEl) {
+                    loadingEl.classList.add('transition-all', 'duration-500', 'opacity-0', 'pointer-events-none');
+                    setTimeout(() => { loadingEl.remove(); }, 600);
+                }
+                if (wrapperEl) wrapperEl.classList.remove('hidden');
+
+                renderUI();
+                isInitialLoad = false;
+            }
+        }
+    }, (error) => {
+        console.error("Sync Error in snapshot:", error);
+        if (isInitialLoad) {
+            if (window.setLoadingProgress) window.setLoadingProgress(100, 'Workspace ready!');
+            const loadingEl = document.getElementById('auth-loading');
+            const wrapperEl = document.getElementById('app-wrapper');
+            if (loadingEl) {
+                loadingEl.classList.add('transition-all', 'duration-500', 'opacity-0', 'pointer-events-none');
+                setTimeout(() => { loadingEl.remove(); }, 600);
+            }
+            if (wrapperEl) wrapperEl.classList.remove('hidden');
+
+            renderUI();
+            isInitialLoad = false;
+        }
     });
+}
+window.loadFromCloud = loadFromCloud;
+
+const showSync = (state) => {
+    const el = document.getElementById('sync-status');
+    const icon = document.getElementById('sync-icon');
+    const text = document.getElementById('sync-text');
+    if (!el || !icon || !text) return;
+
+    el.classList.remove('opacity-0', 'scale-95');
+    el.classList.add('opacity-100', 'scale-100');
+
+    if (state === 'saving') {
+        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />`;
+        icon.classList.add('animate-spin', 'text-blue-500');
+        icon.classList.remove('text-emerald-500', 'text-red-500');
+        text.textContent = 'Saving...'; text.className = 'text-[9px] font-black uppercase tracking-widest text-blue-500';
+    } else if (state === 'saved') {
+        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />`;
+        icon.classList.remove('animate-spin', 'text-blue-500', 'text-red-500');
+        icon.classList.add('text-emerald-500');
+        text.textContent = 'Saved'; text.className = 'text-[9px] font-black uppercase tracking-widest text-emerald-500';
+        setTimeout(() => { el.classList.remove('opacity-100', 'scale-100'); el.classList.add('opacity-0', 'scale-95'); }, 2000);
+    } else if (state === 'error') {
+        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />`;
+        icon.classList.remove('animate-spin', 'text-blue-500', 'text-emerald-500');
+        icon.classList.add('text-red-500');
+        text.textContent = 'Error'; text.className = 'text-[9px] font-black uppercase tracking-widest text-red-500';
+    }
+};
+window.showSync = showSync;
+
+async function saveToCloud(immediate = false) {
+    const payload = {
+        tasks: tasks,
+        tracks: window.tracks,
+        customSyllabus: syllabusStructure,
+        customPrograms: window.customPrograms,
+        customActions: window.customActions,
+        paceGoals: window.paceGoals,
+        passedItems: window.passedItems,
+        revisionData: window.revisionData,
+        programVisibility: window.programVisibility || {},
+        subjectTimeLinks: window.subjectTimeLinks,
+        successResults: window.successResults,
+        timerLogs: window.timerLogs || [],
+        activeTimerState: window.activeTimerState || {
+            isRunning: false,
+            mode: 'stopwatch',
+            startTime: null,
+            elapsedBeforeStart: 0,
+            targetDuration: 0,
+            selectedSubject: 'General Study'
+        },
+        dashboardConfig: window.dashboardConfig,
+        weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+        dailyTargetsDatabase: window.dailyTargetsDatabase || {},
+        scheduleBlocks: window.scheduleBlocks || [],
+        scheduleBlocks2: window.scheduleBlocks2 || [],
+        scheduleGroups: window.scheduleGroups || []
+    };
+    window.appState = payload;
+
+    const executeSave = () => {
+        if (!db) return;
+        const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (!fbUser) return;
+
+        window.isSyncing = true;
+        showSync('saving');
+        const uid = fbUser.uid;
+        db.collection('userData').doc(uid).set(payload)
+            .then(() => {
+                showSync('saved');
+            })
+            .catch((error) => {
+                console.error('Firestore save failed:', error);
+                showSync('error');
+            })
+            .finally(() => {
+                setTimeout(() => { window.isSyncing = false; }, 300);
+            });
+    };
+
+    if (immediate) {
+        if (window.saveTimeout) clearTimeout(window.saveTimeout);
+        executeSave();
+    } else {
+        if (window.saveTimeout) clearTimeout(window.saveTimeout);
+        window.saveTimeout = setTimeout(executeSave, 800);
+    }
+}
+window.saveToCloud = saveToCloud;
+
+
+/* ==========================================
+   4. Timer Module (js/ui/timer.js)
+   ========================================== */
+// js/ui/timer.js
+// Verbatim extraction of Timer & Stopwatch Real-time Logic from index.html
+
+function playCompletionChime() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // First beep: D5
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+
+        // Second beep: A5
+        setTimeout(() => {
+            let osc2 = audioCtx.createOscillator();
+            let gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
+            gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain2.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05);
+            gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start();
+            osc2.stop(audioCtx.currentTime + 0.5);
+        }, 150);
+    } catch (e) {
+        console.warn("Audio Context failed to play chime:", e);
+    }
+}
+
+function tickTimer() {
+    if (!window.activeTimerState) return;
+
+    let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+    if (window.activeTimerState.isRunning && window.activeTimerState.startTime) {
+        elapsedMs += (Date.now() - window.activeTimerState.startTime);
+    }
+
+    let displaySeconds = 0;
+    if (window.activeTimerState.mode === 'stopwatch') {
+        displaySeconds = Math.floor(elapsedMs / 1000);
+        const saveBtn = document.getElementById('timer-btn-save');
+        if (saveBtn) {
+            saveBtn.disabled = (displaySeconds === 0);
+        }
+    } else {
+        const targetMs = (window.activeTimerState.targetDuration || 0) * 1000;
+        const remainingMs = Math.max(0, targetMs - elapsedMs);
+        displaySeconds = Math.ceil(remainingMs / 1000);
+
+        if (remainingMs <= 0 && window.activeTimerState.isRunning) {
+            window.activeTimerState.isRunning = false;
+            window.activeTimerState.elapsedBeforeStart = targetMs;
+            window.activeTimerState.startTime = null;
+
+            playCompletionChime();
+            saveToCloud(true);
+
+            const saveBtn = document.getElementById('timer-btn-save');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+            }
+        } else {
+            const saveBtn = document.getElementById('timer-btn-save');
+            if (saveBtn) {
+                saveBtn.disabled = (elapsedMs < 1000);
+            }
+        }
+    }
+
+    updateTimerUI(displaySeconds);
+}
+
+function updateTimerUI(displaySeconds) {
+    const hrs = Math.floor(displaySeconds / 3600);
+    const mins = Math.floor((displaySeconds % 3600) / 60);
+    const secs = displaySeconds % 60;
+    const clockText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    safeSetText('timer-clock-text', clockText);
+
+    const progressRing = document.getElementById('timer-progress-ring');
+    if (progressRing) {
+        if (window.activeTimerState.mode === 'stopwatch') {
+            const progress = (displaySeconds % 60) / 60;
+            const offset = 289 - (progress * 289);
+            progressRing.setAttribute('stroke-dashoffset', offset);
+        } else {
+            const target = window.activeTimerState.targetDuration || 1;
+            const progress = Math.min(1, displaySeconds / target);
+            const offset = 289 - (progress * 289);
+            progressRing.setAttribute('stroke-dashoffset', offset);
+        }
+    }
+
+    const statusText = document.getElementById('timer-status-text');
+    if (statusText) {
+        if (window.activeTimerState.isRunning) {
+            statusText.textContent = 'FOCUSING';
+            statusText.className = 'text-[8px] font-bold uppercase tracking-widest text-emerald-500 mt-2';
+        } else {
+            let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+            if (elapsedMs > 0) {
+                statusText.textContent = 'PAUSED';
+                statusText.className = 'text-[8px] font-bold uppercase tracking-widest text-amber-500 mt-2';
+            } else {
+                statusText.textContent = 'READY';
+                statusText.className = 'text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-2';
+            }
+        }
+    }
+
+    const toggleBtn = document.getElementById('timer-btn-toggle');
+    if (toggleBtn) {
+        if (window.activeTimerState.isRunning) {
+            toggleBtn.textContent = 'PAUSE';
+            toggleBtn.className = 'px-10 py-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md active:scale-95 transition-all';
+        } else {
+            toggleBtn.textContent = 'START';
+            toggleBtn.className = 'px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md active:scale-95 transition-all';
+        }
+    }
+}
+
+window.syncTimerStateFromCloud = function () {
+    if (!window.activeTimerState) return;
+
+    const subjectSelect = document.getElementById('timer-subject-select');
+    if (subjectSelect && window.activeTimerState.selectedSubject) {
+        subjectSelect.value = window.activeTimerState.selectedSubject;
+    }
+
+    const btnStopwatch = document.getElementById('tm-mode-stopwatch');
+    const btnTimer = document.getElementById('tm-mode-timer');
+    const btnAlarm = document.getElementById('tm-mode-alarm');
+    const presetsContainer = document.getElementById('timer-presets-container');
+    const alarmContainer = document.getElementById('timer-alarm-container');
+
+    if (btnStopwatch && btnTimer && btnAlarm) {
+        const activeClass = "w-1/3 py-2.5 text-xs font-black rounded-xl transition-all bg-blue-600 text-white shadow";
+        const inactiveClass = "w-1/3 py-2.5 text-xs font-black rounded-xl transition-all text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800/80";
+        if (window.activeTimerState.mode === 'stopwatch') {
+            btnStopwatch.className = activeClass;
+            btnTimer.className = inactiveClass;
+            btnAlarm.className = inactiveClass;
+            if (presetsContainer) presetsContainer.classList.add('hidden');
+            if (alarmContainer) alarmContainer.classList.add('hidden');
+        } else if (window.activeTimerState.mode === 'timer') {
+            btnStopwatch.className = inactiveClass;
+            btnTimer.className = activeClass;
+            btnAlarm.className = inactiveClass;
+            if (presetsContainer) {
+                presetsContainer.classList.remove('hidden');
+                presetsContainer.classList.add('flex');
+            }
+            if (alarmContainer) alarmContainer.classList.add('hidden');
+        } else if (window.activeTimerState.mode === 'alarm') {
+            btnStopwatch.className = inactiveClass;
+            btnTimer.className = inactiveClass;
+            btnAlarm.className = activeClass;
+            if (presetsContainer) presetsContainer.classList.add('hidden');
+            if (alarmContainer) {
+                alarmContainer.classList.remove('hidden');
+                alarmContainer.classList.add('flex');
+            }
+        }
+    }
+
+    if (window.activeTimerState.mode === 'alarm') {
+        window.updateAlarmStartText();
+    }
+
+    if (window.timerInterval) {
+        clearInterval(window.timerInterval);
+        window.timerInterval = null;
+    }
+
+    tickTimer();
+
+    if (window.activeTimerState.isRunning) {
+        window.timerInterval = setInterval(tickTimer, 200);
+    }
+};
+
+window.updateAlarmStartText = function () {
+    const useCurrentCb = document.getElementById('timer-alarm-use-current');
+    const startInput = document.getElementById('timer-alarm-start');
+    if (useCurrentCb && useCurrentCb.checked && startInput && (!window.activeTimerState || !window.activeTimerState.isRunning)) {
+        const now = new Date();
+        const curTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        startInput.value = curTimeStr;
+    }
+};
+
+window.toggleAlarmUseCurrent = function () {
+    const useCurrentCb = document.getElementById('timer-alarm-use-current');
+    const startInput = document.getElementById('timer-alarm-start');
+    if (useCurrentCb && startInput) {
+        if (useCurrentCb.checked) {
+            startInput.disabled = true;
+            window.updateAlarmStartText();
+        } else {
+            startInput.disabled = false;
+        }
+    }
+};
+
+window.setTimerMode = function (mode) {
+    if (window.activeTimerState.mode === mode) return;
+    if (window.activeTimerState.isRunning) {
+        showToast("Please pause the timer before changing modes.", "error");
+        return;
+    }
+    window.activeTimerState.mode = mode;
+    window.activeTimerState.elapsedBeforeStart = 0;
+    window.activeTimerState.startTime = null;
+    if (mode === 'timer') {
+        window.activeTimerState.targetDuration = 25 * 60;
+    } else if (mode === 'alarm') {
+        window.activeTimerState.targetDuration = 0;
+    } else {
+        window.activeTimerState.targetDuration = 0;
+    }
+    saveToCloud(true);
+    window.syncTimerStateFromCloud();
+};
+
+window.setTimerPreset = function (minutes) {
+    if (window.activeTimerState.isRunning) {
+        showToast("Please pause the timer before changing presets.", "error");
+        return;
+    }
+    window.activeTimerState.targetDuration = minutes * 60;
+    window.activeTimerState.elapsedBeforeStart = 0;
+    window.activeTimerState.startTime = null;
+    saveToCloud(true);
+    window.syncTimerStateFromCloud();
+    showToast(`Timer set to ${minutes} minutes.`, "success");
+};
+
+window.promptCustomTimer = function () {
+    if (window.activeTimerState.isRunning) {
+        showToast("Please pause the timer before changing presets.", "error");
+        return;
+    }
+    const input = document.getElementById('custom-timer-input-minutes');
+    if (input) {
+        input.value = "25";
+    }
+    openModal('custom-timer-modal');
+};
+
+window.submitCustomTimer = function () {
+    const input = document.getElementById('custom-timer-input-minutes');
+    if (!input) return;
+    const minutes = parseInt(input.value, 10);
+    if (isNaN(minutes) || minutes <= 0) {
+        showToast("Please enter a valid positive number of minutes.", "error");
+        return;
+    }
+    window.activeTimerState.targetDuration = minutes * 60;
+    window.activeTimerState.elapsedBeforeStart = 0;
+    window.activeTimerState.startTime = null;
+    saveToCloud(true);
+    window.syncTimerStateFromCloud();
+    closeModal('custom-timer-modal');
+    showToast(`Timer set to ${minutes} minutes.`, "success");
+};
+
+window.toggleTimerClick = function () {
+    if (!window.activeTimerState) return;
+
+    const subjectSelect = document.getElementById('timer-subject-select');
+    if (subjectSelect) {
+        window.activeTimerState.selectedSubject = subjectSelect.value;
+    }
+
+    if (window.activeTimerState.isRunning) {
+        window.activeTimerState.isRunning = false;
+        if (window.activeTimerState.startTime) {
+            window.activeTimerState.elapsedBeforeStart += (Date.now() - window.activeTimerState.startTime);
+        }
+        window.activeTimerState.startTime = null;
+    } else {
+        if (window.activeTimerState.mode === 'alarm') {
+            const startEl = document.getElementById('timer-alarm-start');
+            const endEl = document.getElementById('timer-alarm-end');
+            if (!startEl || !endEl || !endEl.value) {
+                showToast("Please specify an End Time for the alarm range.", "error");
+                return;
+            }
+            
+            const useCurrent = document.getElementById('timer-alarm-use-current')?.checked;
+            if (useCurrent) {
+                const now = new Date();
+                const curTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                startEl.value = curTimeStr;
+            }
+            
+            const startTimeVal = startEl.value;
+            const endTimeVal = endEl.value;
+            if (!startTimeVal) {
+                showToast("Please specify a Start Time.", "error");
+                return;
+            }
+            
+            const timeStrToSeconds = (str) => {
+                const parts = str.split(':').map(Number);
+                return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60;
+            };
+            
+            let duration = timeStrToSeconds(endTimeVal) - timeStrToSeconds(startTimeVal);
+            if (duration <= 0) {
+                duration += 24 * 3600; // cross-midnight
+            }
+            
+            window.activeTimerState.targetDuration = duration;
+            
+            let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+            const targetMs = (window.activeTimerState.targetDuration || 0) * 1000;
+            if (elapsedMs >= targetMs) {
+                window.activeTimerState.elapsedBeforeStart = 0;
+            }
+        } else if (window.activeTimerState.mode === 'timer') {
+            let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+            const targetMs = (window.activeTimerState.targetDuration || 0) * 1000;
+            if (elapsedMs >= targetMs) {
+                window.activeTimerState.elapsedBeforeStart = 0;
+            }
+        }
+        window.activeTimerState.isRunning = true;
+        window.activeTimerState.startTime = Date.now();
+    }
+    saveToCloud(true);
+    window.syncTimerStateFromCloud();
+};
+
+window.resetTimerClick = function () {
+    if (!window.activeTimerState) return;
+    window.openConfirmModal(
+        "Reset Timer/Stopwatch?",
+        "Are you sure you want to reset the current session? This will clear all accumulated time.",
+        () => {
+            window.activeTimerState.isRunning = false;
+            window.activeTimerState.startTime = null;
+            window.activeTimerState.elapsedBeforeStart = 0;
+            saveToCloud(true);
+            window.syncTimerStateFromCloud();
+            showToast("Timer reset.", "success");
+        }
+    );
+};
+
+window.saveTimerSession = function () {
+    if (!window.activeTimerState) return;
+
+    let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
+    if (window.activeTimerState.isRunning && window.activeTimerState.startTime) {
+        elapsedMs += (Date.now() - window.activeTimerState.startTime);
+    }
+
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    if (elapsedSeconds <= 0) {
+        showToast("No focus duration accumulated to save.", "error");
+        return;
+    }
+
+    const subject = window.activeTimerState.selectedSubject || 'General Study';
+    const mode = window.activeTimerState.mode;
+
+    const newLog = {
+        id: 'timer-log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        subject: subject,
+        duration: elapsedSeconds,
+        date: new Date().toISOString(),
+        mode: mode
+    };
+
+    if (!window.timerLogs) window.timerLogs = [];
+    window.timerLogs.unshift(newLog);
+
+    window.activeTimerState.isRunning = false;
+    window.activeTimerState.startTime = null;
+    window.activeTimerState.elapsedBeforeStart = 0;
+
+    saveToCloud(true);
+    window.syncTimerStateFromCloud();
+    window.renderTimerPage();
+    showToast(`Saved session: ${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s for ${subject}.`, "success");
+};
+
+window.deleteTimerLog = function (logId) {
+    window.openConfirmModal(
+        "Delete Study Record?",
+        "Are you sure you want to delete this study record? This action cannot be undone.",
+        () => {
+            if (!window.timerLogs) window.timerLogs = [];
+            window.timerLogs = window.timerLogs.filter(log => log.id !== logId);
+            saveToCloud(true);
+            window.renderTimerPage();
+            showToast("Study session deleted.", "success");
+        }
+    );
+};
+
+function populateTimerSubjects() {
+    const select = document.getElementById('timer-subject-select');
+    if (!select) return;
+
+    const currentValue = select.value;
+    let optionsHtml = `<option value="General Study">General Study</option>`;
+
+    const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
+    const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
+
+    uniqueSubjects.forEach(sub => {
+        optionsHtml += `<option value="${sub}">${sub}</option>`;
+    });
+
+    select.innerHTML = optionsHtml;
+
+    if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+        select.value = currentValue;
+    } else if (window.activeTimerState && window.activeTimerState.selectedSubject) {
+        select.value = window.activeTimerState.selectedSubject;
+    }
+}
+
+function getDurationString(totalSeconds) {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+window.renderTimerPage = function () {
+    if (!window.timerLogs) window.timerLogs = [];
+
+    populateTimerSubjects();
+
+    const now = new Date();
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const weekStart = new Date(now.setDate(diff));
+    weekStart.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    let secondsToday = 0;
+    let secondsWeek = 0;
+    let secondsMonth = 0;
+
+    const subjectSeconds = {};
+
+    window.timerLogs.forEach(log => {
+        const logDate = new Date(log.date);
+        const duration = parseInt(log.duration || 0, 10);
+
+        if (logDate >= todayStart) {
+            secondsToday += duration;
+        }
+        if (logDate >= weekStart) {
+            secondsWeek += duration;
+        }
+        if (logDate >= monthStart) {
+            secondsMonth += duration;
+        }
+
+        const sub = log.subject || 'General Study';
+        subjectSeconds[sub] = (subjectSeconds[sub] || 0) + duration;
+    });
+
+    safeSetText('timer-stat-today', getDurationString(secondsToday));
+    safeSetText('timer-stat-week', getDurationString(secondsWeek));
+    safeSetText('timer-stat-month', getDurationString(secondsMonth));
+
+    const breakdownContainer = document.getElementById('timer-subject-breakdown-container');
+    if (breakdownContainer) {
+        let breakdownHtml = '';
+        const sortedSubjects = Object.entries(subjectSeconds).sort((a, b) => b[1] - a[1]);
+        const maxSeconds = sortedSubjects.length > 0 ? sortedSubjects[0][1] : 1;
+
+        if (sortedSubjects.length === 0) {
+            breakdownHtml = `<p class="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider py-4 text-center">No study records yet</p>`;
+        } else {
+            sortedSubjects.forEach(([subj, sec]) => {
+                const pct = Math.max(5, Math.round((sec / maxSeconds) * 100));
+                const hours = (sec / 3600).toFixed(1);
+                const color = getSubjectColor(subj);
+
+                breakdownHtml += `
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-700 dark:text-slate-300 truncate max-w-[70%]" title="${subj}">${subj}</span>
+                            <span class="font-black text-slate-900 dark:text-white">${hours}h</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-2 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500" style="width: ${pct}%; background-color: ${color};"></div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        breakdownContainer.innerHTML = breakdownHtml;
+    }
+
+    const historyTableBody = document.getElementById('timer-history-table-body');
+    if (historyTableBody) {
+        let historyHtml = '';
+
+        if (window.timerLogs.length === 0) {
+            historyHtml = `
+                <tr>
+                    <td colspan="5" class="py-8 text-center text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+                        No focus sessions recorded yet
+                    </td>
+                </tr>
+            `;
+        } else {
+            window.timerLogs.forEach(log => {
+                const dateObj = new Date(log.date);
+                const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                const durationMinutes = Math.floor(log.duration / 60);
+                const durationSeconds = log.duration % 60;
+                let durStr = '';
+                if (durationMinutes > 0) {
+                    durStr += `${durationMinutes}m `;
+                }
+                durStr += `${durationSeconds}s`;
+
+                const modeBadge = log.mode === 'timer' ?
+                    `<span class="px-2 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-black text-[9px] uppercase tracking-wider rounded border border-blue-100 dark:border-blue-900/30">Timer</span>` :
+                    log.mode === 'addx' ?
+                    `<span class="px-2 py-0.5 bg-orange-50 dark:bg-orange-950 text-orange-600 dark:text-orange-400 font-black text-[9px] uppercase tracking-wider rounded border border-orange-100 dark:border-orange-900/30">Added</span>` :
+                    `<span class="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-black text-[9px] uppercase tracking-wider rounded border border-emerald-100 dark:border-emerald-900/30">Stopwatch</span>`;
+
+                historyHtml += `
+                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td class="py-3 font-bold text-slate-500 dark:text-slate-400">${dateStr}</td>
+                        <td class="py-3 font-black text-slate-800 dark:text-white">${log.subject}</td>
+                        <td class="py-3 font-mono font-bold text-slate-700 dark:text-slate-300">${durStr}</td>
+                        <td class="py-3 text-center">${modeBadge}</td>
+                        <td class="py-3 text-right">
+                            <button onclick="window.deleteTimerLog('${log.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-95 transition-all">
+                                <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        historyTableBody.innerHTML = historyHtml;
+    }
+};
+
+document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'timer-subject-select') {
+        if (window.activeTimerState) {
+            window.activeTimerState.selectedSubject = e.target.value;
+            saveToCloud(true);
+        }
+    }
+});
+
+window._atsmActiveTab = 'hours';
+
+window.switchAtsmTab = function (tab) {
+    window._atsmActiveTab = tab;
+    const tabHours = document.getElementById('atsm-tab-hours');
+    const tabRange = document.getElementById('atsm-tab-range');
+    const panelHours = document.getElementById('atsm-panel-hours');
+    const panelRange = document.getElementById('atsm-panel-range');
+
+    const activeClass = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-emerald-600 text-white shadow';
+    const inactiveClass = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800/80';
+
+    if (tab === 'hours') {
+        if (tabHours) tabHours.className = activeClass;
+        if (tabRange) tabRange.className = inactiveClass;
+        if (panelHours) { panelHours.classList.remove('hidden'); panelHours.classList.add('flex'); }
+        if (panelRange) { panelRange.classList.add('hidden'); panelRange.classList.remove('flex'); }
+    } else {
+        if (tabHours) tabHours.className = inactiveClass;
+        if (tabRange) tabRange.className = activeClass;
+        if (panelHours) { panelHours.classList.add('hidden'); panelHours.classList.remove('flex'); }
+        if (panelRange) { panelRange.classList.remove('hidden'); panelRange.classList.add('flex'); }
+    }
+};
+
+window.updateAtsmRangePreview = function () {
+    const startInput = document.getElementById('atsm-range-start');
+    const endInput = document.getElementById('atsm-range-end');
+    const preview = document.getElementById('atsm-range-preview');
+    if (!startInput || !endInput || !preview) return;
+
+    if (startInput.value && endInput.value) {
+        const toMinutes = (t) => { const p = t.split(':').map(Number); return (p[0] || 0) * 60 + (p[1] || 0); };
+        let diff = toMinutes(endInput.value) - toMinutes(startInput.value);
+        if (diff <= 0) diff += 24 * 60; // cross-midnight
+        const hrs = Math.floor(diff / 60);
+        const mins = diff % 60;
+        let durStr = '';
+        if (hrs > 0) durStr += `${hrs}h `;
+        durStr += `${mins}m`;
+        preview.textContent = `Duration: ${durStr}`;
+        preview.classList.remove('hidden');
+    } else {
+        preview.classList.add('hidden');
+    }
+};
+
+// Listen for time range changes to show preview
+document.addEventListener('input', (e) => {
+    if (e.target && (e.target.id === 'atsm-range-start' || e.target.id === 'atsm-range-end')) {
+        window.updateAtsmRangePreview();
+    }
+});
+
+window.openAddTimerSessionModal = function () {
+    // Set date to today
+    const now = new Date();
+    const dateInput = document.getElementById('atsm-date');
+    if (dateInput) {
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Reset duration fields
+    const hoursInput = document.getElementById('atsm-hours');
+    const minutesInput = document.getElementById('atsm-minutes');
+    if (hoursInput) hoursInput.value = '0';
+    if (minutesInput) minutesInput.value = '25';
+
+    // Reset time range fields
+    const rangeStart = document.getElementById('atsm-range-start');
+    const rangeEnd = document.getElementById('atsm-range-end');
+    if (rangeStart) rangeStart.value = '';
+    if (rangeEnd) rangeEnd.value = '';
+    const preview = document.getElementById('atsm-range-preview');
+    if (preview) preview.classList.add('hidden');
+
+    // Reset tab to 'hours'
+    window.switchAtsmTab('hours');
+
+    // Populate subjects dropdown
+    const subjectSelect = document.getElementById('atsm-subject');
+    if (subjectSelect) {
+        let optionsHtml = `<option value="General Study">General Study</option>`;
+        const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
+        const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
+        uniqueSubjects.forEach(sub => {
+            optionsHtml += `<option value="${sub}">${sub}</option>`;
+        });
+        subjectSelect.innerHTML = optionsHtml;
+    }
+
+    openModal('add-timer-session-modal');
+};
+
+window.submitManualTimerSession = function () {
+    const dateInput = document.getElementById('atsm-date');
+    const subjectSelect = document.getElementById('atsm-subject');
+
+    if (!dateInput || !dateInput.value) {
+        showToast("Please select a date.", "error");
+        return;
+    }
+
+    let totalSeconds = 0;
+    let sessionTimeStr = '12:00'; // default noon
+
+    if (window._atsmActiveTab === 'hours') {
+        const hoursInput = document.getElementById('atsm-hours');
+        const minutesInput = document.getElementById('atsm-minutes');
+        const hours = parseInt(hoursInput?.value || '0', 10);
+        const minutes = parseInt(minutesInput?.value || '0', 10);
+
+        if (isNaN(hours) || isNaN(minutes)) {
+            showToast("Please enter valid duration numbers.", "error");
+            return;
+        }
+        totalSeconds = (hours * 3600) + (minutes * 60);
+        if (totalSeconds <= 0) {
+            showToast("Duration must be greater than zero.", "error");
+            return;
+        }
+    } else {
+        // Time range mode
+        const startInput = document.getElementById('atsm-range-start');
+        const endInput = document.getElementById('atsm-range-end');
+
+        if (!startInput?.value || !endInput?.value) {
+            showToast("Please enter both start and end times.", "error");
+            return;
+        }
+
+        const toMinutes = (t) => { const p = t.split(':').map(Number); return (p[0] || 0) * 60 + (p[1] || 0); };
+        let diffMinutes = toMinutes(endInput.value) - toMinutes(startInput.value);
+        if (diffMinutes <= 0) diffMinutes += 24 * 60; // cross-midnight
+
+        totalSeconds = diffMinutes * 60;
+        sessionTimeStr = startInput.value; // use start time as the session time
+    }
+
+    // Build date
+    const timeParts = sessionTimeStr.split(':').map(Number);
+    const sessionDate = new Date(dateInput.value + 'T' + String(timeParts[0] || 0).padStart(2, '0') + ':' + String(timeParts[1] || 0).padStart(2, '0') + ':00');
+
+    if (isNaN(sessionDate.getTime())) {
+        showToast("Invalid date entered.", "error");
+        return;
+    }
+
+    const subject = subjectSelect?.value || 'General Study';
+
+    const newLog = {
+        id: 'timer-log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        subject: subject,
+        duration: totalSeconds,
+        date: sessionDate.toISOString(),
+        mode: 'addx'
+    };
+
+    if (!window.timerLogs) window.timerLogs = [];
+    window.timerLogs.unshift(newLog);
+
+    // Sort logs by date descending so the manual entry appears in the correct position
+    window.timerLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    saveToCloud(true);
+    window.renderTimerPage();
+    closeModal('add-timer-session-modal');
+
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const durationStr = (hrs > 0 ? `${hrs}h ` : '') + `${mins}m`;
+    showToast(`Session added: ${durationStr} for ${subject}.`, "success");
+};
+
+// Store original parent so we can return the panel after exiting fullscreen
+window._timerFsOriginalParent = null;
+window._timerFsOriginalNext = null;
+window._timerFsActive = false;
+
+const _updateTimerFsBtn = (active) => {
+    const btn = document.getElementById('timer-btn-fullscreen');
+    if (!btn) return;
+    if (active) {
+        btn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 14h6m0 0v6m0-6L4 20m16-6h-6m0 0v6m0-6l6 6M4 10h6m0 0V4m0 6L4 4m16 6h-6m0 0V4m0 6l6-6"></path>
+            </svg>
+        `;
+        btn.title = "Exit Fullscreen";
+    } else {
+        btn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4"></path>
+            </svg>
+        `;
+        btn.title = "Toggle Fullscreen";
+    }
+};
+
+const _exitTimerFsCleanup = () => {
+    const panel = document.getElementById('timer-active-panel');
+    if (!panel) return;
+    // If already exiting, don't double-fire
+    if (panel.classList.contains('timer-fs-exiting')) return;
+
+    // Play exit animation
+    panel.classList.add('timer-fs-exiting');
+    _updateTimerFsBtn(false);
+
+    // Wait for animation to finish, then clean up
+    setTimeout(() => {
+        panel.classList.remove('timer-fullscreen', 'timer-fs-exiting', 'dark');
+        document.body.classList.remove('timer-fullscreen-active');
+        window._timerFsActive = false;
+        // Move panel back to its original position in the DOM
+        if (window._timerFsOriginalParent) {
+            if (window._timerFsOriginalNext && window._timerFsOriginalNext.parentNode === window._timerFsOriginalParent) {
+                window._timerFsOriginalParent.insertBefore(panel, window._timerFsOriginalNext);
+            } else {
+                window._timerFsOriginalParent.appendChild(panel);
+            }
+            window._timerFsOriginalParent = null;
+            window._timerFsOriginalNext = null;
+        }
+    }, 300); // matches timerFsExit animation duration
+};
+
+// Listen for fullscreenchange to handle Escape key / browser exit
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && window._timerFsActive) {
+        _exitTimerFsCleanup();
+    }
+});
+document.addEventListener('webkitfullscreenchange', () => {
+    if (!document.webkitFullscreenElement && window._timerFsActive) {
+        _exitTimerFsCleanup();
+    }
+});
+
+window.toggleTimerFullscreen = function () {
+    const panel = document.getElementById('timer-active-panel');
+    if (!panel) return;
+
+    const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    // Currently in fullscreen → exit
+    if (window._timerFsActive) {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => { });
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+        // cleanup is handled by fullscreenchange listener
+        return;
+    }
+
+    // Enter fullscreen
+    window._timerFsActive = true;
+
+    // Save the panel's current DOM position so we can restore it later
+    window._timerFsOriginalParent = panel.parentNode;
+    window._timerFsOriginalNext = panel.nextSibling;
+
+    // Move panel to document.body to escape any parent transform/animation containing blocks
+    document.body.appendChild(panel);
+
+    panel.classList.add('timer-fullscreen');
+    panel.classList.toggle('dark', isDark);
+    document.body.classList.add('timer-fullscreen-active');
+    _updateTimerFsBtn(true);
+
+    // Request true browser fullscreen (like F11) — no browser chrome, no gaps
+    const docEl = document.documentElement;
+    const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+    if (requestFs) {
+        requestFs.call(docEl).catch(() => {
+            // Fullscreen API denied (e.g. iframe restrictions) — CSS fallback still works
+        });
+    }
 };
 
 
-/******************************************************************
- * TIMER (DELEGATED TO TIMER MODULE)
- ******************************************************************/
-// Refer to js/timer.js
-
-/******************************************************************
- * SCHEDULE
- ******************************************************************/
+/* ==========================================
+   5. Schedule UI (js/ui/schedule.js)
+   ========================================== */
 // js/ui/schedule.js
 // Verbatim extraction of Schedule & Routine UI Logic from index.html
 
@@ -582,7 +1841,7 @@ window.handleLogout = function () {
             if (!targetCGPA) {
                 const overallRecords = window.successResults
                     .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName)
-                    .sort((a, b) => Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date));
+                    .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
                 if (overallRecords.length > 0 && overallRecords[0].targetCGPA) {
                     targetCGPA = overallRecords[0].targetCGPA.toString().trim();
                 }
@@ -590,7 +1849,7 @@ window.handleLogout = function () {
             if (!targetCGPA) {
                 const anyRecords = window.successResults
                     .filter(r => r.type === 'cgpa' && r.title === progName && r.targetCGPA)
-                    .sort((a, b) => Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date));
+                    .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
                 if (anyRecords.length > 0) {
                     targetCGPA = anyRecords[0].targetCGPA.toString().trim();
                 }
@@ -601,7 +1860,7 @@ window.handleLogout = function () {
                     targetCGPA = 'none';
                     targetGrade = 'none';
                 } else {
-                    targetGrade = Utils.mapCgpaToGrade(targetCGPA);
+                    targetGrade = window.mapCgpaToGrade(targetCGPA);
                 }
             }
             return { targetCGPA, targetGrade };
@@ -619,7 +1878,7 @@ window.handleLogout = function () {
                     targetGrade = 'none';
                     targetCgpa = 'none';
                 } else {
-                    targetCgpa = targetGrade ? Utils.formatCgpaMin2Dec(Utils.mapGradeToNumeric(targetGrade, evalType)) : '';
+                    targetCgpa = targetGrade ? window.formatCgpaMin2Dec(window.mapGradeToNumeric(targetGrade, evalType)) : '';
                 }
             } else {
                 targetCgpa = (document.getElementById('res-overall-target-cgpa')?.value || '').trim();
@@ -627,7 +1886,7 @@ window.handleLogout = function () {
                     targetCgpa = 'none';
                     targetGrade = 'none';
                 } else {
-                    targetGrade = targetCgpa ? Utils.mapCgpaToGrade(targetCgpa) : '';
+                    targetGrade = targetCgpa ? window.mapCgpaToGrade(targetCgpa) : '';
                 }
             }
 
@@ -666,14 +1925,14 @@ window.handleLogout = function () {
                 });
 
                 if (grades.length > 0) {
-                    const sumCgpa = grades.reduce((sum, g) => sum + Utils.mapGradeToNumeric(g, 'grade'), 0);
+                    const sumCgpa = grades.reduce((sum, g) => sum + window.mapGradeToNumeric(g, 'grade'), 0);
                     const avgCgpa = sumCgpa / grades.length;
-                    const estGrade = Utils.mapCgpaToGrade(avgCgpa, 'grade');
+                    const estGrade = window.mapCgpaToGrade(avgCgpa, 'grade');
 
                     if (estGradeEl) estGradeEl.value = estGrade;
                     const badge = estGradeEl ? estGradeEl.parentElement.querySelector('.auto-cgpa-badge') : null;
                     if (badge) {
-                        badge.textContent = Utils.formatCgpaMin2Dec(avgCgpa);
+                        badge.textContent = window.formatCgpaMin2Dec(avgCgpa);
                         badge.classList.remove('opacity-40');
                     }
                 } else {
@@ -694,9 +1953,9 @@ window.handleLogout = function () {
 
                 if (cgpas.length > 0) {
                     const avgCgpa = cgpas.reduce((sum, c) => sum + c, 0) / cgpas.length;
-                    const estGrade = Utils.mapCgpaToGrade(avgCgpa, 'cgpa');
+                    const estGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa');
 
-                    if (estCgpaEl) estCgpaEl.value = Utils.formatCgpaMin2Dec(avgCgpa);
+                    if (estCgpaEl) estCgpaEl.value = window.formatCgpaMin2Dec(avgCgpa);
                     const badge = estCgpaEl ? estCgpaEl.parentElement.querySelector('.auto-grade-badge') : null;
                     if (badge) {
                         badge.textContent = estGrade || '—';
@@ -716,28 +1975,28 @@ window.handleLogout = function () {
         function ensureAvailableSlots(slotsNeeded, track, startIndex) {
             let availableSlots = 0;
             const key = track + 'Tasks';
-            for (let i = startIndex; i < AppState.tasks.length; i++) {
-                if (AppState.tasks[i].type !== 'study') continue;
-                if (AppState.tasks[i][key] && AppState.tasks[i][key].some(b => b.subject === 'Revision')) availableSlots++;
+            for (let i = startIndex; i < tasks.length; i++) {
+                if (tasks[i].type !== 'study') continue;
+                if (tasks[i][key] && tasks[i][key].some(b => b.subject === 'Revision')) availableSlots++;
             }
 
             let slotsToCreate = slotsNeeded - availableSlots;
             if (slotsToCreate <= 0) return;
 
-            let lastTaskId = AppState.tasks.length > 0 ? AppState.tasks[AppState.tasks.length - 1].id : 0;
+            let lastTaskId = tasks.length > 0 ? tasks[tasks.length - 1].id : 0;
             let lastStudyDay = 0;
-            for (let i = AppState.tasks.length - 1; i >= 0; i--) {
-                if (AppState.tasks[i].type === 'study') { lastStudyDay = AppState.tasks[i].studyDay; break; }
+            for (let i = tasks.length - 1; i >= 0; i--) {
+                if (tasks[i].type === 'study') { lastStudyDay = tasks[i].studyDay; break; }
             }
 
             let createdSlots = 0;
             while (createdSlots < slotsToCreate) {
                 lastTaskId++;
-                const baseDate = new Date(AppState.PLAN_START_DATE.getTime());
+                const baseDate = new Date(PLAN_START_DATE.getTime());
                 baseDate.setDate(baseDate.getDate() + (lastTaskId - 1));
 
                 const dayName = baseDate.toLocaleDateString('en-US', { weekday: 'short' });
-                const dateStr = Utils.formatDate(baseDate);
+                const dateStr = formatDate(baseDate);
 
                 if (dayName === 'Fri') {
                     const task = { id: lastTaskId, date: dateStr, day: dayName, type: 'holiday' };
@@ -747,7 +2006,7 @@ window.handleLogout = function () {
                     if (Array.isArray(window.customActions)) {
                         window.customActions.forEach(act => { task[act.id] = false; });
                     }
-                    AppState.tasks.push(task);
+                    tasks.push(task);
                 } else {
                     lastStudyDay++;
                     const task = {
@@ -760,14 +2019,14 @@ window.handleLogout = function () {
                     if (Array.isArray(window.customActions)) {
                         window.customActions.forEach(act => { task[act.id] = false; });
                     }
-                    AppState.tasks.push(task);
+                    tasks.push(task);
                     createdSlots++;
                 }
             }
 
-            const newEndDate = new Date(AppState.PLAN_START_DATE.getTime());
+            const newEndDate = new Date(PLAN_START_DATE.getTime());
             newEndDate.setDate(newEndDate.getDate() + (lastTaskId - 1));
-            AppState.PLAN_END_DATE = newEndDate;
+            PLAN_END_DATE = newEndDate;
         }
 
         window.customPrograms = {};
@@ -878,7 +2137,7 @@ window.handleLogout = function () {
                 window.revisionData.active.push(sub);
                 if (!window.revisionData.progress[sub]) window.revisionData.progress[sub] = {};
             }
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderRevisionModalContent();
 
@@ -930,7 +2189,7 @@ window.handleLogout = function () {
             if (barEl) barEl.style.width = `${progressPct}%`;
 
             updateMetrics();
-            FirebaseService.saveToCloud();
+            saveToCloud();
 
             if (window.chartDebounce) clearTimeout(window.chartDebounce);
             window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
@@ -939,8 +2198,8 @@ window.handleLogout = function () {
 
 
         function generateStudyPlan() {
-            const startDate = new Date(AppState.PLAN_START_DATE);
-            const endDate = new Date(AppState.PLAN_END_DATE);
+            const startDate = new Date(PLAN_START_DATE);
+            const endDate = new Date(PLAN_END_DATE);
 
             const queues = {};
             window.tracks.forEach(track => {
@@ -958,7 +2217,7 @@ window.handleLogout = function () {
 
             while (current <= endDate) {
                 const dayName = current.toLocaleDateString('en-US', { weekday: 'short' });
-                const dateStr = Utils.formatDate(current);
+                const dateStr = formatDate(current);
 
                 if (dayName === 'Fri') {
                     const task = { id: dayId, date: dateStr, day: dayName, type: 'holiday' };
@@ -991,7 +2250,7 @@ window.handleLogout = function () {
         }
 
         let defaultTasks = generateStudyPlan();
-        AppState.tasks = defaultTasks;
+        tasks = defaultTasks;
         recalculateTotals();
         
 
@@ -1048,8 +2307,8 @@ window.handleLogout = function () {
                 profileAvatarEl.textContent = newName.charAt(0).toUpperCase();
             }
 
-            if (typeof FirebaseService !== 'undefined') {
-                const fbUser = FirebaseService.getCurrentUser();
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                const fbUser = firebase.auth().currentUser;
                 if (fbUser) {
                     fbUser.updateProfile({
                         displayName: newName
@@ -1095,16 +2354,16 @@ window.handleLogout = function () {
                 const workTotals = {};
                 const blocks = window.scheduleBlocks || [];
 
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
+                const timeToMinutes = (t) => {
+                    if (!t) return 0;
+                    const parts = t.split(':').map(Number);
+                    return (parts[0] || 0) * 60 + (parts[1] || 0);
+                };
 
                 blocks.forEach(b => {
                     const name = b.task || 'Untitled Work';
-                    const startMin = Utils.timeToMinutes(b.startTime);
-                    const endMin = Utils.timeToMinutes(b.endTime);
+                    const startMin = timeToMinutes(b.startTime);
+                    const endMin = timeToMinutes(b.endTime);
                     const hours = (endMin - startMin) / 60;
                     if (hours > 0) {
                         workTotals[name] = (workTotals[name] || 0) + hours;
@@ -1180,7 +2439,7 @@ window.handleLogout = function () {
                 showToast(`Group "${name}" created with ${items.length} items.`, 'success');
             }
 
-            FirebaseService.saveToCloud(true);
+            saveToCloud(true);
             closeModal('create-schedule-group-modal');
             if (window.renderSchedulePage) window.renderSchedulePage();
         };
@@ -1189,7 +2448,7 @@ window.handleLogout = function () {
             window.openConfirmModal('Delete Group', 'Remove this group? Items will become ungrouped.', () => {
                 if (!window.scheduleGroups) return;
                 window.scheduleGroups = window.scheduleGroups.filter(g => g.id !== groupId);
-                FirebaseService.saveToCloud(true);
+                saveToCloud(true);
                 if (window.renderSchedulePage) window.renderSchedulePage();
                 showToast('Group deleted.', 'success');
             });
@@ -1207,7 +2466,7 @@ window.handleLogout = function () {
                 if (!grp.items) grp.items = [];
                 grp.items.push(workName);
             }
-            FirebaseService.saveToCloud(true);
+            saveToCloud(true);
             if (window.renderSchedulePage) window.renderSchedulePage();
         };
 
@@ -1216,7 +2475,7 @@ window.handleLogout = function () {
             window.scheduleGroups.forEach(g => {
                 g.items = (g.items || []).filter(n => n !== workName);
             });
-            FirebaseService.saveToCloud(true);
+            saveToCloud(true);
             if (window.renderSchedulePage) window.renderSchedulePage();
         };
 
@@ -1225,14 +2484,7 @@ window.handleLogout = function () {
             return window.scheduleGroups.find(g => (g.items || []).includes(workName)) || null;
         };
 
-        /**
- * Updates the dashboard slot panel showing what task matches the active time block.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.updateActiveScheduleSlot = function () {
+        window.updateActiveScheduleSlot = function () {
             const activeContainer = document.getElementById('schedule-active-now-container');
             const mobileContainer = document.getElementById('schedule-active-now-mobile');
             const dashContainer = document.getElementById('dashboard-active-now-container');
@@ -1243,22 +2495,22 @@ window.updateActiveScheduleSlot = function () {
             const dailyBlocks = ((currentSet === 2) ? (window.scheduleBlocks2 || []) : (window.scheduleBlocks || []))
                                 .filter(b => b.day === 'Daily');
 
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
+            const timeToMinutes = (t) => {
+                if (!t) return 0;
+                const parts = t.split(':').map(Number);
+                return (parts[0] || 0) * 60 + (parts[1] || 0);
+            };
 
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
+            const formatTime12h = (timeStr) => {
+                if (!timeStr) return '';
+                const parts = timeStr.split(':').map(Number);
+                let hrs = parts[0] || 0;
+                const mins = parts[1] || 0;
+                const ampm = hrs >= 12 ? 'PM' : 'AM';
+                hrs = hrs % 12;
+                if (hrs === 0) hrs = 12;
+                return `${hrs}:${mins.toString().padStart(2, '0')} ${ampm}`;
+            };
 
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
@@ -1266,8 +2518,8 @@ window.updateActiveScheduleSlot = function () {
 
             let activeBlock = null;
             dailyBlocks.forEach(b => {
-                const startMin = Utils.timeToMinutes(b.startTime);
-                const endMin = Utils.timeToMinutes(b.endTime);
+                const startMin = timeToMinutes(b.startTime);
+                const endMin = timeToMinutes(b.endTime);
                 if (startMin <= currentMin && currentMin < endMin) {
                     activeBlock = b;
                 }
@@ -1318,8 +2570,8 @@ window.updateActiveScheduleSlot = function () {
             }
 
             if (activeBlock) {
-                const startMin = Utils.timeToMinutes(activeBlock.startTime);
-                const endMin = Utils.timeToMinutes(activeBlock.endTime);
+                const startMin = timeToMinutes(activeBlock.startTime);
+                const endMin = timeToMinutes(activeBlock.endTime);
                 const durationMins = endMin - startMin;
                 const elapsedMins = currentMin - startMin;
                 const progressPercent = Math.round((elapsedMins / durationMins) * 100);
@@ -1331,7 +2583,7 @@ window.updateActiveScheduleSlot = function () {
                 const remSecs = totalRemainingSeconds % 60;
                 const countdownStr = `${String(remHrs).padStart(2, '0')}:${String(remMins).padStart(2, '0')}:${String(remSecs < 0 ? 0 : remSecs).padStart(2, '0')}`;
 
-                const timeRangeStr = `${Utils.formatTime12h(activeBlock.startTime)} - ${Utils.formatTime12h(activeBlock.endTime)}`;
+                const timeRangeStr = `${formatTime12h(activeBlock.startTime)} - ${formatTime12h(activeBlock.endTime)}`;
                 const category = activeBlock.track || activeBlock.program || 'Routine';
                 const blockColor = activeBlock.color || '#6366f1';
 
@@ -1779,14 +3031,14 @@ window.updateActiveScheduleSlot = function () {
                 if (currentSet === 2) {
                     if (window.scheduleBlocks2) {
                         window.scheduleBlocks2 = window.scheduleBlocks2.filter(b => b.id !== blockId);
-                        FirebaseService.saveToCloud(true);
+                        saveToCloud(true);
                         renderUI();
                         showToast("Routine 2 slot deleted.", "success");
                     }
                 } else {
                     if (window.scheduleBlocks) {
                         window.scheduleBlocks = window.scheduleBlocks.filter(b => b.id !== blockId);
-                        FirebaseService.saveToCloud(true);
+                        saveToCloud(true);
                         renderUI();
                         showToast("Routine slot deleted.", "success");
                     }
@@ -1895,19 +3147,12 @@ window.updateActiveScheduleSlot = function () {
                 }
             }
 
-            FirebaseService.saveToCloud(true);
+            saveToCloud(true);
             closeModal('add-schedule-modal');
             renderUI();
         };
 
-        /**
- * Dynamically builds time slots elements layout for the schedule grid.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.renderSchedulePage = function () {
+        window.renderSchedulePage = function () {
             const bar = document.getElementById('schedule-visual-timeline-bar');
             const legend = document.getElementById('schedule-visual-legend');
             const grid = document.getElementById('schedule-timeline-grid');
@@ -1930,11 +3175,11 @@ window.renderSchedulePage = function () {
             const dailyBlocks = blocks.filter(b => b.day === 'Daily').sort((a, b) => a.startTime.localeCompare(b.startTime));
 
             // Helper convert time to minutes from midnight
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
+            const timeToMinutes = (t) => {
+                if (!t) return 0;
+                const parts = t.split(':').map(Number);
+                return (parts[0] || 0) * 60 + (parts[1] || 0);
+            };
 
             // Helper convert minutes to 12-hour AM/PM time string
             const minutesToTime = (m) => {
@@ -1947,16 +3192,16 @@ window.renderSchedulePage = function () {
             };
 
             // Helper convert 24h string to 12h display string
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
+            const formatTime12h = (timeStr) => {
+                if (!timeStr) return '';
+                const parts = timeStr.split(':').map(Number);
+                let hrs = parts[0] || 0;
+                const mins = parts[1] || 0;
+                const ampm = hrs >= 12 ? 'PM' : 'AM';
+                hrs = hrs % 12;
+                if (hrs === 0) hrs = 12;
+                return `${hrs}:${mins.toString().padStart(2, '0')} ${ampm}`;
+            };
 
             // Build 24-Hour Routine Allocation — vertical list: Work - Time Range - Hr
             let totalAllocatedHours = 0;
@@ -1967,15 +3212,15 @@ window.renderSchedulePage = function () {
                     listHtml = `<p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center py-4">No work hours allocated</p>`;
                 } else {
                     dailyBlocks.forEach(block => {
-                        const startMin = Utils.timeToMinutes(block.startTime);
-                        const endMin = Utils.timeToMinutes(block.endTime);
+                        const startMin = timeToMinutes(block.startTime);
+                        const endMin = timeToMinutes(block.endTime);
                         if (endMin <= startMin) return;
 
                         const hours = ((endMin - startMin) / 60);
                         totalAllocatedHours += hours;
                         const hrStr = hours === 1 ? '1.0 hr' : `${hours.toFixed(1)} hrs`;
                         const color = block.color || '#6366f1';
-                        const timeRange = `${Utils.formatTime12h(block.startTime)} – ${Utils.formatTime12h(block.endTime)}`;
+                        const timeRange = `${formatTime12h(block.startTime)} – ${formatTime12h(block.endTime)}`;
 
                         listHtml += `
                             <div class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-slate-50/30 dark:bg-slate-900/20 hover:shadow-sm transition-all cursor-pointer"
@@ -2009,8 +3254,8 @@ window.renderSchedulePage = function () {
             // Segment blocks into 1-hour slots
             const segments = [];
             dailyBlocks.forEach(block => {
-                const startMin = Utils.timeToMinutes(block.startTime);
-                const endMin = Utils.timeToMinutes(block.endTime);
+                const startMin = timeToMinutes(block.startTime);
+                const endMin = timeToMinutes(block.endTime);
 
                 if (endMin <= startMin) return;
 
@@ -2129,8 +3374,8 @@ window.renderSchedulePage = function () {
 
                 dailyBlocks.forEach(b => {
                     const name = b.task || 'Untitled Work';
-                    const startMin = Utils.timeToMinutes(b.startTime);
-                    const endMin = Utils.timeToMinutes(b.endTime);
+                    const startMin = timeToMinutes(b.startTime);
+                    const endMin = timeToMinutes(b.endTime);
                     const hours = (endMin - startMin) / 60;
                     if (hours > 0) {
                         workTotals[name] = (workTotals[name] || 0) + hours;
@@ -2263,10 +3508,7 @@ window.renderSchedulePage = function () {
         // Flag to track which routine set the modal targets: 1 or 2
         window.editingScheduleSet = 1;
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-window.openAddScheduleModal2 = function () {
+        window.openAddScheduleModal2 = function () {
             window.editingScheduleBlockId = null;
             window.editingScheduleSet = 2;
 
@@ -2314,16 +3556,13 @@ window.openAddScheduleModal2 = function () {
 
 
 
-/******************************************************************
- * MAIN APPLICATION CORE
- ******************************************************************/
+/* ==========================================
+   6. Index Page Main Application Core (index.html inline script)
+   ========================================== */
 
         // Offline DB, Sync Manager, and Diagnostics removed
 
-        /**
- * Reads settings modal variables and commits them to active state.
- */
-window.saveHeaderConfigFromForm = function () {
+        window.saveHeaderConfigFromForm = function () {
             const topTag = document.getElementById('edit-header-tag').value.trim();
             const mainTitle = document.getElementById('edit-header-title').value.trim();
             const subTitle = document.getElementById('edit-header-sub').value.trim();
@@ -2342,24 +3581,24 @@ window.saveHeaderConfigFromForm = function () {
             safeSetText('dash-sub-title-mobile', window.dashboardConfig.subTitle);
             document.title = `${window.dashboardConfig.topTag} - ${window.dashboardConfig.mainTitle}`;
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             showToast("Dashboard titles updated!", "success");
         };
 
         function rebuildTaskDates(shouldSave = true) {
-            if (!AppState.tasks || AppState.tasks.length === 0) return;
-            const baseDate = new Date(AppState.PLAN_START_DATE.getTime());
-            AppState.tasks.forEach(t => {
+            if (!tasks || tasks.length === 0) return;
+            const baseDate = new Date(PLAN_START_DATE.getTime());
+            tasks.forEach(t => {
                 const curDate = new Date(baseDate.getTime());
                 curDate.setDate(curDate.getDate() + (t.id - 1));
-                t.date = Utils.formatDate(curDate);
+                t.date = formatDate(curDate);
                 t.day = curDate.toLocaleDateString('en-US', { weekday: 'short' });
             });
             const newEndDate = new Date(baseDate.getTime());
-            newEndDate.setDate(newEndDate.getDate() + (AppState.tasks[AppState.tasks.length - 1].id - 1));
-            AppState.PLAN_END_DATE = newEndDate;
+            newEndDate.setDate(newEndDate.getDate() + (tasks[tasks.length - 1].id - 1));
+            PLAN_END_DATE = newEndDate;
             if (shouldSave) {
-                FirebaseService.saveToCloud();
+                saveToCloud();
             }
         }
 
@@ -2368,58 +3607,55 @@ window.saveHeaderConfigFromForm = function () {
             let dateChanged = false;
 
             if (window.dashboardConfig && window.dashboardConfig.trendStartDate) {
-                const trendStart = Utils.parseDateSafe(window.dashboardConfig.trendStartDate);
+                const trendStart = parseDateSafe(window.dashboardConfig.trendStartDate);
                 if (!isNaN(trendStart.getTime())) {
                     trendStart.setHours(0, 0, 0, 0);
-                    const currentStart = new Date(AppState.PLAN_START_DATE.getTime());
+                    const currentStart = new Date(PLAN_START_DATE.getTime());
                     currentStart.setHours(0, 0, 0, 0);
 
                     if (trendStart.getTime() !== currentStart.getTime()) {
-                        AppState.PLAN_START_DATE = new Date(trendStart.getTime());
+                        PLAN_START_DATE = new Date(trendStart.getTime());
                         dateChanged = true;
                     }
                 }
             } else if (window.dashboardConfig) {
-                window.dashboardConfig.trendStartDate = AppState.PLAN_START_DATE.toISOString().split('T')[0];
+                window.dashboardConfig.trendStartDate = PLAN_START_DATE.toISOString().split('T')[0];
             }
 
             if (globalGoal) {
                 if (globalGoal.startDate) {
-                    const newStart = Utils.parseDateSafe(globalGoal.startDate);
+                    const newStart = parseDateSafe(globalGoal.startDate);
                     if (!isNaN(newStart.getTime())) {
                         newStart.setHours(0, 0, 0, 0);
-                        AppState.globalStartDate = new Date(newStart.getTime());
+                        globalStartDate = new Date(newStart.getTime());
                     }
                 }
                 if (globalGoal.deadline) {
-                    const newEnd = Utils.parseDateSafe(globalGoal.deadline);
+                    const newEnd = parseDateSafe(globalGoal.deadline);
                     if (!isNaN(newEnd.getTime())) {
-                        AppState.globalEndDate = new Date(newEnd.getTime());
+                        globalEndDate = new Date(newEnd.getTime());
                     }
                 }
             } else {
-                AppState.globalStartDate = null;
-                AppState.globalEndDate = null;
+                globalStartDate = null;
+                globalEndDate = null;
             }
 
-            if (AppState.globalStartDate) AppState.globalStartDate.setHours(0, 0, 0, 0);
-            if (AppState.globalEndDate) AppState.globalEndDate.setHours(23, 59, 59, 999);
+            if (globalStartDate) globalStartDate.setHours(0, 0, 0, 0);
+            if (globalEndDate) globalEndDate.setHours(23, 59, 59, 999);
 
             if (dateChanged) {
                 rebuildTaskDates(false); // Update memory but do not write back to cloud automatically on render
             }
         }
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-window.updateTrendsStartDate = function (newDateStr) {
+        window.updateTrendsStartDate = function (newDateStr) {
             if (!newDateStr) return;
             const parsed = new Date(newDateStr);
             if (isNaN(parsed.getTime())) return showToast("Invalid Date selected.", "error");
 
             parsed.setHours(0, 0, 0, 0);
-            AppState.PLAN_START_DATE = new Date(parsed.getTime());
+            PLAN_START_DATE = new Date(parsed.getTime());
             if (window.dashboardConfig) {
                 window.dashboardConfig.trendStartDate = newDateStr;
             }
@@ -2443,10 +3679,7 @@ window.updateTrendsStartDate = function (newDateStr) {
             }
         };
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-window.togglePaceSwitch = function (type, rawId) {
+        window.togglePaceSwitch = function (type, rawId) {
             const safeId = rawId.replace(/[^a-zA-Z0-9]/g, '_');
             const buttonId = `pace-toggle-${type}-${safeId}`;
             const handleId = `pace-handle-${type}-${safeId}`;
@@ -2513,8 +3746,8 @@ window.togglePaceSwitch = function (type, rawId) {
                     window.paceGoals.forEach(goal => {
                         const isChecked = window.dashboardConfig.activePaceGoalId === goal.id;
                         const safeId = goal.id.replace(/[^a-zA-Z0-9]/g, '_');
-                        const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-                        const deadline = Utils.parseDateSafe(goal.deadline);
+                        const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                        const deadline = parseDateSafe(goal.deadline);
 
                         html += `
                         <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors">
@@ -2549,16 +3782,13 @@ window.togglePaceSwitch = function (type, rawId) {
         };
 
         window.saveTrendsSettings = function () {
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('edit-trends-pace-modal');
             showToast("Active pacing timeline updated!", "success");
         };
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-function calculateIndependentEstFinish() {
+        function calculateIndependentEstFinish() {
             const subjectStats = window.lastSubjectStats || {};
             const uniqueSubs = Array.from(new Set(window.getAllSubjects().map(s => s.subject)));
 
@@ -2583,18 +3813,18 @@ function calculateIndependentEstFinish() {
 
                 // Check if subject matches the current filter
                 let matchesFilter = false;
-                if (AppState.currentFilter === 'All') {
+                if (currentFilter === 'All') {
                     matchesFilter = true;
                 } else {
-                    const isTrack = window.tracks.some(t => t.name === AppState.currentFilter || t.id === AppState.currentFilter);
-                    const isProgram = Array.from(new Set(window.getAllPrograms().map(p => p.name || p))).includes(AppState.currentFilter);
+                    const isTrack = window.tracks.some(t => t.name === currentFilter || t.id === currentFilter);
+                    const isProgram = Array.from(new Set(window.getAllPrograms().map(p => p.name || p))).includes(currentFilter);
 
                     if (isTrack) {
-                        matchesFilter = (trackId === AppState.currentFilter || (window.tracks.find(t => t.id === trackId)?.name === AppState.currentFilter));
+                        matchesFilter = (trackId === currentFilter || (window.tracks.find(t => t.id === trackId)?.name === currentFilter));
                     } else if (isProgram) {
-                        matchesFilter = (sObj.program === AppState.currentFilter);
+                        matchesFilter = (sObj.program === currentFilter);
                     } else {
-                        matchesFilter = (subjectName === AppState.currentFilter);
+                        matchesFilter = (subjectName === currentFilter);
                     }
                 }
 
@@ -2625,14 +3855,7 @@ function calculateIndependentEstFinish() {
             return `${finishDateStr} (${daysNeeded} Days @ ${totalPace.toFixed(2)} Ch/Day)`;
         }
 
-        /**
- * Updates estimated timelines indicators, pacing, and days remaining bars.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.updateTrendsBar = function () {
+        window.updateTrendsBar = function () {
             const barStartVal = document.getElementById('trends-bar-start-date');
             const barPassedVal = document.getElementById('trends-bar-days-passed');
             const barRemainVal = document.getElementById('trends-bar-days-remaining');
@@ -2648,8 +3871,8 @@ window.updateTrendsBar = function () {
                 const activeGoal = activeGoalId ? window.paceGoals.find(g => g.id === activeGoalId) : null;
 
                 if (activeGoal) {
-                    const startDate = activeGoal.startDate ? Utils.parseDateSafe(activeGoal.startDate) : new Date(AppState.PLAN_START_DATE);
-                    const targetDate = Utils.parseDateSafe(activeGoal.deadline);
+                    const startDate = activeGoal.startDate ? parseDateSafe(activeGoal.startDate) : new Date(PLAN_START_DATE);
+                    const targetDate = parseDateSafe(activeGoal.deadline);
                     startDate.setHours(0, 0, 0, 0);
                     targetDate.setHours(23, 59, 59, 999);
 
@@ -2660,7 +3883,7 @@ window.updateTrendsBar = function () {
 
                     // 2. Days Passed
                     const daysPassed = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) + 1;
-                    barPassedVal.textContent = Utils.formatDaysPassed(Math.max(0, daysPassed));
+                    barPassedVal.textContent = window.formatDaysPassed(Math.max(0, daysPassed));
 
                     // 3. Days Remain
                     const diff = targetDate - today;
@@ -2706,13 +3929,13 @@ window.updateTrendsBar = function () {
                         } else {
                             window.paceGoals.forEach(g => {
                                 if (g.id === activeGoal.id) return;
-                                if (!AppState.globalStartDate || !AppState.globalEndDate) return;
+                                if (!globalStartDate || !globalEndDate) return;
 
-                                const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                                const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                                const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                                const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                                 gStart.setHours(0, 0, 0, 0);
                                 gEnd.setHours(23, 59, 59, 999);
-                                if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return;
+                                if (gEnd < globalStartDate || gStart > globalEndDate) return;
 
                                 if (g.type === 'bundle') {
                                     if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
@@ -2841,11 +4064,11 @@ window.updateTrendsBar = function () {
             const subInput = document.getElementById('edit-header-sub');
             if (subInput) subInput.value = window.dashboardConfig.subTitle || '';
 
-            // Validate AppState.currentFilter to prevent cross-device deletion crashes
-            if (AppState.currentFilter !== 'All') {
-                const isValidProg = window.tracks.some(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === AppState.currentFilter));
-                const isValidSub = window.getAllSubjects().some(s => s.subject === AppState.currentFilter);
-                if (!isValidProg && !isValidSub) AppState.currentFilter = 'All';
+            // Validate currentFilter to prevent cross-device deletion crashes
+            if (currentFilter !== 'All') {
+                const isValidProg = window.tracks.some(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === currentFilter));
+                const isValidSub = window.getAllSubjects().some(s => s.subject === currentFilter);
+                if (!isValidProg && !isValidSub) currentFilter = 'All';
             }
 
             updateGlobalDates();
@@ -2898,9 +4121,11 @@ window.updateTrendsBar = function () {
             if (document.getElementById('daily-actions-db-modal') && !document.getElementById('daily-actions-db-modal').classList.contains('hidden')) {
                 window.openDailyActionsDBModal();
             }
-            if (window.TimerService) {
-                window.TimerService.updateDisplay();
-                window.TimerService.restore();
+            if (window.renderTimerPage) {
+                window.renderTimerPage();
+            }
+            if (window.syncTimerStateFromCloud) {
+                window.syncTimerStateFromCloud();
             }
         }
 
@@ -2908,9 +4133,9 @@ window.updateTrendsBar = function () {
             const btn = document.getElementById('focus-today-btn');
             if (!btn) return;
             btn.addEventListener('click', () => {
-                if (AppState.currentFilter !== 'All') { AppState.currentFilter = 'All'; renderSubjectNavigation(); renderTaskList(); updateMetrics(); }
-                const todayString = Utils.formatDate(new Date());
-                const todayTask = AppState.tasks.find(t => t.date === todayString);
+                if (currentFilter !== 'All') { currentFilter = 'All'; renderSubjectNavigation(); renderTaskList(); updateMetrics(); }
+                const todayString = formatDate(new Date());
+                const todayTask = tasks.find(t => t.date === todayString);
                 if (todayTask && todayTask.type === 'study') {
                     setTimeout(() => {
                         const firstTaskCard = document.querySelector(`[id^="single-task-"][id$="-${todayTask.studyDay}"]`);
@@ -2925,15 +4150,15 @@ window.updateTrendsBar = function () {
         }
 
         function updateCountdown() {
-            if (!AppState.globalStartDate || !AppState.globalEndDate) {
+            if (!globalStartDate || !globalEndDate) {
                 safeSetHtml('countdown-timer', `<div class="text-center md:text-right"><span class="block text-[8px] md:text-[10px] uppercase font-black text-slate-400 tracking-wider">Final Deadline</span><span class="text-slate-400 font-black text-sm sm:text-base md:text-base drop-shadow-sm">Not Set</span></div>`);
                 safeSetHtml('time-gone-stats', `<div class="flex items-center space-x-2 md:space-x-3 justify-center md:justify-start"><div class="hidden md:flex p-2 md:p-2.5 bg-slate-100 dark:bg-slate-800/50 rounded-lg md:rounded-xl border border-slate-200 dark:border-slate-700/50"><svg class="w-4 h-4 md:w-5 md:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div class="text-center md:text-left"><span class="block text-[8px] md:text-[10px] uppercase font-black text-slate-400 tracking-wider">Time Elapsed</span><span class="text-slate-400 font-black text-sm sm:text-base md:text-base">Not Set</span></div></div>`);
                 return;
             }
 
             const today = new Date();
-            const start = new Date(AppState.globalStartDate);
-            const target = new Date(AppState.globalEndDate);
+            const start = new Date(globalStartDate);
+            const target = new Date(globalEndDate);
 
             const diffLeft = target - today;
             if (diffLeft > 0) {
@@ -2984,7 +4209,7 @@ window.updateTrendsBar = function () {
             }
         }
 
-        window.setFilter = function (val) { AppState.currentFilter = val; window.subjectDetailsState = {}; renderSubjectNavigation(); renderTaskList(); updateMetrics(); renderTrendCharts(); };
+        window.setFilter = function (val) { currentFilter = val; window.subjectDetailsState = {}; renderSubjectNavigation(); renderTaskList(); updateMetrics(); renderTrendCharts(); };
 
         window.setTrendFilter = function (f) {
             window.trendTimeFilter = f;
@@ -3004,27 +4229,20 @@ window.updateTrendsBar = function () {
             });
         };
 
-        /**
- * Renders the main dashboard task card items and checklist rows.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-function renderTaskList() {
+        function renderTaskList() {
             const list = document.getElementById('task-list');
             if (!list) return;
             list.className = 'flex flex-col space-y-6 md:space-y-8 w-full pb-4';
 
             let subjectsToRender = [];
-            if (AppState.currentFilter === 'All') {
+            if (currentFilter === 'All') {
                 subjectsToRender = window.getAllSubjects().map(s => s.subject);
             } else {
-                const isProgram = window.getAllPrograms().some(p => (p.name || p) === AppState.currentFilter);
+                const isProgram = window.getAllPrograms().some(p => (p.name || p) === currentFilter);
                 if (isProgram) {
-                    subjectsToRender = window.getAllSubjects().filter(s => s.program === AppState.currentFilter).map(s => s.subject);
+                    subjectsToRender = window.getAllSubjects().filter(s => s.program === currentFilter).map(s => s.subject);
                 } else {
-                    subjectsToRender = [AppState.currentFilter];
+                    subjectsToRender = [currentFilter];
                 }
             }
 
@@ -3048,7 +4266,7 @@ function renderTaskList() {
                 }
             });
 
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study') {
                     window.tracks.forEach(trackObj => {
                         const trackId = trackObj.id;
@@ -3115,8 +4333,8 @@ function renderTaskList() {
                     const link = window.subjectTimeLinks[sub];
                     if (link.type === 'date') {
                         hasTimeGoal = true;
-                        if (link.startDate) startDate = Utils.parseDateSafe(link.startDate);
-                        targetDate = Utils.parseDateSafe(link.date);
+                        if (link.startDate) startDate = parseDateSafe(link.startDate);
+                        targetDate = parseDateSafe(link.date);
                         targetDate.setHours(23, 59, 59, 999);
                         if (startDate) startDate.setHours(0, 0, 0, 0);
                         linkLabel = '<span class="block text-[8px] text-orange-500 dark:text-orange-400 mt-1 uppercase tracking-widest font-black bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded border border-orange-100 dark:border-orange-800/50 inline-block">Custom Timeline</span>';
@@ -3124,8 +4342,8 @@ function renderTaskList() {
                         const pg = window.paceGoals.find(g => g.id === link.id);
                         if (pg) {
                             hasTimeGoal = true;
-                            if (pg.startDate) startDate = Utils.parseDateSafe(pg.startDate);
-                            targetDate = Utils.parseDateSafe(pg.deadline);
+                            if (pg.startDate) startDate = parseDateSafe(pg.startDate);
+                            targetDate = parseDateSafe(pg.deadline);
                             targetDate.setHours(23, 59, 59, 999);
                             if (startDate) startDate.setHours(0, 0, 0, 0);
                             linkLabel = `<span class="block text-[8px] text-indigo-500 dark:text-indigo-400 mt-1 truncate max-w-[120px] mx-auto uppercase tracking-widest font-black bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800/50 inline-block" title="${pg.target}">Link: ${pg.target}</span>`;
@@ -3191,7 +4409,7 @@ function renderTaskList() {
 
                 let subjectDaysPassedStr = '<span class="opacity-60">0 Days Passed</span>';
                 if (completedCount > 0 && daysElapsed > 0) {
-                    subjectDaysPassedStr = `${Utils.formatDaysPassed(daysElapsed)} Passed`;
+                    subjectDaysPassedStr = `${window.formatDaysPassed(daysElapsed)} Passed`;
                 }
 
                 let estFinishStr = '--';
@@ -3358,7 +4576,7 @@ function renderTaskList() {
                             let revCompletedCount = 0;
                             if (window.revisionData.progress[sub]) {
                                 for (let i = 1; i <= staticChapters; i++) {
-                                    let isChapterSkipped = AppState.tasks.some(t => t.type === 'study' && window.tracks.some(trackObj => Array.isArray(t[trackObj.id + 'Tasks']) && t[trackObj.id + 'Tasks'].some(b => b.subject === sub && b.chapter === `Ch. ${i}` && b.skipped)));
+                                    let isChapterSkipped = tasks.some(t => t.type === 'study' && window.tracks.some(trackObj => Array.isArray(t[trackObj.id + 'Tasks']) && t[trackObj.id + 'Tasks'].some(b => b.subject === sub && b.chapter === `Ch. ${i}` && b.skipped)));
                                     if (!isChapterSkipped && window.revisionData.progress[sub][i]) {
                                         revCompletedCount++;
                                     }
@@ -3368,7 +4586,7 @@ function renderTaskList() {
 
                             let revGridHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5 mt-4">`;
                             for (let i = 1; i <= staticChapters; i++) {
-                                let isChapterSkipped = AppState.tasks.some(t => t.type === 'study' && window.tracks.some(trackObj => Array.isArray(t[trackObj.id + 'Tasks']) && t[trackObj.id + 'Tasks'].some(b => b.subject === sub && b.chapter === `Ch. ${i}` && b.skipped)));
+                                let isChapterSkipped = tasks.some(t => t.type === 'study' && window.tracks.some(trackObj => Array.isArray(t[trackObj.id + 'Tasks']) && t[trackObj.id + 'Tasks'].some(b => b.subject === sub && b.chapter === `Ch. ${i}` && b.skipped)));
                                 if (isChapterSkipped) continue;
                                 let isCompleted = window.revisionData.progress[sub] && window.revisionData.progress[sub][i];
                                 revGridHtml += generateRevisionTaskHtml(sub, i, isCompleted);
@@ -3493,7 +4711,7 @@ function renderTaskList() {
             const studyDayId = parseInt(e.target.dataset.studId);
             const type = e.target.dataset.type;
             const subTaskId = e.target.dataset.subtaskId;
-            const taskIndex = AppState.tasks.findIndex(t => t.studyDay === studyDayId && t.type === 'study');
+            const taskIndex = tasks.findIndex(t => t.studyDay === studyDayId && t.type === 'study');
             if (taskIndex === -1) return;
 
             const isCompleted = e.target.checked;
@@ -3501,9 +4719,9 @@ function renderTaskList() {
             let taskObj;
 
             const key = type + 'Tasks';
-            if (AppState.tasks[taskIndex][key]) {
-                AppState.tasks[taskIndex][key] = AppState.tasks[taskIndex][key].map(b => b.id === subTaskId ? { ...b, completed: isCompleted, completedAt: isCompleted ? nowIso : null } : b);
-                taskObj = AppState.tasks[taskIndex][key].find(b => b.id === subTaskId);
+            if (tasks[taskIndex][key]) {
+                tasks[taskIndex][key] = tasks[taskIndex][key].map(b => b.id === subTaskId ? { ...b, completed: isCompleted, completedAt: isCompleted ? nowIso : null } : b);
+                taskObj = tasks[taskIndex][key].find(b => b.id === subTaskId);
             }
 
             if (!taskObj) return;
@@ -3569,7 +4787,7 @@ function renderTaskList() {
             // 2. Optimistic UI update: Specific Subject Progress Bar (Prevents full DOM recreation)
             const safeSubId = taskObj.subject.replace(/[^a-zA-Z0-9]/g, '-');
             const subName = taskObj.subject;
-            const groupTasks = AppState.tasks.flatMap(t => t.type === 'study' ? (t[key] || []) : []).filter(x => x.subject === subName);
+            const groupTasks = tasks.flatMap(t => t.type === 'study' ? (t[key] || []) : []).filter(x => x.subject === subName);
             const completedCount = groupTasks.filter(x => x.completed).length;
 
             const sObj = syllabusStructure[type] ? syllabusStructure[type].find(s => s.subject === subName) : null;
@@ -3586,7 +4804,7 @@ function renderTaskList() {
             if (barEl) barEl.style.width = `${progressPct}%`;
 
             // 3. Optimistic UI update: Recalculate and update the 4 specific analytics cards inside the subject view
-            const allSubTasks = AppState.tasks.filter(t => t.type === 'study' && t[key] && t[key].some(b => b.subject === subName));
+            const allSubTasks = tasks.filter(t => t.type === 'study' && t[key] && t[key].some(b => b.subject === subName));
 
             let targetDate = null;
             let startDate = null;
@@ -3596,14 +4814,14 @@ function renderTaskList() {
                 const link = window.subjectTimeLinks[subName];
                 if (link.type === 'date') {
                     hasTimeGoal = true;
-                    if (link.startDate) startDate = Utils.parseDateSafe(link.startDate);
-                    targetDate = Utils.parseDateSafe(link.date);
+                    if (link.startDate) startDate = parseDateSafe(link.startDate);
+                    targetDate = parseDateSafe(link.date);
                 } else if (link.type === 'goal') {
                     const pg = window.paceGoals.find(g => g.id === link.id);
                     if (pg) {
                         hasTimeGoal = true;
-                        if (pg.startDate) startDate = Utils.parseDateSafe(pg.startDate);
-                        targetDate = Utils.parseDateSafe(pg.deadline);
+                        if (pg.startDate) startDate = parseDateSafe(pg.startDate);
+                        targetDate = parseDateSafe(pg.deadline);
                     }
                 }
             }
@@ -3698,7 +4916,7 @@ function renderTaskList() {
 
             let subjectDaysPassedStr = '<span class="opacity-60">0 Days Passed</span>';
             if (completedCount > 0 && daysElapsed > 0) {
-                subjectDaysPassedStr = `${Utils.formatDaysPassed(daysElapsed)} Passed`;
+                subjectDaysPassedStr = `${window.formatDaysPassed(daysElapsed)} Passed`;
             }
             const actDaysEl = document.getElementById(`tg-act-days-${safeSubId}`);
             if (actDaysEl) actDaysEl.innerHTML = subjectDaysPassedStr;
@@ -3717,7 +4935,7 @@ function renderTaskList() {
 
             // Core Global updates & Saves
             updateMetrics();
-            FirebaseService.saveToCloud();
+            saveToCloud();
 
             // Smart background debounce for heavy canvas operations
             if (window.chartDebounce) clearTimeout(window.chartDebounce);
@@ -3726,14 +4944,7 @@ function renderTaskList() {
             }, 600);
         }
 
-        /**
- * Calculates current progress statistics across all subjects and programs.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-function updateMetrics() {
+        function updateMetrics() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const msPerDay = 1000 * 60 * 60 * 24;
@@ -3741,7 +4952,7 @@ function updateMetrics() {
             const subjectStats = {};
             window.getAllSubjects().forEach(sub => { subjectStats[sub.subject] = { totalChapters: sub.chapters, tasksAssigned: 0, tasksCompleted: 0, earliestCompletedDate: null }; });
 
-            AppState.tasks.filter(t => t.type === 'study').forEach(task => {
+            tasks.filter(t => t.type === 'study').forEach(task => {
                 window.tracks.forEach(track => {
                     const key = track.id + 'Tasks';
                     if (Array.isArray(task[key])) {
@@ -3817,10 +5028,10 @@ function updateMetrics() {
             if (pBar) pBar.style.width = `${percentage}%`;
 
             // 2. Accurate Aggregated Pace Engine (Top Boxes)
-            if (!AppState.globalStartDate || !AppState.globalEndDate) {
+            if (!globalStartDate || !globalEndDate) {
                 // FALLBACK: Use actual pace based on 1st completed chapter across the entire system
                 let earliestDate = null;
-                AppState.tasks.forEach(t => {
+                tasks.forEach(t => {
                     if (t.type === 'study') {
                         window.tracks.forEach(track => {
                             const key = track.id + 'Tasks';
@@ -3880,7 +5091,7 @@ function updateMetrics() {
                     globalDaysNeededStr = '<span class="text-emerald-500 font-bold">0 Days</span>';
                     if (earliestDate) {
                         const daysElapsed = Math.max(0, Math.floor((today - start) / msPerDay) + 1);
-                        globalDaysPassedStr = `${Utils.formatDaysPassed(daysElapsed)} Passed`;
+                        globalDaysPassedStr = `${window.formatDaysPassed(daysElapsed)} Passed`;
                     }
                 } else if (globalCurPace <= 0) {
                     finishDisplay = '<span class="text-sm opacity-50 uppercase tracking-widest">No Data</span>';
@@ -3893,7 +5104,7 @@ function updateMetrics() {
                     globalDaysLeftStr = '<span class="text-slate-400 font-bold">No Goal</span>';
                     if (earliestDate) {
                         const daysElapsed = Math.max(0, Math.floor((today - start) / msPerDay) + 1);
-                        globalDaysPassedStr = `${Utils.formatDaysPassed(daysElapsed)} Passed`;
+                        globalDaysPassedStr = `${window.formatDaysPassed(daysElapsed)} Passed`;
                     }
                 }
 
@@ -3976,12 +5187,12 @@ function updateMetrics() {
                             if (g.type === 'global') return;
 
                             // Strict Time Period Constraint: Only aggregate if this goal intersects with the global timeline
-                            const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                            const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                            const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                            const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                             gStart.setHours(0, 0, 0, 0);
                             gEnd.setHours(23, 59, 59, 999);
 
-                            if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return; // Ignore if completely outside global period
+                            if (gEnd < globalStartDate || gStart > globalEndDate) return; // Ignore if completely outside global period
 
                             if (g.type === 'bundle') {
                                 if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
@@ -4014,8 +5225,8 @@ function updateMetrics() {
                     }
                 });
 
-                const start = new Date(AppState.globalStartDate); start.setHours(0, 0, 0, 0);
-                const end = new Date(AppState.globalEndDate); end.setHours(23, 59, 59, 999);
+                const start = new Date(globalStartDate); start.setHours(0, 0, 0, 0);
+                const end = new Date(globalEndDate); end.setHours(23, 59, 59, 999);
 
                 const remaining = Math.max(0, paceTotalChapters - paceCompleted);
                 const totalDays = Math.max(1, Math.ceil((end - start) / msPerDay));
@@ -4069,7 +5280,7 @@ function updateMetrics() {
                     finishDisplay = '<span class="text-emerald-500">Finished!</span>';
                     globalDaysLeftStr = '<span class="text-emerald-500 font-bold">Done</span>';
                     globalDaysNeededStr = '<span class="text-emerald-500 font-bold">0 Days</span>';
-                    globalDaysPassedStr = `${Utils.formatDaysPassed(Math.max(0, daysElapsed))} Passed`;
+                    globalDaysPassedStr = `${window.formatDaysPassed(Math.max(0, daysElapsed))} Passed`;
                 } else if (globalCurPace <= 0) {
                     if (today < start) finishDisplay = '<span class="text-sm font-black text-blue-400 uppercase tracking-widest">Future Timeline</span>';
                     else if (today > end) finishDisplay = '<span class="text-sm font-black text-red-500 uppercase tracking-widest">Overdue</span>';
@@ -4078,7 +5289,7 @@ function updateMetrics() {
                     if (diffGlobalDaysTG > 0) globalDaysLeftStr = `${diffGlobalDaysTG} Days Left`;
                     else if (diffGlobalDaysTG === 0) globalDaysLeftStr = `<span class="text-orange-400">Due Today</span>`;
                     else globalDaysLeftStr = `<span class="text-red-400">${Math.abs(diffGlobalDaysTG)} Days Overdue</span>`;
-                    globalDaysPassedStr = `${Utils.formatDaysPassed(Math.max(0, daysElapsed))} Passed`;
+                    globalDaysPassedStr = `${window.formatDaysPassed(Math.max(0, daysElapsed))} Passed`;
                 } else {
                     finishDisplay = maxProjectedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -4088,7 +5299,7 @@ function updateMetrics() {
 
                     const globalDaysLeftNeed = remaining / globalCurPace;
                     globalDaysNeededStr = `${Math.ceil(globalDaysLeftNeed)} Days Needed`;
-                    globalDaysPassedStr = `${Utils.formatDaysPassed(Math.max(0, daysElapsed))} Passed`;
+                    globalDaysPassedStr = `${window.formatDaysPassed(Math.max(0, daysElapsed))} Passed`;
                 }
 
                 safeSetText('target-req-pace', `${reqPaceDisplay} Ch/Day`);
@@ -4169,7 +5380,7 @@ function updateMetrics() {
                 } else if (today < start) {
                     progComment = { text: "Your assigned timelines haven't started yet. Get ready to begin when the time comes!", icon: "⏳", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800/50" };
                 } else if (today > end && remaining > 0) {
-                    progComment = { text: "The target timeline has expired but AppState.tasks remain. You are currently overdue!", icon: "⏰", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800/50" };
+                    progComment = { text: "The target timeline has expired but tasks remain. You are currently overdue!", icon: "⏰", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800/50" };
                 } else if (remaining <= 0 && paceTotalChapters > 0) {
                     progComment = { text: "Target timelines completely finished! Outstanding achievement.", icon: "🏆", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200 dark:border-emerald-800/50" };
                 } else if (globalCurPace >= globalReqPace && globalCurPace > 0) {
@@ -4179,7 +5390,7 @@ function updateMetrics() {
                 } else if (globalCurPace > 0) {
                     progComment = { text: "You're falling behind the required pace. Time to double down on studies!", icon: "⚠️", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-200 dark:border-orange-800/50" };
                 } else {
-                    progComment = { text: "No chapters completed in this active timeline yet! Start ticking off AppState.tasks to build momentum.", icon: "🚨", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800/50" };
+                    progComment = { text: "No chapters completed in this active timeline yet! Start ticking off tasks to build momentum.", icon: "🚨", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800/50" };
                 }
 
                 safeSetHtml('prog-comment', `<div class="flex items-start space-x-3 p-3.5 rounded-xl border ${progComment.bg} ${progComment.border} shadow-sm transition-all duration-300 hover:shadow-md"><span class="text-lg md:text-xl drop-shadow-sm">${progComment.icon}</span><p class="text-[10px] md:text-xs font-bold leading-relaxed mt-0.5 ${progComment.color}">${progComment.text}</p></div>`);
@@ -4190,7 +5401,7 @@ function updateMetrics() {
             renderCategoryProgress(subjectStats);
             window.renderPaceGoals(subjectStats);
 
-            if (AppState.progressChart) { AppState.progressChart.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted]; AppState.progressChart.update(); }
+            if (progressChart) { progressChart.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted]; progressChart.update(); }
 
             // Compact Global Completion for Dashboard
             safeSetText('db-progress-text', `${percentage}%`);
@@ -4286,13 +5497,13 @@ function updateMetrics() {
                         // Old fallback auto-aggregation
                         window.paceGoals.forEach(g => {
                             if (g.id === goal.id) return;
-                            if (!AppState.globalStartDate || !AppState.globalEndDate) return;
+                            if (!globalStartDate || !globalEndDate) return;
 
-                            const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                            const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                            const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                            const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                             gStart.setHours(0, 0, 0, 0);
                             gEnd.setHours(23, 59, 59, 999);
-                            if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return; // Restrict to overlapping scopes
+                            if (gEnd < globalStartDate || gStart > globalEndDate) return; // Restrict to overlapping scopes
 
                             if (g.type === 'bundle') {
                                 if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
@@ -4347,8 +5558,8 @@ function updateMetrics() {
                     programSubs.forEach(sub => { if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; } });
                 }
 
-                const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-                const targetDate = Utils.parseDateSafe(goal.deadline);
+                const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                const targetDate = parseDateSafe(goal.deadline);
                 startDate.setHours(0, 0, 0, 0); targetDate.setHours(23, 59, 59, 999);
 
                 const remaining = Math.max(0, total - completed);
@@ -4408,16 +5619,16 @@ function updateMetrics() {
                 const reqBg = isBehind ? 'bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20';
 
                 let isActiveFilter = false;
-                if (AppState.currentFilter !== 'All') {
-                    const sObj = window.getAllSubjects().find(s => s.subject === AppState.currentFilter);
-                    const filterProg = sObj ? sObj.program : AppState.currentFilter;
+                if (currentFilter !== 'All') {
+                    const sObj = window.getAllSubjects().find(s => s.subject === currentFilter);
+                    const filterProg = sObj ? sObj.program : currentFilter;
 
                     if (goal.type === 'bundle') {
-                        if (goal.subjects && (goal.subjects.includes(AppState.currentFilter) || goal.program === AppState.currentFilter)) isActiveFilter = true;
-                        if (goal.programs && (goal.programs.includes(AppState.currentFilter) || goal.programs.includes(filterProg))) isActiveFilter = true;
-                    } else if (goal.type === 'program' && goal.target === AppState.currentFilter) {
+                        if (goal.subjects && (goal.subjects.includes(currentFilter) || goal.program === currentFilter)) isActiveFilter = true;
+                        if (goal.programs && (goal.programs.includes(currentFilter) || goal.programs.includes(filterProg))) isActiveFilter = true;
+                    } else if (goal.type === 'program' && goal.target === currentFilter) {
                         isActiveFilter = true;
-                    } else if (goal.type === 'subject' && goal.target === AppState.currentFilter) {
+                    } else if (goal.type === 'subject' && goal.target === currentFilter) {
                         isActiveFilter = true;
                     } else if (goal.type === 'global') {
                         isActiveFilter = true;
@@ -4482,7 +5693,7 @@ function updateMetrics() {
                                     <span class="block text-[8px] uppercase tracking-widest font-black text-slate-500 opacity-80 mb-0.5">Cur Pace</span>
                                     <div class="font-black text-xs md:text-sm text-slate-700 dark:text-slate-300">${curPace} <span class="text-[8px] opacity-70">ch/d</span></div>
                                 </div>
-                                <div class="text-[9px] font-black text-emerald-500 mt-1.5 uppercase tracking-widest">${Utils.formatDaysPassed(Math.max(0, daysElapsed))} Passed</div>
+                                <div class="text-[9px] font-black text-emerald-500 mt-1.5 uppercase tracking-widest">${window.formatDaysPassed(Math.max(0, daysElapsed))} Passed</div>
                             </div>
                             <div class="col-span-2 p-2.5 rounded-xl bg-slate-900 dark:bg-slate-900 border border-slate-800 flex justify-between items-center shadow-inner">
                                 <div class="flex flex-col">
@@ -4612,7 +5823,7 @@ function updateMetrics() {
             let html = '';
 
             const btnClass = (val) => {
-                const isActive = AppState.currentFilter === val;
+                const isActive = currentFilter === val;
                 return `active:scale-95 whitespace-nowrap px-4 py-2 md:px-5 md:py-2.5 rounded-full text-[11px] md:text-sm font-black transition-all duration-300 ${isActive ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border-transparent scale-105' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:shadow-md'}`;
             };
 
@@ -4744,22 +5955,15 @@ function updateMetrics() {
         function renderChart() {
             const canvas = document.getElementById('progressChart');
             if (!canvas) return;
-            if (AppState.progressChart) AppState.progressChart.destroy();
-            AppState.progressChart = new Chart(canvas.getContext('2d'), {
+            if (progressChart) progressChart.destroy();
+            progressChart = new Chart(canvas.getContext('2d'), {
                 type: 'doughnut',
                 data: { datasets: [{ data: [0, totalStaticChapters], backgroundColor: ['#3b82f6', 'rgba(148, 163, 184, 0.1)'], borderWidth: 0 }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '82%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
             });
         }
 
-        /**
- * Draws all analytical logs charts including monthly trends and revisions history.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-function renderTrendCharts() {
+        function renderTrendCharts() {
             let activeStreak = 0;
             // CLEANUP ORPHANED DATA
             let validProgs = window.getAllPrograms().map(p => p.name || p);
@@ -4789,8 +5993,8 @@ function renderTrendCharts() {
             }
             const activeGoal = activeGoalId ? window.paceGoals.find(g => g.id === activeGoalId) : null;
 
-            let chartStart = activeGoal && activeGoal.startDate ? Utils.parseDateSafe(activeGoal.startDate) : new Date(AppState.PLAN_START_DATE);
-            let chartEnd = activeGoal && activeGoal.deadline ? Utils.parseDateSafe(activeGoal.deadline) : new Date(AppState.PLAN_END_DATE);
+            let chartStart = activeGoal && activeGoal.startDate ? parseDateSafe(activeGoal.startDate) : new Date(PLAN_START_DATE);
+            let chartEnd = activeGoal && activeGoal.deadline ? parseDateSafe(activeGoal.deadline) : new Date(PLAN_END_DATE);
             chartStart.setHours(0, 0, 0, 0);
             chartEnd.setHours(23, 59, 59, 999);
 
@@ -4863,18 +6067,18 @@ function renderTrendCharts() {
             const daysInMonth = new Date(todayObj.getFullYear(), currentMonth + 1, 0).getDate();
             let latestActiveMonth = -1;
 
-            // 1. Scan completed chapters from AppState.tasks and weekly targets to get their actual completion date (earliest)
+            // 1. Scan completed chapters from tasks and weekly targets to get their actual completion date (earliest)
             const completedChaptersMap = new Map();
 
-            // Scan all AppState.tasks (ignoring AppState.PLAN_START_DATE limit for completion trends)
-            AppState.tasks.forEach(t => {
+            // Scan all tasks (ignoring PLAN_START_DATE limit for completion trends)
+            tasks.forEach(t => {
                 const taskDate = getTaskDate(t);
                 window.tracks.forEach(track => {
                     const key = track.id + 'Tasks';
                     if (t.type === 'study' && Array.isArray(t[key])) {
                         t[key].forEach(b => {
                             if (b.completed) {
-                                const compDate = b.completedAt ? Utils.parseDateSafe(b.completedAt) : taskDate;
+                                const compDate = b.completedAt ? parseDateSafe(b.completedAt) : taskDate;
                                 const uniqueKey = `${track.id}|${b.subject}|${b.chapter}`;
                                 if (!completedChaptersMap.has(uniqueKey) || completedChaptersMap.get(uniqueKey) > compDate) {
                                     completedChaptersMap.set(uniqueKey, compDate);
@@ -4891,10 +6095,10 @@ function renderTrendCharts() {
                     const targets = window.weeklyTargetsDatabase[weekKey] || [];
                     targets.forEach(t => {
                         if (t.completed) {
-                            let compDate = t.completedAt ? Utils.parseDateSafe(t.completedAt) : null;
+                            let compDate = t.completedAt ? parseDateSafe(t.completedAt) : null;
                             if (!compDate) {
                                 const parts = weekKey.split(' - ');
-                                if (parts[0]) compDate = Utils.parseDateSafe(parts[0]);
+                                if (parts[0]) compDate = parseDateSafe(parts[0]);
                             }
                             if (!compDate || isNaN(compDate.getTime())) {
                                 compDate = new Date();
@@ -4908,8 +6112,8 @@ function renderTrendCharts() {
                 });
             }
 
-            // 2. Scan AppState.tasks for custom action calculations
-            AppState.tasks.forEach(t => {
+            // 2. Scan tasks for custom action calculations
+            tasks.forEach(t => {
                 const taskDate = getTaskDate(t);
                 if (taskDate < chartStart) return; // Sync baseline start date!
                 const tYear = taskDate.getFullYear();
@@ -5003,7 +6207,7 @@ function renderTrendCharts() {
                 for (let i = 0; i < currentDay; i++) {
                     const dayDate = new Date(todayObj.getFullYear(), todayObj.getMonth(), i + 1);
                     dayDate.setHours(0, 0, 0, 0);
-                    if (dayDate >= AppState.PLAN_START_DATE) {
+                    if (dayDate >= PLAN_START_DATE) {
                         validDaysCountThisMonth++;
                         runningTotal += actDaily[a.id][i] || 0;
                         actDaily[a.id][i] = Math.round((runningTotal / validDaysCountThisMonth) * 100);
@@ -5083,7 +6287,7 @@ function renderTrendCharts() {
                     let totalPossible = window.customActions.length * elapsedDays;
                     let completedCount = 0;
 
-                    AppState.tasks.forEach(t => {
+                    tasks.forEach(t => {
                         const taskDate = getTaskDate(t);
                         if (taskDate < chartStart) return; // Skip if before start date
                         if (taskDate.getFullYear() === todayObj.getFullYear() && taskDate.getMonth() === todayObj.getMonth()) {
@@ -5100,15 +6304,15 @@ function renderTrendCharts() {
                     let checkDate = new Date();
                     checkDate.setHours(0, 0, 0, 0);
 
-                    const tTodayStr = Utils.formatDate(checkDate);
-                    const tTodayObj = AppState.tasks.find(t => t.date === tTodayStr);
+                    const tTodayStr = formatDate(checkDate);
+                    const tTodayObj = tasks.find(t => t.date === tTodayStr);
                     let todayHasAction = false;
                     window.customActions.forEach(a => { if (tTodayObj && tTodayObj[a.id]) todayHasAction = true; });
 
                     if (!todayHasAction) {
                         let yesterday = new Date(checkDate.getTime() - 24 * 60 * 60 * 1000);
-                        const yestStr = Utils.formatDate(yesterday);
-                        const yestTaskObj = AppState.tasks.find(t => t.date === yestStr);
+                        const yestStr = formatDate(yesterday);
+                        const yestTaskObj = tasks.find(t => t.date === yestStr);
                         let yestHasAction = false;
                         window.customActions.forEach(a => { if (yestTaskObj && yestTaskObj[a.id]) yestHasAction = true; });
                         if (yestHasAction) {
@@ -5117,9 +6321,9 @@ function renderTrendCharts() {
                     }
 
                     while (true) {
-                        const dStr = Utils.formatDate(checkDate);
-                        const tObj = AppState.tasks.find(t => t.date === dStr);
-                        if (checkDate < chartStart) break; // Streak cannot start before AppState.PLAN_START_DATE
+                        const dStr = formatDate(checkDate);
+                        const tObj = tasks.find(t => t.date === dStr);
+                        if (checkDate < chartStart) break; // Streak cannot start before PLAN_START_DATE
                         let hasAction = false;
                         window.customActions.forEach(a => { if (tObj && tObj[a.id]) hasAction = true; });
                         if (hasAction) {
@@ -5157,7 +6361,7 @@ function renderTrendCharts() {
 
                 const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
                 let mDatasets = sortedActions.map(a => ({
-                    label: a.title, data: actDaily[a.id], borderColor: AppState.twColors[a.color].hex, backgroundColor: AppState.twColors[a.color].hex + '25', tension: 0.4, borderWidth: 3, pointBackgroundColor: AppState.twColors[a.color].hex, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.monthly[a.id]
+                    label: a.title, data: actDaily[a.id], borderColor: twColors[a.color].hex, backgroundColor: twColors[a.color].hex + '25', tension: 0.4, borderWidth: 3, pointBackgroundColor: twColors[a.color].hex, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.monthly[a.id]
                 }));
                 if (window.monthlyChartActions) {
                     window.monthlyChartActions.data.labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -5172,7 +6376,7 @@ function renderTrendCharts() {
             if (ctxYearly) {
                 const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
                 let yDatasets = sortedActions.map(a => ({
-                    label: a.title, data: actCum[a.id], borderColor: AppState.twColors[a.color].hex, backgroundColor: AppState.twColors[a.color].hex + '15', tension: 0.4, borderWidth: 3, pointBackgroundColor: AppState.twColors[a.color].hex, pointRadius: 3, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.yearly[a.id]
+                    label: a.title, data: actCum[a.id], borderColor: twColors[a.color].hex, backgroundColor: twColors[a.color].hex + '15', tension: 0.4, borderWidth: 3, pointBackgroundColor: twColors[a.color].hex, pointRadius: 3, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', fill: true, hidden: !window.chartVisibility.yearly[a.id]
                 }));
                 if (window.yearlyChartActions) {
                     window.yearlyChartActions.data.labels = months;
@@ -5238,7 +6442,7 @@ function renderTrendCharts() {
             const totalActEl = document.getElementById('analytics-total-actions');
             if (totalActEl) {
                 let totalLoggedActions = 0;
-                AppState.tasks.forEach(t => {
+                tasks.forEach(t => {
                     window.customActions.forEach(a => {
                         if (t[a.id]) totalLoggedActions++;
                     });
@@ -5253,7 +6457,7 @@ function renderTrendCharts() {
 
             const daysRemainEl = document.getElementById('analytics-days-remaining');
             if (daysRemainEl) {
-                const diffRem = AppState.PLAN_END_DATE.getTime() - todayObj.getTime();
+                const diffRem = PLAN_END_DATE.getTime() - todayObj.getTime();
                 const daysRem = Math.max(0, Math.ceil(diffRem / (1000 * 60 * 60 * 24)));
                 daysRemainEl.textContent = daysRem;
             }
@@ -5270,8 +6474,8 @@ function renderTrendCharts() {
             const container = document.getElementById('yearly-daily-grid');
             if (!container) return;
             let html = '';
-            for (let i = AppState.tasks.length - 1; i >= 0; i--) {
-                const t = AppState.tasks[i];
+            for (let i = tasks.length - 1; i >= 0; i--) {
+                const t = tasks[i];
                 if (getTaskDate(t) > new Date()) continue;
                 let c = 0; window.customActions.forEach(a => { if (t[a.id]) c++; });
                 const pct = window.customActions.length > 0 ? Math.round((c / window.customActions.length) * 100) : 0;
@@ -5289,11 +6493,11 @@ function renderTrendCharts() {
             if (subj === 'Revision') return;
             let subjectSlots = []; let chapters = [];
             const key = prog + 'Tasks';
-            for (let i = 0; i < AppState.tasks.length; i++) {
-                if (AppState.tasks[i].type !== 'study') continue;
-                if (Array.isArray(AppState.tasks[i][key])) {
-                    for (let j = 0; j < AppState.tasks[i][key].length; j++) {
-                        if (AppState.tasks[i][key][j].subject === subj && !AppState.tasks[i][key][j].completed) {
+            for (let i = 0; i < tasks.length; i++) {
+                if (tasks[i].type !== 'study') continue;
+                if (Array.isArray(tasks[i][key])) {
+                    for (let j = 0; j < tasks[i][key].length; j++) {
+                        if (tasks[i][key][j].subject === subj && !tasks[i][key][j].completed) {
                             subjectSlots.push({ tIdx: i, bIdx: j }); chapters.push({ ...tasks[i][key][j] });
                         }
                     }
@@ -5308,7 +6512,7 @@ function renderTrendCharts() {
             });
             for (let k = 0; k < subjectSlots.length; k++) {
                 const slot = subjectSlots[k]; const chObj = chapters[k];
-                AppState.tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: AppState.tasks[slot.tIdx][key][slot.bIdx].id };
+                tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: tasks[slot.tIdx][key][slot.bIdx].id };
             }
         }
 
@@ -5327,7 +6531,7 @@ function renderTrendCharts() {
             }
             window.updateLegends();
             if (chartKey === 'prog') {
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
             }
         };
@@ -5384,10 +6588,10 @@ function renderTrendCharts() {
             }
 
             const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
-            let actHtml = sortedActions.map(a => getLegend('monthly', a.id, AppState.twColors[a.color].hex, a.title, a.id)).join('');
+            let actHtml = sortedActions.map(a => getLegend('monthly', a.id, twColors[a.color].hex, a.title, a.id)).join('');
             const aLeg = document.getElementById('act-legend'); if (aLeg) aLeg.innerHTML = actHtml;
 
-            let yearHtml = sortedActions.map(a => getLegend('yearly', a.id, AppState.twColors[a.color].hex, a.title, a.id)).join('');
+            let yearHtml = sortedActions.map(a => getLegend('yearly', a.id, twColors[a.color].hex, a.title, a.id)).join('');
             const yLeg = document.getElementById('yearly-legend'); if (yLeg) yLeg.innerHTML = yearHtml;
 
             const sLeg = document.getElementById('subject-trend-legend');
@@ -5410,8 +6614,8 @@ function renderTrendCharts() {
         };
 
         window.renderDailyTracker = function () {
-            const todayStr = Utils.formatDate(new Date());
-            const todayTask = AppState.tasks.find(t => t.date === todayStr);
+            const todayStr = formatDate(new Date());
+            const todayTask = tasks.find(t => t.date === todayStr);
             let c = 0; window.customActions.forEach(a => { if (todayTask && todayTask[a.id]) c++; });
             const dailyPct = window.customActions.length > 0 ? Math.round((c / window.customActions.length) * 100) : 0;
 
@@ -5450,7 +6654,7 @@ function renderTrendCharts() {
             const sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
             sortedActions.forEach(cfg => {
                 const state = todayTask ? todayTask[cfg.id] : false;
-                const cMap = AppState.twColors[cfg.color];
+                const cMap = twColors[cfg.color];
 
                 const cardHtml = `
                 <div class="bg-white dark:bg-slate-800 p-5 md:p-6 rounded-3xl md:rounded-[2rem] shadow-sm flex flex-col transition-all duration-300 min-h-[300px] border-2 ${state === true ? cMap.border + ' shadow-lg' : (state === false ? 'border-red-500 shadow-lg shadow-red-500/10' : 'border-slate-200 dark:border-slate-700')}">
@@ -5500,7 +6704,7 @@ function renderTrendCharts() {
                 
                 sortedActions.forEach(cfg => {
                     const state = todayTask ? todayTask[cfg.id] : false;
-                    const cMap = AppState.twColors[cfg.color];
+                    const cMap = twColors[cfg.color];
                     const isActive = state === true;
                     
                     const activeStyle = `background-color: ${cMap.hex}; border-color: ${cMap.hex}; color: white; box-shadow: 0 4px 12px ${cMap.hex}33;`;
@@ -5554,20 +6758,20 @@ function renderTrendCharts() {
         };
 
         window.renderDailyLogs = function () {
-            const todayStr = Utils.formatDate(new Date());
-            let idx = AppState.tasks.findIndex(t => t.date === todayStr);
-            if (idx === -1) idx = AppState.tasks.length - 1;
+            const todayStr = formatDate(new Date());
+            let idx = tasks.findIndex(t => t.date === todayStr);
+            if (idx === -1) idx = tasks.length - 1;
 
-            const cutoffDate = new Date(AppState.PLAN_START_DATE);
+            const cutoffDate = new Date(PLAN_START_DATE);
             cutoffDate.setHours(0, 0, 0, 0);
 
             const fill = (elId, key) => {
                 const el = document.getElementById(elId); if (!el) return;
                 let html = '<div class="grid grid-cols-4 gap-1.5 md:gap-2 overflow-y-auto custom-scrollbar flex-1 pr-1 pb-1 content-start mt-2" style="max-height: 180px; min-height: 150px;">';
                 for (let i = idx; i >= 0; i--) {
-                    const t = AppState.tasks[i];
+                    const t = tasks[i];
                     const tDate = getTaskDate(t);
-                    if (tDate < cutoffDate) break; // Stop rendering if before AppState.PLAN_START_DATE
+                    if (tDate < cutoffDate) break; // Stop rendering if before PLAN_START_DATE
 
                     const val = t[key];
                     const bgClass = val ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-[0_2px_8px_rgba(16,185,129,0.4)] border-transparent' : 'bg-gradient-to-br from-red-400 to-red-500 text-white shadow-[0_2px_8px_rgba(239,68,68,0.4)] border-transparent';
@@ -5580,12 +6784,12 @@ function renderTrendCharts() {
         };
 
         window.setDailyState = function (type, state) {
-            const todayStr = Utils.formatDate(new Date());
-            const idx = AppState.tasks.findIndex(t => t.date === todayStr);
+            const todayStr = formatDate(new Date());
+            const idx = tasks.findIndex(t => t.date === todayStr);
 
             if (idx > -1) {
-                AppState.tasks[idx][type] = state;
-                FirebaseService.saveToCloud();
+                tasks[idx][type] = state;
+                saveToCloud();
                 renderDailyTracker();
                 renderDailyLogs();
 
@@ -5603,7 +6807,7 @@ function renderTrendCharts() {
             window.currentAnalyticsAction = typeKey;
             const cfgAct = window.customActions.find(a => a.id === typeKey);
             if (!cfgAct) return;
-            const cMap = AppState.twColors[cfgAct.color];
+            const cMap = twColors[cfgAct.color];
 
             safeSetText('am-title', cfgAct.title + " Analytics");
             safeSetClass('am-icon-box', `p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl md:rounded-2xl shadow-inner shrink-0 ${cMap.bgLt} ${cMap.text}`);
@@ -5614,13 +6818,13 @@ function renderTrendCharts() {
             const statLabels = ['am-stat-label-1', 'am-stat-label-2', 'am-stat-label-3'];
             statLabels.forEach(id => safeSetClass(id, `block text-[7px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5 sm:mb-1 md:mb-1.5 leading-tight ${cMap.text}`));
 
-            const todayStr = Utils.formatDate(new Date());
-            let idx = AppState.tasks.findIndex(t => t.date === todayStr); if (idx === -1) idx = AppState.tasks.length - 1;
+            const todayStr = formatDate(new Date());
+            let idx = tasks.findIndex(t => t.date === todayStr); if (idx === -1) idx = tasks.length - 1;
 
             let total = 0;
             let possibleDays = 0;
-            AppState.tasks.forEach((t, i) => {
-                if (i <= idx && getTaskDate(t) >= AppState.PLAN_START_DATE) {
+            tasks.forEach((t, i) => {
+                if (i <= idx && getTaskDate(t) >= PLAN_START_DATE) {
                     possibleDays++;
                     if (t[typeKey]) total++;
                 }
@@ -5628,8 +6832,8 @@ function renderTrendCharts() {
 
             let streak = 0;
             for (let i = idx; i >= 0; i--) {
-                if (getTaskDate(AppState.tasks[i]) < AppState.PLAN_START_DATE) break;
-                if (AppState.tasks[i][typeKey]) streak++;
+                if (getTaskDate(tasks[i]) < PLAN_START_DATE) break;
+                if (tasks[i][typeKey]) streak++;
                 else break;
             }
 
@@ -5641,10 +6845,10 @@ function renderTrendCharts() {
             safeSetClass('am-streak', valClass);
             safeSetClass('am-percent', valClass);
 
-            const sYear = AppState.globalStartDate ? AppState.globalStartDate.getFullYear() : AppState.PLAN_START_DATE.getFullYear();
-            const sMonth = AppState.globalStartDate ? AppState.globalStartDate.getMonth() : AppState.PLAN_START_DATE.getMonth();
-            const eYear = AppState.globalEndDate ? AppState.globalEndDate.getFullYear() : AppState.PLAN_END_DATE.getFullYear();
-            const eMonth = AppState.globalEndDate ? AppState.globalEndDate.getMonth() : AppState.PLAN_END_DATE.getMonth();
+            const sYear = globalStartDate ? globalStartDate.getFullYear() : PLAN_START_DATE.getFullYear();
+            const sMonth = globalStartDate ? globalStartDate.getMonth() : PLAN_START_DATE.getMonth();
+            const eYear = globalEndDate ? globalEndDate.getFullYear() : PLAN_END_DATE.getFullYear();
+            const eMonth = globalEndDate ? globalEndDate.getMonth() : PLAN_END_DATE.getMonth();
             const totalMonths = Math.max(1, (eYear - sYear) * 12 + (eMonth - sMonth) + 1);
 
             const months = [];
@@ -5654,7 +6858,7 @@ function renderTrendCharts() {
             }
 
             let data = Array(totalMonths).fill(0);
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 const taskDate = getTaskDate(t);
                 const tYear = taskDate.getFullYear();
                 const tMonth = taskDate.getMonth();
@@ -5664,14 +6868,14 @@ function renderTrendCharts() {
 
             const canvas = document.getElementById('masterLineChart');
             if (canvas) {
-                if (AppState.masterLineChart) {
-                    AppState.masterLineChart.data.datasets[0].data = data;
-                    AppState.masterLineChart.data.datasets[0].borderColor = cMap.hex;
-                    AppState.masterLineChart.data.datasets[0].backgroundColor = cMap.hex + '25';
-                    AppState.masterLineChart.data.datasets[0].pointBackgroundColor = cMap.hex;
-                    AppState.masterLineChart.update('none');
+                if (masterLineChart) {
+                    masterLineChart.data.datasets[0].data = data;
+                    masterLineChart.data.datasets[0].borderColor = cMap.hex;
+                    masterLineChart.data.datasets[0].backgroundColor = cMap.hex + '25';
+                    masterLineChart.data.datasets[0].pointBackgroundColor = cMap.hex;
+                    masterLineChart.update('none');
                 } else {
-                    AppState.masterLineChart = new Chart(canvas.getContext('2d'), {
+                    masterLineChart = new Chart(canvas.getContext('2d'), {
                         type: 'line', data: { labels: months, datasets: [{ data, borderColor: cMap.hex, tension: 0.4, fill: true, backgroundColor: cMap.hex + '25', borderWidth: window.innerWidth < 640 ? 2 : 3, pointBackgroundColor: cMap.hex, pointRadius: window.innerWidth < 640 ? 0 : 3, pointHoverRadius: 6, pointHoverBackgroundColor: '#fff' }] },
                         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', bodyColor: '#cbd5e1', cornerRadius: 8, padding: 10 } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.08)', drawBorder: false, borderDash: [5, 5] }, ticks: { font: { size: window.innerWidth < 640 ? 8 : 10 }, color: '#64748b' } }, x: { grid: { display: false, drawBorder: false }, ticks: { font: { size: window.innerWidth < 640 ? 8 : 10 }, color: '#64748b', maxTicksLimit: window.innerWidth < 640 ? 6 : 12 } } } }
                     });
@@ -5682,8 +6886,8 @@ function renderTrendCharts() {
             if (grid) {
                 let gHtml = '';
                 for (let i = idx; i >= Math.max(0, idx - 179); i--) {
-                    const t = AppState.tasks[i];
-                    if (getTaskDate(t) < AppState.PLAN_START_DATE) break;
+                    const t = tasks[i];
+                    if (getTaskDate(t) < PLAN_START_DATE) break;
                     const done = t[typeKey];
                     const btnClass = done ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-[0_2px_8px_rgba(34,197,94,0.4)] border-transparent' : 'bg-gradient-to-br from-red-400 to-red-500 text-white shadow-[0_2px_8px_rgba(239,68,68,0.4)] border-transparent';
                     gHtml += `<button onclick="toggleModalDay(${t.id}, '${typeKey}')" class="flex flex-col items-center justify-center p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl ${btnClass} transition-all duration-300 w-full aspect-square shrink-0 hover:scale-105 active:scale-90 focus:outline-none snap-start"><span class="text-[6px] sm:text-[7px] md:text-[9px] uppercase font-black opacity-90 mb-0.5">${t.date.split(' ')[0]}</span><span class="text-[9px] sm:text-[11px] md:text-sm font-black leading-none">${t.date.split(' ')[1]}</span></button>`;
@@ -5726,10 +6930,10 @@ function renderTrendCharts() {
                 } else {
                     window.paceGoals.forEach(g => {
                         if (g.id === goal.id) return;
-                        const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                        const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                        const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                        const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                         gStart.setHours(0, 0, 0, 0); gEnd.setHours(23, 59, 59, 999);
-                        if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return;
+                        if (gEnd < globalStartDate || gStart > globalEndDate) return;
 
                         if (g.type === 'bundle') {
                             if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
@@ -5796,8 +7000,8 @@ function renderTrendCharts() {
 
             if (targetedSubjects.size === 0) subjectsListHtml = '<div class="p-6 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl"><p class="text-xs font-bold text-slate-400">No subjects currently mapped or active in this scope.</p></div>';
 
-            const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-            const targetDate = Utils.parseDateSafe(goal.deadline);
+            const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+            const targetDate = parseDateSafe(goal.deadline);
             startDate.setHours(0, 0, 0, 0); targetDate.setHours(23, 59, 59, 999);
             const today = new Date(); today.setHours(0, 0, 0, 0);
             const msPerDay = 1000 * 60 * 60 * 24;
@@ -5838,14 +7042,7 @@ function renderTrendCharts() {
             openModal('global-history-modal');
         };
 
-        /**
- * Renders historical data table items for actions logged in the past.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.renderGlobalHistoryContent = function () {
+        window.renderGlobalHistoryContent = function () {
             const container = document.getElementById('ghm-list');
             if (!container) return;
 
@@ -5868,7 +7065,7 @@ window.renderGlobalHistoryContent = function () {
                 };
             });
 
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study') {
                     const fallbackDate = getTaskDate(t);
                     window.tracks.forEach(track => {
@@ -5987,8 +7184,8 @@ window.renderGlobalHistoryContent = function () {
             `).join('');
 
             // Data mapping for Trend Chart
-            const sStartDate = AppState.globalStartDate || AppState.PLAN_START_DATE;
-            const sEndDate = AppState.globalEndDate || AppState.PLAN_END_DATE;
+            const sStartDate = globalStartDate || PLAN_START_DATE;
+            const sEndDate = globalEndDate || PLAN_END_DATE;
 
             let chartStart = new Date(sStartDate.getTime());
             let chartEnd = new Date(sEndDate.getTime());
@@ -6142,7 +7339,7 @@ window.renderGlobalHistoryContent = function () {
             const select = document.getElementById('stm-time-goal-select');
             select.innerHTML = '<option value="">-- None Selected --</option>';
             window.paceGoals.forEach(g => {
-                select.innerHTML += `<option value="${g.id}">${g.target} (${Utils.formatDate(Utils.parseDateSafe(g.deadline))})</option>`;
+                select.innerHTML += `<option value="${g.id}">${g.target} (${formatDate(parseDateSafe(g.deadline))})</option>`;
             });
 
             document.getElementById('stm-time-start').value = '';
@@ -6178,7 +7375,7 @@ window.renderGlobalHistoryContent = function () {
                 delete window.subjectTimeLinks[sub];
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('subject-time-modal');
             showToast("Subject Time Goal updated!", "success");
@@ -6190,7 +7387,7 @@ window.renderGlobalHistoryContent = function () {
             if (window.subjectTimeLinks && window.subjectTimeLinks[sub]) {
                 delete window.subjectTimeLinks[sub];
             }
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('subject-time-modal');
             showToast("Time Goal reset to default timeline.", "success");
@@ -6259,20 +7456,20 @@ window.renderGlobalHistoryContent = function () {
                 syllabusStructure[newTrack] = syllabusStructure[newTrack] || [];
                 syllabusStructure[newTrack].push(sObj);
 
-                // Reallocate historical/future study AppState.tasks
-                for (let i = 0; i < AppState.tasks.length; i++) {
-                    if (AppState.tasks[i].type !== 'study') continue;
+                // Reallocate historical/future study tasks
+                for (let i = 0; i < tasks.length; i++) {
+                    if (tasks[i].type !== 'study') continue;
 
                     // Unified program-track movement (always plural-to-plural)
                     const oldKey = oldTrack + 'Tasks';
                     const newKey = newTrack + 'Tasks';
-                    if (Array.isArray(AppState.tasks[i][oldKey])) {
-                        const bIdx = AppState.tasks[i][oldKey].findIndex(b => b.subject === oldName);
+                    if (Array.isArray(tasks[i][oldKey])) {
+                        const bIdx = tasks[i][oldKey].findIndex(b => b.subject === oldName);
                         if (bIdx > -1) {
-                            const taskToMove = { ...tasks[i][oldKey][bIdx], subject: newName, id: `${newTrack}-${AppState.tasks[i].id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
-                            AppState.tasks[i][oldKey].splice(bIdx, 1);
-                            AppState.tasks[i][newKey] = AppState.tasks[i][newKey] || [];
-                            AppState.tasks[i][newKey].push(taskToMove);
+                            const taskToMove = { ...tasks[i][oldKey][bIdx], subject: newName, id: `${newTrack}-${tasks[i].id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
+                            tasks[i][oldKey].splice(bIdx, 1);
+                            tasks[i][newKey] = tasks[i][newKey] || [];
+                            tasks[i][newKey].push(taskToMove);
                         }
                     }
                 }
@@ -6288,11 +7485,11 @@ window.renderGlobalHistoryContent = function () {
 
                 if (oldName !== newName) {
                     sObj.subject = newName;
-                    for (let i = 0; i < AppState.tasks.length; i++) {
-                        if (AppState.tasks[i].type !== 'study') continue;
+                    for (let i = 0; i < tasks.length; i++) {
+                        if (tasks[i].type !== 'study') continue;
                         const key = newTrack + 'Tasks';
-                        if (Array.isArray(AppState.tasks[i][key])) {
-                            AppState.tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
+                        if (Array.isArray(tasks[i][key])) {
+                            tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
                         }
                     }
                     changed = true;
@@ -6302,8 +7499,8 @@ window.renderGlobalHistoryContent = function () {
             if (changed) {
                 // Bulk rename references explicitly
                 if (oldName !== newName) {
-                    if (AppState.subjectColors[oldName]) AppState.subjectColors[newName] = AppState.subjectColors[oldName];
-                    if (AppState.currentFilter === oldName) AppState.currentFilter = newName;
+                    if (subjectColors[oldName]) subjectColors[newName] = subjectColors[oldName];
+                    if (currentFilter === oldName) currentFilter = newName;
 
                     if (window.chartVisibility.subjects[oldName] !== undefined) {
                         window.chartVisibility.subjects[newName] = window.chartVisibility.subjects[oldName];
@@ -6339,7 +7536,7 @@ window.renderGlobalHistoryContent = function () {
                     }
                 }
 
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 if (window.chartDebounce) clearTimeout(window.chartDebounce);
                 window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
@@ -6362,14 +7559,14 @@ window.renderGlobalHistoryContent = function () {
             delete window.chartVisibility.subjects[targetName];
             delete window.chartVisibility.revSubjects[targetName];
 
-            for (let i = 0; i < AppState.tasks.length; i++) {
-                if (AppState.tasks[i].type !== 'study') continue;
+            for (let i = 0; i < tasks.length; i++) {
+                if (tasks[i].type !== 'study') continue;
                 const key = track + 'Tasks';
-                if (Array.isArray(AppState.tasks[i][key])) {
-                    AppState.tasks[i][key] = AppState.tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
+                if (Array.isArray(tasks[i][key])) {
+                    tasks[i][key] = tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
                 }
             }
-            if (AppState.currentFilter === targetName) AppState.currentFilter = 'All';
+            if (currentFilter === targetName) currentFilter = 'All';
             window.paceGoals = window.paceGoals.filter(g => !(g.type === 'subject' && g.target === targetName));
             window.paceGoals.forEach(g => {
                 if (g.type === 'bundle' && g.subjects) g.subjects = g.subjects.filter(s => s !== targetName);
@@ -6381,7 +7578,7 @@ window.renderGlobalHistoryContent = function () {
             if (window.subjectTimeLinks && window.subjectTimeLinks[targetName]) delete window.subjectTimeLinks[targetName];
 
             recalculateTotals();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('edit-subject-modal');
             showToast(`Subject "${targetName}" deleted.`, "success");
@@ -6460,14 +7657,14 @@ window.renderGlobalHistoryContent = function () {
             let cgpaResults = window.getProcessedResults()
                 .filter(r => r.type === 'cgpa' && !r.subject && r.title === progName);
 
-            cgpaResults.sort((a, b) => Utils.parseDateSafe(a.date) - Utils.parseDateSafe(b.date));
+            cgpaResults.sort((a, b) => parseDateSafe(a.date) - parseDateSafe(b.date));
 
             // Calculate overall stats for legend
             let latestActual = '0.00';
             let latestTarget = '0.00';
             if (cgpaResults.length > 0) {
-                latestActual = Utils.formatCgpaMin2Dec(parseFloat(cgpaResults[cgpaResults.length - 1].value) || 0);
-                latestTarget = Utils.formatCgpaMin2Dec(parseFloat(cgpaResults[cgpaResults.length - 1].targetCGPA) || 0);
+                latestActual = window.formatCgpaMin2Dec(parseFloat(cgpaResults[cgpaResults.length - 1].value) || 0);
+                latestTarget = window.formatCgpaMin2Dec(parseFloat(cgpaResults[cgpaResults.length - 1].targetCGPA) || 0);
             }
 
             // Legend rendering
@@ -6487,7 +7684,7 @@ window.renderGlobalHistoryContent = function () {
             }
 
             const labels = cgpaResults.map(r => {
-                const d = Utils.parseDateSafe(r.date);
+                const d = parseDateSafe(r.date);
                 const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                 return `${r.title} (${dateStr})`;
             });
@@ -6559,8 +7756,8 @@ window.renderGlobalHistoryContent = function () {
                                 label: (tooltipItem) => {
                                     const item = cgpaResults[tooltipItem.dataIndex];
                                     const isGrade = item.evaluationType === 'grade';
-                                    const actVal = item.value ? Utils.formatCgpaMin2Dec(item.value) : 'N/A';
-                                    const tgtVal = item.targetCGPA ? Utils.formatCgpaMin2Dec(item.targetCGPA) : 'N/A';
+                                    const actVal = item.value ? window.formatCgpaMin2Dec(item.value) : 'N/A';
+                                    const tgtVal = item.targetCGPA ? window.formatCgpaMin2Dec(item.targetCGPA) : 'N/A';
                                     if (tooltipItem.datasetIndex === 0) {
                                         const labelPrefix = isGrade ? 'Actual Grade: ' + (item.grade || 'N/A') : 'Actual CGPA: ' + actVal;
                                         const labelSuffix = isGrade ? ` (Numeric: ${actVal})` : (item.grade ? ` [Grade: ${item.grade}]` : '');
@@ -6597,7 +7794,7 @@ window.renderGlobalHistoryContent = function () {
             var activeResults = window.getProcessedResults();
             var overallRecords = activeResults
                 .filter(function (r) { return r.type === 'cgpa' && !r.subject && r.title === progName; })
-                .sort(function (a, b) { return Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date); });
+                .sort(function (a, b) { return parseDateSafe(b.date) - parseDateSafe(a.date); });
 
             var latestOverall = overallRecords[0] || null;
             var isGradeMode = latestOverall && latestOverall.evaluationType === 'grade';
@@ -6609,7 +7806,7 @@ window.renderGlobalHistoryContent = function () {
             activeResults
                 .filter(function (r) { return r.type === 'cgpa' && r.subject && r.title === progName; })
                 .forEach(function (r) {
-                    if (!subjectMap[r.subject] || Utils.parseDateSafe(r.date) > Utils.parseDateSafe(subjectMap[r.subject].date)) {
+                    if (!subjectMap[r.subject] || parseDateSafe(r.date) > parseDateSafe(subjectMap[r.subject].date)) {
                         subjectMap[r.subject] = r;
                     }
                 });
@@ -6639,8 +7836,8 @@ window.renderGlobalHistoryContent = function () {
                 return isNaN(parsed) ? null : parsed;
             });
 
-            var gradeLabels = subjects.map(function (s) { return s.grade || Utils.mapCgpaToGrade(s.value, isGradeMode ? 'grade' : 'cgpa') || ''; });
-            var targetGradeLabel = programTargetGrade || (programTargetCgpa ? Utils.mapCgpaToGrade(programTargetCgpa, isGradeMode ? 'grade' : 'cgpa') : 'N/A');
+            var gradeLabels = subjects.map(function (s) { return s.grade || window.mapCgpaToGrade(s.value, isGradeMode ? 'grade' : 'cgpa') || ''; });
+            var targetGradeLabel = programTargetGrade || (programTargetCgpa ? window.mapCgpaToGrade(programTargetCgpa, isGradeMode ? 'grade' : 'cgpa') : 'N/A');
 
             var allVals = actualData.concat(targetData.filter(function (v) { return v !== null; }));
             var maxVal = allVals.length > 0 ? Math.max.apply(null, allVals) : 4.0;
@@ -6689,13 +7886,13 @@ window.renderGlobalHistoryContent = function () {
                 var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                 var isTgtNone = subTargetVal === 'none' || subTargetVal === null || subTargetVal === undefined || subTargetVal === '';
                 var subTarget = isTgtNone ? null : parseFloat(subTargetVal);
-                var subTargetGrade = isTgtNone ? 'None' : (s.targetGrade || (s.targetCGPA ? Utils.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
+                var subTargetGrade = isTgtNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
 
                 var met = subTarget !== null && !isNaN(subTarget) && actual >= subTarget;
                 var near = subTarget !== null && !isNaN(subTarget) && !met && actual >= subTarget * 0.85;
                 var statusDot = isTgtNone ? '⚪' : (met ? '🟢' : (near ? '🟡' : '🔴'));
                 var statusText = isTgtNone ? 'N/A' : (met ? 'Met' : (near ? 'Near' : 'Below'));
-                var targetDisp = isTgtNone ? 'None' : Utils.formatCgpaMin2Dec(subTargetVal);
+                var targetDisp = isTgtNone ? 'None' : window.formatCgpaMin2Dec(subTargetVal);
 
                 var gradeVal = gradeLabels[i] || '';
                 var isFailed = isGradeMode
@@ -6709,7 +7906,7 @@ window.renderGlobalHistoryContent = function () {
 
                 return '<tr class="border-b border-slate-100 dark:border-slate-700/60 last:border-0">' +
                     '<td class="py-1.5 pr-2 font-bold text-slate-700 dark:text-slate-300 max-w-[120px] truncate">' + s.subject + '</td>' +
-                    '<td class="py-1.5 px-2 text-center ' + cgpaColorClass + '">' + Utils.formatCgpaMin2Dec(actual) + '</td>' +
+                    '<td class="py-1.5 px-2 text-center ' + cgpaColorClass + '">' + window.formatCgpaMin2Dec(actual) + '</td>' +
                     '<td class="py-1.5 px-2 text-center ' + gradeColorClass + '">' + (gradeVal || '—') + '</td>' +
                     '<td class="py-1.5 px-2 text-center font-bold text-slate-400">' + targetDisp + tgtGradeSpan + '</td>' +
                     '<td class="py-1.5 pl-2 text-center text-[10px] font-black">' + statusDot + ' ' + statusText + '</td>' +
@@ -6786,14 +7983,14 @@ window.renderGlobalHistoryContent = function () {
                                     if (item.datasetIndex === 0) {
                                         var s = subjects[item.dataIndex];
                                         var g = gradeLabels[item.dataIndex];
-                                        return ' Actual: ' + Utils.formatCgpaMin2Dec(s.value) + (g ? ' (' + g + ')' : '');
+                                        return ' Actual: ' + window.formatCgpaMin2Dec(s.value) + (g ? ' (' + g + ')' : '');
                                     }
                                     var s = subjects[item.dataIndex];
                                     var subTargetVal = s.targetCGPA ? s.targetCGPA : programTargetCgpa;
                                     var isNone = subTargetVal === 'none' || !subTargetVal;
                                     var subTarget = isNone ? null : parseFloat(subTargetVal);
-                                    var subTargetGrade = isNone ? 'None' : (s.targetGrade || (s.targetCGPA ? Utils.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
-                                    return ' Target: ' + (subTarget !== null && !isNaN(subTarget) ? Utils.formatCgpaMin2Dec(subTargetVal) : 'None') + ' (' + (subTargetGrade || 'N/A') + ')';
+                                    var subTargetGrade = isNone ? 'None' : (s.targetGrade || (s.targetCGPA ? window.mapCgpaToGrade(s.targetCGPA, isGradeMode ? 'grade' : 'cgpa') : targetGradeLabel));
+                                    return ' Target: ' + (subTarget !== null && !isNaN(subTarget) ? window.formatCgpaMin2Dec(subTargetVal) : 'None') + ' (' + (subTargetGrade || 'N/A') + ')';
                                 }
                             }
                         }
@@ -6861,7 +8058,7 @@ window.renderGlobalHistoryContent = function () {
                     if (res) {
                         if (isGrade) {
                             if (res.grade && res.grade.trim() !== '' && res.grade !== 'F') {
-                                sumCgpa += Utils.mapGradeToNumeric(res.grade, 'grade');
+                                sumCgpa += window.mapGradeToNumeric(res.grade, 'grade');
                             }
                         } else {
                             const val = parseFloat(res.value);
@@ -6874,8 +8071,8 @@ window.renderGlobalHistoryContent = function () {
 
                 if (totalProgramSubjectsCount > 0) {
                     const avgCgpa = sumCgpa / totalProgramSubjectsCount;
-                    estCgpa = Utils.formatCgpaMin2Dec(avgCgpa);
-                    estGrade = Utils.mapCgpaToGrade(avgCgpa, isGrade ? 'grade' : 'cgpa');
+                    estCgpa = window.formatCgpaMin2Dec(avgCgpa);
+                    estGrade = window.mapCgpaToGrade(avgCgpa, isGrade ? 'grade' : 'cgpa');
                 }
 
                 const fallbackMainTarget = window.getProgramMainTarget(group.program);
@@ -6928,21 +8125,11 @@ window.renderGlobalHistoryContent = function () {
             return [...processedOveralls, ...processedSubjects, ...nonCgpaRecords];
         };
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-window.renderSuccessResults = function () {
+        window.renderSuccessResults = function () {
             window.renderResults();
         };
 
-        /**
- * Renders outcomes scorecards (CGPA / GPA) and target progress bars.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.renderResults = function () {
+        window.renderResults = function () {
             const container = document.getElementById('results-container');
             const trendContainer = document.getElementById('results-trend-container');
             if (!container) return;
@@ -6970,7 +8157,7 @@ window.renderResults = function () {
                             date: res.date
                         };
                     }
-                    if (Utils.parseDateSafe(res.date) > Utils.parseDateSafe(programGroups[progName].date)) {
+                    if (parseDateSafe(res.date) > parseDateSafe(programGroups[progName].date)) {
                         programGroups[progName].date = res.date;
                     }
                     if (!res.subject) {
@@ -6986,11 +8173,11 @@ window.renderResults = function () {
             const mergedList = [
                 ...Object.values(programGroups),
                 ...achievements
-            ].sort((a, b) => Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date));
+            ].sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
 
             let html = '';
             mergedList.forEach(item => {
-                const dateStr = Utils.parseDateSafe(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                const dateStr = parseDateSafe(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
                 if (item.type === 'program_group') {
                     const progName = item.title;
@@ -7005,8 +8192,8 @@ window.renderResults = function () {
                     if (subjectsWithScores.length > 0) {
                         const sum = subjectsWithScores.reduce((acc, s) => acc + parseFloat(s.value), 0);
                         const avg = sum / subjectsWithScores.length;
-                        estCgpa = Utils.formatCgpaMin2Dec(avg);
-                        estGrade = Utils.mapCgpaToGrade(avg, evalType);
+                        estCgpa = window.formatCgpaMin2Dec(avg);
+                        estGrade = window.mapCgpaToGrade(avg, evalType);
                     }
 
                     // Dynamically calculate and fill overall if empty/missing
@@ -7046,7 +8233,7 @@ window.renderResults = function () {
                         if (isGrade) {
                             isMatch = (currentOverall.grade || '').trim().toUpperCase() === (estGrade || '').trim().toUpperCase();
                         } else {
-                            isMatch = Utils.formatCgpaMin2Dec(currentOverall.value || 0) === Utils.formatCgpaMin2Dec(estCgpa);
+                            isMatch = window.formatCgpaMin2Dec(currentOverall.value || 0) === window.formatCgpaMin2Dec(estCgpa);
                         }
 
                         if (isMatch) {
@@ -7094,8 +8281,8 @@ window.renderResults = function () {
                         let isGoalMet = false;
                         if (allSubjectsAttempted) {
                             if (evalType === 'grade') {
-                                const currentGradeVal = Utils.mapGradeToNumeric(currentOverall.grade, 'grade');
-                                const targetGradeVal = Utils.mapGradeToNumeric(targetGrade, 'grade');
+                                const currentGradeVal = window.mapGradeToNumeric(currentOverall.grade, 'grade');
+                                const targetGradeVal = window.mapGradeToNumeric(targetGrade, 'grade');
                                 isGoalMet = currentGradeVal >= targetGradeVal;
                             } else {
                                 const currentCgpaVal = parseFloat(currentOverall.value) || 0;
@@ -7116,7 +8303,7 @@ window.renderResults = function () {
                     if (!isProgramVisible) {
                         const dispScore = currentOverall.evaluationType === 'grade'
                             ? (currentOverall.grade || '—')
-                            : (Utils.formatCgpaMin2Dec(currentOverall.value) || '—');
+                            : (window.formatCgpaMin2Dec(currentOverall.value) || '—');
                         html += `
                         <div class="bg-slate-50 dark:bg-slate-900/30 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-850 shadow-sm relative group hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between opacity-60">
                             <div class="flex items-center space-x-2.5 min-w-0">
@@ -7153,8 +8340,8 @@ window.renderResults = function () {
                             if (!currentOverall || (!currentOverall.value && !currentOverall.grade)) return '';
 
                             const hasTgt = currentOverall.targetCGPA && currentOverall.targetCGPA !== 'none';
-                            const tgtCgpaDisp = hasTgt ? Utils.formatCgpaMin2Dec(currentOverall.targetCGPA) : 'None';
-                            const tgtGradeDisp = hasTgt ? (currentOverall.targetGrade || Utils.mapCgpaToGrade(currentOverall.targetCGPA, currentOverall.evaluationType) || '—') : 'None';
+                            const tgtCgpaDisp = hasTgt ? window.formatCgpaMin2Dec(currentOverall.targetCGPA) : 'None';
+                            const tgtGradeDisp = hasTgt ? (currentOverall.targetGrade || window.mapCgpaToGrade(currentOverall.targetCGPA, currentOverall.evaluationType) || '—') : 'None';
 
                             const isOverallFailed = currentOverall.evaluationType === 'grade'
                                 ? (currentOverall.grade && ['C', 'D', 'E', 'F'].includes(currentOverall.grade.trim().toUpperCase()))
@@ -7191,10 +8378,10 @@ window.renderResults = function () {
                                                 ${currentOverall.evaluationType === 'grade'
                                     ? `
                                                     <span class="text-sm font-black ${scoreColorClass}">Grade: ${currentOverall.grade || 'N/A'}</span>
-                                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">CGPA: ${Utils.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
+                                                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
                                                     `
                                     : `
-                                                    <span class="text-sm font-black ${scoreColorClass}">CGPA: ${Utils.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
+                                                    <span class="text-sm font-black ${scoreColorClass}">CGPA: ${window.formatCgpaMin2Dec(currentOverall.value) || 'N/A'}</span>
                                                     <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Grade: ${currentOverall.grade || 'N/A'}</span>
                                                     `
                                 }
@@ -7217,7 +8404,7 @@ window.renderResults = function () {
                                     const subTargetCgpa = s.targetCGPA || mainTarget.targetCGPA;
                                     const subTargetGrade = s.targetGrade || mainTarget.targetGrade;
                                     const hasSubTgt = subTargetCgpa && subTargetCgpa !== 'none';
-                                    const targetDisp = hasSubTgt ? (s.evaluationType === 'grade' ? `${subTargetGrade} (${Utils.formatCgpaMin2Dec(subTargetCgpa)})` : `${Utils.formatCgpaMin2Dec(subTargetCgpa)} (${subTargetGrade})`) : 'None';
+                                    const targetDisp = hasSubTgt ? (s.evaluationType === 'grade' ? `${subTargetGrade} (${window.formatCgpaMin2Dec(subTargetCgpa)})` : `${window.formatCgpaMin2Dec(subTargetCgpa)} (${subTargetGrade})`) : 'None';
 
                                     const isSubFailed = s.evaluationType === 'grade'
                                         ? (s.grade && ['C', 'D', 'E', 'F'].includes(s.grade.trim().toUpperCase()))
@@ -7238,9 +8425,9 @@ window.renderResults = function () {
                                                 <div class="text-right shrink-0 flex items-center gap-2">
                                                     <div class="flex flex-col items-end">
                                                         <span class="font-black ${subScoreColor}">
-                                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (Utils.formatCgpaMin2Dec(s.value) || 'N/A')}
+                                                            ${s.evaluationType === 'grade' ? (s.grade || 'N/A') : (window.formatCgpaMin2Dec(s.value) || 'N/A')}
                                                         </span>
-                                                        ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${Utils.formatCgpaMin2Dec(s.value)})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
+                                                        ${s.evaluationType === 'grade' ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(CGPA: ${window.formatCgpaMin2Dec(s.value)})</span>` : (s.grade ? `<span class="text-[10px] font-bold text-slate-400 block -mt-0.5">(${s.grade})</span>` : '')}
                                                     </div>
                                                     ${subStatusBadge}
                                                 </div>
@@ -7299,7 +8486,7 @@ window.renderResults = function () {
             // Filter CGPAs for the Progression Trend Chart (Overall Program CGPAs only, no subject CGPAs)
             let cgpaResults = activeResults
                 .filter(r => r.type === 'cgpa' && !r.subject)
-                .sort((a, b) => Utils.parseDateSafe(a.date) - Utils.parseDateSafe(b.date));
+                .sort((a, b) => parseDateSafe(a.date) - parseDateSafe(b.date));
 
             if (selectedProgFilter !== 'ALL') {
                 cgpaResults = cgpaResults.filter(r => r.title === selectedProgFilter);
@@ -7311,7 +8498,7 @@ window.renderResults = function () {
             const programResults = activeResults
                 .filter(r => r.type === 'cgpa' && !r.subject)
                 .filter(r => selectedProgFilter === 'ALL' || r.title === selectedProgFilter)
-                .sort((a, b) => Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date));
+                .sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
             if (programResults.length > 0) {
                 latestProgramCgpa = (parseFloat(programResults[0].value) || 0).toFixed(2);
                 overallTargetCgpaVal = (parseFloat(programResults[0].targetCGPA) || 0).toFixed(2);
@@ -7375,14 +8562,14 @@ window.renderResults = function () {
                         // Find latest overall result for this program in activeResults
                         const progOveralls = activeResults.filter(r => r.type === 'cgpa' && !r.subject && r.title === pName);
                         if (progOveralls.length > 0) {
-                            progOveralls.sort((a, b) => Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date));
+                            progOveralls.sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
                             sumCgpa += parseFloat(progOveralls[0].value) || 0.00;
                         }
                     });
 
                     const avgCgpa = N > 0 ? sumCgpa / N : 0.00;
                     const avgCgpaStr = avgCgpa.toFixed(2);
-                    const avgGrade = Utils.mapCgpaToGrade(avgCgpa, 'cgpa') || 'F';
+                    const avgGrade = window.mapCgpaToGrade(avgCgpa, 'cgpa') || 'F';
                     const gradeColor = avgGrade === 'F' ? 'text-rose-400' : 'text-emerald-400';
 
                     trackHtml += `
@@ -7402,7 +8589,7 @@ window.renderResults = function () {
                 const ctx = document.getElementById('resultsTrendChart');
                 if (ctx) {
                     const labels = cgpaResults.map(r => {
-                        const d = Utils.parseDateSafe(r.date);
+                        const d = parseDateSafe(r.date);
                         const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                         return `${r.title} (${dateStr})`;
                     });
@@ -7487,8 +8674,8 @@ window.renderResults = function () {
                                         label: (tooltipItem) => {
                                             const item = cgpaResults[tooltipItem.dataIndex];
                                             const isGrade = item.evaluationType === 'grade';
-                                            const actVal = item.value ? Utils.formatCgpaMin2Dec(item.value) : 'N/A';
-                                            const tgtVal = item.targetCGPA ? Utils.formatCgpaMin2Dec(item.targetCGPA) : 'N/A';
+                                            const actVal = item.value ? window.formatCgpaMin2Dec(item.value) : 'N/A';
+                                            const tgtVal = item.targetCGPA ? window.formatCgpaMin2Dec(item.targetCGPA) : 'N/A';
                                             if (tooltipItem.datasetIndex === 0) {
                                                 const labelPrefix = isGrade ? 'Actual Grade: ' + (item.grade || 'N/A') : 'Actual CGPA: ' + actVal;
                                                 const labelSuffix = isGrade ? ` (Numeric: ${actVal})` : (item.grade ? ` [Grade: ${item.grade}]` : '');
@@ -7831,14 +9018,7 @@ window.renderResults = function () {
             }
         };
 
-        /**
- * Saves GPAs/grades inputs and recalculates global outcome averages.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.saveResult = function () {
+        window.saveResult = function () {
             const type = document.getElementById('res-type').value;
             const date = document.getElementById('res-date').value;
             if (!date) return showToast("Date is required", "error");
@@ -7869,7 +9049,7 @@ window.saveResult = function () {
                         if (gVal) {
                             subjectsData[sub] = {
                                 grade: gVal,
-                                cgpa: Utils.mapGradeToNumeric(gVal, evalType).toFixed(2)
+                                cgpa: window.mapGradeToNumeric(gVal, evalType).toFixed(2)
                             };
                         }
                     });
@@ -7878,11 +9058,11 @@ window.saveResult = function () {
                         const sub = input.getAttribute('data-subject');
                         const cVal = input.value.trim();
                         if (cVal) {
-                            const formattedCgpa = Utils.validateAndFormatCgpa(cVal);
+                            const formattedCgpa = window.validateAndFormatCgpa(cVal);
                             if (formattedCgpa) {
                                 subjectsData[sub] = {
                                     // Automatically calculate and save estimated grade from CGPA
-                                    grade: Utils.mapCgpaToGrade(formattedCgpa, evalType),
+                                    grade: window.mapCgpaToGrade(formattedCgpa, evalType),
                                     cgpa: formattedCgpa
                                 };
                             }
@@ -7913,11 +9093,11 @@ window.saveResult = function () {
                         overallVal = '';
                         isEstimatedOverall = true;
                     } else {
-                        overallVal = overallGradeVal ? Utils.mapGradeToNumeric(overallGradeVal, evalType).toFixed(2) : '';
+                        overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal, evalType).toFixed(2) : '';
                         isEstimatedOverall = false;
                     }
                     if (!isExplicitNone) {
-                        overallTargetCgpaVal = overallTargetGradeVal ? Utils.mapGradeToNumeric(overallTargetGradeVal, evalType).toFixed(2) : '';
+                        overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal, evalType).toFixed(2) : '';
                     }
                 } else {
                     overallVal = document.getElementById('res-overall-cgpa').value.trim();
@@ -7928,7 +9108,7 @@ window.saveResult = function () {
                         overallTargetCgpaVal = 'none';
                         isExplicitNone = true;
                     } else {
-                        overallTargetCgpaVal = Utils.validateAndFormatCgpa(overallTargetCgpaVal);
+                        overallTargetCgpaVal = window.validateAndFormatCgpa(overallTargetCgpaVal);
                     }
 
                     // Manual input works, otherwise empty. Est is handled on the fly / rendering.
@@ -7937,12 +9117,12 @@ window.saveResult = function () {
                         overallGradeVal = '';
                         isEstimatedOverall = true;
                     } else {
-                        overallVal = Utils.validateAndFormatCgpa(overallVal);
-                        overallGradeVal = overallVal ? Utils.mapCgpaToGrade(overallVal, evalType) : '';
+                        overallVal = window.validateAndFormatCgpa(overallVal);
+                        overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal, evalType) : '';
                         isEstimatedOverall = false;
                     }
                     if (!isExplicitNone) {
-                        overallTargetGradeVal = overallTargetCgpaVal ? Utils.mapCgpaToGrade(overallTargetCgpaVal, evalType) : '';
+                        overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal, evalType) : '';
                     }
                 }
 
@@ -8022,7 +9202,7 @@ window.saveResult = function () {
                             if (gVal) {
                                 subjectsData[sub] = {
                                     grade: gVal,
-                                    cgpa: Utils.mapGradeToNumeric(gVal, evalType).toFixed(2)
+                                    cgpa: window.mapGradeToNumeric(gVal, evalType).toFixed(2)
                                 };
                             }
                         });
@@ -8031,11 +9211,11 @@ window.saveResult = function () {
                             const sub = input.getAttribute('data-subject');
                             const cVal = input.value.trim();
                             if (cVal) {
-                                const formattedCgpa = Utils.validateAndFormatCgpa(cVal);
+                                const formattedCgpa = window.validateAndFormatCgpa(cVal);
                                 if (formattedCgpa) {
                                     subjectsData[sub] = {
                                         // Automatically calculate and save estimated grade from CGPA
-                                        grade: Utils.mapCgpaToGrade(formattedCgpa, evalType),
+                                        grade: window.mapCgpaToGrade(formattedCgpa, evalType),
                                         cgpa: formattedCgpa
                                     };
                                 }
@@ -8067,11 +9247,11 @@ window.saveResult = function () {
                             overallVal = '';
                             isEstimatedOverall = true;
                         } else {
-                            overallVal = overallGradeVal ? Utils.mapGradeToNumeric(overallGradeVal, evalType).toFixed(2) : '';
+                            overallVal = overallGradeVal ? window.mapGradeToNumeric(overallGradeVal, evalType).toFixed(2) : '';
                             isEstimatedOverall = false;
                         }
                         if (!isExplicitNone) {
-                            overallTargetCgpaVal = overallTargetGradeVal ? Utils.mapGradeToNumeric(overallTargetGradeVal, evalType).toFixed(2) : '';
+                            overallTargetCgpaVal = overallTargetGradeVal ? window.mapGradeToNumeric(overallTargetGradeVal, evalType).toFixed(2) : '';
                         }
                     } else {
                         overallVal = document.getElementById('res-overall-cgpa').value.trim();
@@ -8082,7 +9262,7 @@ window.saveResult = function () {
                             overallTargetCgpaVal = 'none';
                             isExplicitNone = true;
                         } else {
-                            overallTargetCgpaVal = Utils.validateAndFormatCgpa(overallTargetCgpaVal);
+                            overallTargetCgpaVal = window.validateAndFormatCgpa(overallTargetCgpaVal);
                         }
 
                         // Manual input works, otherwise empty. Est is handled on the fly / rendering.
@@ -8091,12 +9271,12 @@ window.saveResult = function () {
                             overallGradeVal = '';
                             isEstimatedOverall = true;
                         } else {
-                            overallVal = Utils.validateAndFormatCgpa(overallVal);
-                            overallGradeVal = overallVal ? Utils.mapCgpaToGrade(overallVal, evalType) : '';
+                            overallVal = window.validateAndFormatCgpa(overallVal);
+                            overallGradeVal = overallVal ? window.mapCgpaToGrade(overallVal, evalType) : '';
                             isEstimatedOverall = false;
                         }
                         if (!isExplicitNone) {
-                            overallTargetGradeVal = overallTargetCgpaVal ? Utils.mapCgpaToGrade(overallTargetCgpaVal, evalType) : '';
+                            overallTargetGradeVal = overallTargetCgpaVal ? window.mapCgpaToGrade(overallTargetCgpaVal, evalType) : '';
                         }
                     }
 
@@ -8160,7 +9340,7 @@ window.saveResult = function () {
             }
 
             window.syncPassFreezeFromResults();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('result-modal');
             showToast("Result saved successfully!", "success");
@@ -8170,7 +9350,7 @@ window.saveResult = function () {
             window.openConfirmModal("Delete Result", "Are you sure you want to delete this result?", () => {
                 window.successResults = window.successResults.filter(r => r.id !== id);
                 window.syncPassFreezeFromResults();
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 showToast("Result deleted", "success");
             });
@@ -8180,20 +9360,13 @@ window.saveResult = function () {
             window.openConfirmModal("Delete Program Card", `Are you sure you want to delete this program card and all its subject results?`, () => {
                 window.successResults = window.successResults.filter(r => !(r.type === 'cgpa' && r.title === programName));
                 window.syncPassFreezeFromResults();
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 showToast("Program card deleted", "success");
             });
         };
 
-        /**
- * Opens database viewer overlay showing all logged checklist behaviors.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.openDailyActionsDBModal = function () {
+        window.openDailyActionsDBModal = function () {
             const containerDate = document.getElementById('dadb-view-date');
             const containerAction = document.getElementById('dadb-view-action');
             const ctxTrend = document.getElementById('dadbTrendChart');
@@ -8205,7 +9378,7 @@ window.openDailyActionsDBModal = function () {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const cutoffDate = new Date(AppState.PLAN_START_DATE.getTime());
+            const cutoffDate = new Date(PLAN_START_DATE.getTime());
 
             let hasData = false;
 
@@ -8219,8 +9392,8 @@ window.openDailyActionsDBModal = function () {
 
             let dateEntries = [];
 
-            for (let i = AppState.tasks.length - 1; i >= 0; i--) {
-                const t = AppState.tasks[i];
+            for (let i = tasks.length - 1; i >= 0; i--) {
+                const t = tasks[i];
                 const tDate = getTaskDate(t);
                 if (tDate > today || tDate < cutoffDate) continue;
 
@@ -8319,7 +9492,7 @@ window.openDailyActionsDBModal = function () {
             sortedActions.forEach(a => {
                 const stat = actionStats[a.id];
                 const actPct = validDaysCount > 0 ? Math.round((stat.count / validDaysCount) * 100) : 0;
-                const cMap = AppState.twColors[a.color];
+                const cMap = twColors[a.color];
 
                 htmlAction += `
                     <div class="p-4 rounded-xl border ${cMap.borderLt} ${cMap.bgLt} shadow-sm flex flex-col gap-2">
@@ -8400,8 +9573,8 @@ window.openDailyActionsDBModal = function () {
 
         window.openModal = function (modalId, typeKey = null) {
             if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
-            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
+            const backdrops = { 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
+            const contents = { 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
             const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
             if (!modal || !backdrop || !content) return;
  
@@ -8421,7 +9594,7 @@ window.openDailyActionsDBModal = function () {
                 if (modalId === 'subject-trend-modal' && window.subjectTrendChart) window.subjectTrendChart.resize();
                 if (modalId === 'revision-trend-modal' && window.revisionTrendChartInstance) window.revisionTrendChartInstance.resize();
                 if (modalId === 'pace-trend-modal' && window.paceTrendChartInstance) window.paceTrendChartInstance.resize();
-                if (modalId === 'analytics-modal' && AppState.masterLineChart) AppState.masterLineChart.resize();
+                if (modalId === 'analytics-modal' && masterLineChart) masterLineChart.resize();
                 if (modalId === 'global-history-modal' && window.globalHistoryChartInstance) window.globalHistoryChartInstance.resize();
                 if (modalId === 'daily-actions-db-modal' && window.dadbTrendChartInstance) window.dadbTrendChartInstance.resize();
                 if (modalId === 'weekly-targets-db-modal' && window.wtdbMixedChartInstance) window.wtdbMixedChartInstance.resize();
@@ -8523,7 +9696,7 @@ window.openDailyActionsDBModal = function () {
                 return;
             }
 
-            const sorted = [...activeResults].sort((a, b) => Utils.parseDateSafe(b.date) - Utils.parseDateSafe(a.date));
+            const sorted = [...activeResults].sort((a, b) => parseDateSafe(b.date) - parseDateSafe(a.date));
             let html = '';
             sorted.forEach(res => {
                 const isCgpa = res.type === 'cgpa';
@@ -8544,7 +9717,7 @@ window.openDailyActionsDBModal = function () {
                         icon = '🎓';
                     }
                 }
-                const dateStr = Utils.parseDateSafe(res.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                const dateStr = parseDateSafe(res.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
                 const isFailed = isCgpa && (
                     res.evaluationType === 'grade'
@@ -8736,11 +9909,11 @@ window.openDailyActionsDBModal = function () {
                 } else {
                     window.paceGoals.forEach(g => {
                         if (g.id === goal.id) return;
-                        if (!AppState.globalStartDate || !AppState.globalEndDate) return;
-                        const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                        const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                        if (!globalStartDate || !globalEndDate) return;
+                        const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                        const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                         gStart.setHours(0, 0, 0, 0); gEnd.setHours(23, 59, 59, 999);
-                        if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return;
+                        if (gEnd < globalStartDate || gStart > globalEndDate) return;
                         if (g.type === 'bundle') {
                             if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
                             if (g.programs) {
@@ -8785,17 +9958,7 @@ window.openDailyActionsDBModal = function () {
             return targetedSubjects;
         };
 
-        /**
- * Renders cumulative projection charts for pacing progress checks.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-// Deprecated
-// Currently unused
-// Retained for compatibility
-window.openPaceCandleChartModal = function (goalId) {
+        window.openPaceCandleChartModal = function (goalId) {
             const goal = window.paceGoals.find(g => g.id === goalId);
             if (!goal) return;
 
@@ -8807,7 +9970,7 @@ window.openPaceCandleChartModal = function (goalId) {
             const subsList = Array.from(targetedSubjects);
 
             let completedPerDate = {};
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study') {
                     let count = 0;
                     window.tracks.forEach(track => {
@@ -8821,7 +9984,7 @@ window.openPaceCandleChartModal = function (goalId) {
             });
 
             // 2. Loop from startDate to today day-by-day to build daily pace stats
-            const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
+            const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
             startDate.setHours(0, 0, 0, 0);
 
             const today = new Date();
@@ -8835,7 +9998,7 @@ window.openPaceCandleChartModal = function (goalId) {
             let currentDt = new Date(startDate);
 
             for (let i = 1; i <= daysElapsed; i++) {
-                let dStr = Utils.formatDate(currentDt);
+                let dStr = formatDate(currentDt);
                 let completedToday = completedPerDate[dStr] || 0;
                 cumulativeAct += completedToday;
                 let pace = cumulativeAct / i;
@@ -9050,12 +10213,12 @@ window.openPaceCandleChartModal = function (goalId) {
                         } else {
                             window.paceGoals.forEach(g => {
                                 if (g.id === goal.id) return;
-                                if (!AppState.globalStartDate || !AppState.globalEndDate) return;
-                                const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                                const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                                if (!globalStartDate || !globalEndDate) return;
+                                const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                                const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                                 gStart.setHours(0, 0, 0, 0);
                                 gEnd.setHours(23, 59, 59, 999);
-                                if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return;
+                                if (gEnd < globalStartDate || gStart > globalEndDate) return;
                                 if (g.type === 'bundle') {
                                     if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
                                     if (g.programs) {
@@ -9109,8 +10272,8 @@ window.openPaceCandleChartModal = function (goalId) {
                         programSubs.forEach(sub => { if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; } });
                     }
 
-                    const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-                    const targetDate = Utils.parseDateSafe(goal.deadline);
+                    const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                    const targetDate = parseDateSafe(goal.deadline);
                     startDate.setHours(0, 0, 0, 0); targetDate.setHours(23, 59, 59, 999);
 
                     const remaining = Math.max(0, total - completed);
@@ -9203,7 +10366,7 @@ window.openPaceCandleChartModal = function (goalId) {
             let labels = []; let reqData = []; let actData = []; let estData = [];
 
             let completedPerDate = {};
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study') {
                     let count = 0;
                     window.tracks.forEach(track => {
@@ -9248,7 +10411,7 @@ window.openPaceCandleChartModal = function (goalId) {
                 }
 
                 if (currentDt <= today) {
-                    let dStr = Utils.formatDate(currentDt);
+                    let dStr = formatDate(currentDt);
                     cumulativeAct += (completedPerDate[dStr] || 0);
                     actData.push(cumulativeAct);
 
@@ -9451,12 +10614,12 @@ window.openPaceCandleChartModal = function (goalId) {
                         } else {
                             window.paceGoals.forEach(g => {
                                 if (g.id === goal.id) return;
-                                if (!AppState.globalStartDate || !AppState.globalEndDate) return;
-                                const gStart = g.startDate ? Utils.parseDateSafe(g.startDate) : new Date(AppState.globalStartDate);
-                                const gEnd = g.deadline ? Utils.parseDateSafe(g.deadline) : new Date(AppState.globalEndDate);
+                                if (!globalStartDate || !globalEndDate) return;
+                                const gStart = g.startDate ? parseDateSafe(g.startDate) : new Date(globalStartDate);
+                                const gEnd = g.deadline ? parseDateSafe(g.deadline) : new Date(globalEndDate);
                                 gStart.setHours(0, 0, 0, 0);
                                 gEnd.setHours(23, 59, 59, 999);
-                                if (gEnd < AppState.globalStartDate || gStart > AppState.globalEndDate) return;
+                                if (gEnd < globalStartDate || gStart > globalEndDate) return;
                                 if (g.type === 'bundle') {
                                     if (g.subjects) g.subjects.forEach(s => targetedSubjects.add(s));
                                     if (g.programs) {
@@ -9510,8 +10673,8 @@ window.openPaceCandleChartModal = function (goalId) {
                         programSubs.forEach(sub => { if (subjectStats[sub]) { total += subjectStats[sub].totalChapters; completed += subjectStats[sub].effectiveChapters; } });
                     }
 
-                    const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-                    const targetDate = Utils.parseDateSafe(goal.deadline);
+                    const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+                    const targetDate = parseDateSafe(goal.deadline);
                     startDate.setHours(0, 0, 0, 0); targetDate.setHours(23, 59, 59, 999);
 
                     const remaining = Math.max(0, total - completed);
@@ -9595,7 +10758,7 @@ window.openPaceCandleChartModal = function (goalId) {
             let labels = []; let reqData = []; let actData = []; let estData = [];
 
             let completedPerDate = {};
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study') {
                     let count = 0;
                     window.tracks.forEach(track => {
@@ -9640,7 +10803,7 @@ window.openPaceCandleChartModal = function (goalId) {
                 }
 
                 if (currentDt <= today) {
-                    let dStr = Utils.formatDate(currentDt);
+                    let dStr = formatDate(currentDt);
                     cumulativeAct += (completedPerDate[dStr] || 0);
                     actData.push(cumulativeAct);
 
@@ -9805,8 +10968,8 @@ window.openPaceCandleChartModal = function (goalId) {
                     id: 'global-timeline',
                     type: 'global',
                     target: 'Global Scope',
-                    startDate: AppState.PLAN_START_DATE.toISOString().split('T')[0],
-                    deadline: AppState.PLAN_END_DATE.toISOString().split('T')[0]
+                    startDate: PLAN_START_DATE.toISOString().split('T')[0],
+                    deadline: PLAN_END_DATE.toISOString().split('T')[0]
                 };
             }
 
@@ -9827,8 +10990,8 @@ window.openPaceCandleChartModal = function (goalId) {
                 }
             });
 
-            const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-            const targetDate = goal.deadline ? Utils.parseDateSafe(goal.deadline) : new Date(AppState.PLAN_END_DATE);
+            const startDate = goal.startDate ? parseDateSafe(goal.startDate) : new Date(PLAN_START_DATE);
+            const targetDate = goal.deadline ? parseDateSafe(goal.deadline) : new Date(PLAN_END_DATE);
             startDate.setHours(0, 0, 0, 0);
             targetDate.setHours(23, 59, 59, 999);
 
@@ -9900,7 +11063,7 @@ window.openPaceCandleChartModal = function (goalId) {
             let labels = []; let reqData = []; let actData = []; let estData = [];
 
             let completedPerDate = {};
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study') {
                     let count = 0;
                     window.tracks.forEach(track => {
@@ -9945,7 +11108,7 @@ window.openPaceCandleChartModal = function (goalId) {
                 }
 
                 if (currentDt <= today) {
-                    let dStr = Utils.formatDate(currentDt);
+                    let dStr = formatDate(currentDt);
                     cumulativeAct += (completedPerDate[dStr] || 0);
                     actData.push(cumulativeAct);
 
@@ -10107,8 +11270,8 @@ window.openPaceCandleChartModal = function (goalId) {
             const ctxSub = document.getElementById('revisionTrendChart');
             if (!ctxSub) return;
 
-            let chartStart = new Date(AppState.PLAN_START_DATE.getTime());
-            let chartEnd = new Date(AppState.PLAN_END_DATE.getTime());
+            let chartStart = new Date(PLAN_START_DATE.getTime());
+            let chartEnd = new Date(PLAN_END_DATE.getTime());
             const todayObj = new Date();
 
             if (window.trendTimeFilter === '1Y') {
@@ -10124,7 +11287,7 @@ window.openPaceCandleChartModal = function (goalId) {
                 chartEnd.setFullYear(chartEnd.getFullYear() + 3);
                 chartEnd.setMonth(chartEnd.getMonth() - 1);
             } else {
-                chartStart = new Date(AppState.PLAN_START_DATE.getTime());
+                chartStart = new Date(PLAN_START_DATE.getTime());
                 chartEnd = new Date(todayObj.getTime());
                 if (chartEnd < chartStart) {
                     chartEnd = new Date(chartStart.getTime());
@@ -10372,13 +11535,13 @@ window.openPaceCandleChartModal = function (goalId) {
 
             goal.startDate = startStr;
             goal.deadline = deadStr;
-            FirebaseService.saveToCloud(); renderUI(); closeModal('edit-pace-modal'); showToast("Pace Goal timeline updated!", "success");
+            saveToCloud(); renderUI(); closeModal('edit-pace-modal'); showToast("Pace Goal timeline updated!", "success");
         };
 
         window.toggleModalDay = function (taskId, typeKey) {
-            const taskIndex = AppState.tasks.findIndex(t => t.id === taskId);
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex > -1) {
-                AppState.tasks[taskIndex][typeKey] = !AppState.tasks[taskIndex][typeKey]; FirebaseService.saveToCloud();
+                tasks[taskIndex][typeKey] = !tasks[taskIndex][typeKey]; saveToCloud();
                 requestAnimationFrame(() => {
                     renderTrendCharts(); renderDailyTracker(); renderDailyLogs();
                     const modal = document.getElementById('analytics-modal');
@@ -10390,9 +11553,9 @@ window.openPaceCandleChartModal = function (goalId) {
         };
 
         window.openEditModal = function (taskId, type, subTaskId = null) {
-            const taskIndex = AppState.tasks.findIndex(t => t.id === taskId);
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
-            const dayTask = AppState.tasks[taskIndex];
+            const dayTask = tasks[taskIndex];
             const key = type + 'Tasks';
             let taskObj = (dayTask[key] || []).find(b => b.id === subTaskId);
             if (!taskObj) return;
@@ -10441,23 +11604,23 @@ window.openPaceCandleChartModal = function (goalId) {
         window.toggleSkipTask = function () {
             if (!window.editingTask) return;
             const { taskId, type, subTaskId } = window.editingTask;
-            const taskIndex = AppState.tasks.findIndex(t => t.id === taskId);
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
             const key = type + 'Tasks';
-            if (Array.isArray(AppState.tasks[taskIndex][key])) {
-                const bIdx = AppState.tasks[taskIndex][key].findIndex(b => b.id === subTaskId);
+            if (Array.isArray(tasks[taskIndex][key])) {
+                const bIdx = tasks[taskIndex][key].findIndex(b => b.id === subTaskId);
                 if (bIdx > -1) {
-                    const isSkipped = !!AppState.tasks[taskIndex][key][bIdx].skipped;
-                    AppState.tasks[taskIndex][key][bIdx].skipped = !isSkipped;
+                    const isSkipped = !!tasks[taskIndex][key][bIdx].skipped;
+                    tasks[taskIndex][key][bIdx].skipped = !isSkipped;
                     if (!isSkipped) {
-                        AppState.tasks[taskIndex][key][bIdx].completed = false;
-                        AppState.tasks[taskIndex][key][bIdx].completedAt = null;
+                        tasks[taskIndex][key][bIdx].completed = false;
+                        tasks[taskIndex][key][bIdx].completedAt = null;
                     }
                 }
             }
             recalculateTotals();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('edit-task-modal');
             showToast("Chapter status updated!", "success");
@@ -10466,7 +11629,7 @@ window.openPaceCandleChartModal = function (goalId) {
         window.saveTaskEdit = function () {
             if (!window.editingTask) return;
             const { taskId, type, subTaskId, oldSubject } = window.editingTask;
-            const taskIndex = AppState.tasks.findIndex(t => t.id === taskId);
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
             const prog = type;
@@ -10481,17 +11644,17 @@ window.openPaceCandleChartModal = function (goalId) {
 
             const key = type + 'Tasks';
             if (oldSubject === newSubject) {
-                const bIdx = (AppState.tasks[taskIndex][key] || []).findIndex(b => b.id === subTaskId);
-                if (bIdx > -1) AppState.tasks[taskIndex][key][bIdx] = { ...tasks[taskIndex][key][bIdx], chapter: newNum, title: newTitle };
+                const bIdx = (tasks[taskIndex][key] || []).findIndex(b => b.id === subTaskId);
+                if (bIdx > -1) tasks[taskIndex][key][bIdx] = { ...tasks[taskIndex][key][bIdx], chapter: newNum, title: newTitle };
                 reorderSubjectChapters(prog, newSubject);
             } else {
                 if (oldSubject !== 'Revision') { const oldS = (syllabusStructure[prog] || []).find(s => s.subject === oldSubject); if (oldS && oldS.chapters > 0) oldS.chapters--; }
-                const bIdx = (AppState.tasks[taskIndex][key] || []).findIndex(b => b.id === subTaskId);
-                if (bIdx > -1) AppState.tasks[taskIndex][key][bIdx] = { subject: newSubject, chapter: newNum, title: newTitle, completed: false, id: subTaskId };
+                const bIdx = (tasks[taskIndex][key] || []).findIndex(b => b.id === subTaskId);
+                if (bIdx > -1) tasks[taskIndex][key][bIdx] = { subject: newSubject, chapter: newNum, title: newTitle, completed: false, id: subTaskId };
                 const newS = (syllabusStructure[prog] || []).find(s => s.subject === newSubject); if (newS) newS.chapters++;
                 reorderSubjectChapters(prog, oldSubject); reorderSubjectChapters(prog, newSubject);
             }
-            recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task updated successfully!", "success");
+            recalculateTotals(); saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task updated successfully!", "success");
         };
 
         window.requestDeleteTask = function () {
@@ -10501,24 +11664,24 @@ window.openPaceCandleChartModal = function (goalId) {
         window.deleteTask = function () {
             if (!window.editingTask) return;
             const { taskId, type, subTaskId, oldSubject } = window.editingTask;
-            const taskIndex = AppState.tasks.findIndex(t => t.id === taskId);
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
             const prog = type;
             const key = type + 'Tasks';
 
             if (oldSubject !== 'Revision') { const oldS = (syllabusStructure[prog] || []).find(s => s.subject === oldSubject); if (oldS && oldS.chapters > 0) oldS.chapters--; }
-            if (Array.isArray(AppState.tasks[taskIndex][key])) {
-                AppState.tasks[taskIndex][key] = AppState.tasks[taskIndex][key].map(b => b.id === subTaskId ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
+            if (Array.isArray(tasks[taskIndex][key])) {
+                tasks[taskIndex][key] = tasks[taskIndex][key].map(b => b.id === subTaskId ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
             }
 
             if (oldSubject !== 'Revision') {
                 let targetSlots = []; let gatheredTasks = [];
-                for (let i = 0; i < AppState.tasks.length; i++) {
-                    if (AppState.tasks[i].type !== 'study') continue;
-                    if (Array.isArray(AppState.tasks[i][key])) {
-                        for (let j = 0; j < AppState.tasks[i][key].length; j++) {
-                            const bTask = AppState.tasks[i][key][j];
+                for (let i = 0; i < tasks.length; i++) {
+                    if (tasks[i].type !== 'study') continue;
+                    if (Array.isArray(tasks[i][key])) {
+                        for (let j = 0; j < tasks[i][key].length; j++) {
+                            const bTask = tasks[i][key][j];
                             if (!bTask.completed && (bTask.subject === oldSubject || (i === taskIndex && bTask.id === subTaskId))) {
                                 targetSlots.push({ tIdx: i, bIdx: j });
                                 gatheredTasks.push({ ...bTask });
@@ -10526,14 +11689,14 @@ window.openPaceCandleChartModal = function (goalId) {
                         }
                     }
                 }
-                // local Utils.extractNum consolidated globally
-                gatheredTasks.sort((a, b) => { if (a.subject === 'Revision') return 1; if (b.subject === 'Revision') return -1; return Utils.extractNum(a.chapter) - Utils.extractNum(b.chapter); });
+                const extractNum = (chStr) => { if (chStr === 'Rev') return 9999; const match = chStr.match(/(\d+)(?!.*\d)/); return match ? parseInt(match[0]) : 999; };
+                gatheredTasks.sort((a, b) => { if (a.subject === 'Revision') return 1; if (b.subject === 'Revision') return -1; return extractNum(a.chapter) - extractNum(b.chapter); });
                 for (let k = 0; k < targetSlots.length; k++) {
                     const slot = targetSlots[k]; const chObj = gatheredTasks[k];
-                    AppState.tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: AppState.tasks[slot.tIdx][key][slot.bIdx].id };
+                    tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: tasks[slot.tIdx][key][slot.bIdx].id };
                 }
             }
-            recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
+            recalculateTotals(); saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
         };
 
         // --- Configuration & Expansion System Logic ---
@@ -10686,16 +11849,16 @@ window.openPaceCandleChartModal = function (goalId) {
                 const sObj = syllabusStructure[track] ? syllabusStructure[track].find(s => s.subject === oldName) : null;
                 if (sObj) sObj.subject = newName;
 
-                if (AppState.subjectColors[oldName]) AppState.subjectColors[newName] = AppState.subjectColors[oldName];
-                for (let i = 0; i < AppState.tasks.length; i++) {
-                    if (AppState.tasks[i].type !== 'study') continue;
+                if (subjectColors[oldName]) subjectColors[newName] = subjectColors[oldName];
+                for (let i = 0; i < tasks.length; i++) {
+                    if (tasks[i].type !== 'study') continue;
                     const key = track + 'Tasks';
-                    if (Array.isArray(AppState.tasks[i][key])) {
-                        AppState.tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
+                    if (Array.isArray(tasks[i][key])) {
+                        tasks[i][key].forEach(b => { if (b.subject === oldName) b.subject = newName; });
                     }
                 }
 
-                if (AppState.currentFilter === oldName) AppState.currentFilter = newName;
+                if (currentFilter === oldName) currentFilter = newName;
                 if (window.chartVisibility.subjects[oldName] !== undefined) { window.chartVisibility.subjects[newName] = window.chartVisibility.subjects[oldName]; delete window.chartVisibility.subjects[oldName]; }
 
                 window.paceGoals.forEach(g => {
@@ -10719,7 +11882,7 @@ window.openPaceCandleChartModal = function (goalId) {
             }
 
             document.getElementById('manage-new-name').value = '';
-            FirebaseService.saveToCloud(); renderUI(); updateManageDropdown();
+            saveToCloud(); renderUI(); updateManageDropdown();
         };
 
         window.requestManageDelete = function () {
@@ -10746,14 +11909,14 @@ window.openPaceCandleChartModal = function (goalId) {
                         syllabusStructure[track] = syllabusStructure[track].filter(s => s.program !== targetName);
                     }
                     delete window.chartVisibility.prog[targetName]; subsToDelete.forEach(sub => delete window.chartVisibility.subjects[sub]);
-                    for (let i = 0; i < AppState.tasks.length; i++) {
-                        if (AppState.tasks[i].type !== 'study') continue;
+                    for (let i = 0; i < tasks.length; i++) {
+                        if (tasks[i].type !== 'study') continue;
                         const key = track + 'Tasks';
-                        if (Array.isArray(AppState.tasks[i][key])) {
-                            AppState.tasks[i][key] = AppState.tasks[i][key].map(b => subsToDelete.includes(b.subject) ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
+                        if (Array.isArray(tasks[i][key])) {
+                            tasks[i][key] = tasks[i][key].map(b => subsToDelete.includes(b.subject) ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
                         }
                     }
-                    if (AppState.currentFilter !== 'All') AppState.currentFilter = 'All';
+                    if (currentFilter !== 'All') currentFilter = 'All';
                     window.paceGoals = window.paceGoals.filter(g => !(g.type === 'program' && g.target === targetName) && !(g.type === 'subject' && subsToDelete.includes(g.target)));
                     window.paceGoals.forEach(g => {
                         if (g.type === 'bundle' && g.programs) g.programs = g.programs.filter(p => p !== targetName);
@@ -10773,14 +11936,14 @@ window.openPaceCandleChartModal = function (goalId) {
                         syllabusStructure[track] = syllabusStructure[track].filter(s => s.subject !== targetName);
                     }
                     delete window.chartVisibility.subjects[targetName];
-                    for (let i = 0; i < AppState.tasks.length; i++) {
-                        if (AppState.tasks[i].type !== 'study') continue;
+                    for (let i = 0; i < tasks.length; i++) {
+                        if (tasks[i].type !== 'study') continue;
                         const key = track + 'Tasks';
-                        if (Array.isArray(AppState.tasks[i][key])) {
-                            AppState.tasks[i][key] = AppState.tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
+                        if (Array.isArray(tasks[i][key])) {
+                            tasks[i][key] = tasks[i][key].map(b => b.subject === targetName ? { subject: "Revision", chapter: "Rev", title: "Practice", completed: false, id: b.id } : b);
                         }
                     }
-                    if (AppState.currentFilter === targetName) AppState.currentFilter = 'All';
+                    if (currentFilter === targetName) currentFilter = 'All';
                     window.paceGoals = window.paceGoals.filter(g => !(g.type === 'subject' && g.target === targetName));
                     window.paceGoals.forEach(g => {
                         if (g.type === 'bundle' && g.subjects) g.subjects = g.subjects.filter(s => s !== targetName);
@@ -10795,16 +11958,13 @@ window.openPaceCandleChartModal = function (goalId) {
                 }
             }
 
-            recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); updateManageDropdown();
+            recalculateTotals(); saveToCloud(); renderUI(); updateManageDropdown();
         };
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-window.resetToCleanSlate = function () {
+        window.resetToCleanSlate = function () {
             window.openConfirmModal(
                 "Reset Dashboard",
-                "Are you sure you want to completely clear all data? This will delete all tracks, programs, subjects, AppState.tasks, and history. This action cannot be undone.",
+                "Are you sure you want to completely clear all data? This will delete all tracks, programs, subjects, tasks, and history. This action cannot be undone.",
                 () => {
                     window.tracks = [];
                     window.customPrograms = {};
@@ -10823,16 +11983,16 @@ window.resetToCleanSlate = function () {
                         trendStartDate: new Date().toISOString().split('T')[0]
                     };
 
-                    AppState.PLAN_START_DATE = new Date();
-                    AppState.PLAN_START_DATE.setHours(0, 0, 0, 0);
-                    AppState.PLAN_END_DATE = new Date();
-                    AppState.PLAN_END_DATE.setMonth(AppState.PLAN_END_DATE.getMonth() + 10);
-                    AppState.PLAN_END_DATE.setHours(23, 59, 59, 999);
+                    PLAN_START_DATE = new Date();
+                    PLAN_START_DATE.setHours(0, 0, 0, 0);
+                    PLAN_END_DATE = new Date();
+                    PLAN_END_DATE.setMonth(PLAN_END_DATE.getMonth() + 10);
+                    PLAN_END_DATE.setHours(23, 59, 59, 999);
 
-                    AppState.tasks = generateStudyPlan();
+                    tasks = generateStudyPlan();
                     recalculateTotals();
 
-                    FirebaseService.saveToCloud(true);
+                    saveToCloud(true);
                     renderUI();
 
                     window.populateTrackDropdowns();
@@ -10899,7 +12059,7 @@ window.resetToCleanSlate = function () {
             window.sortAllCustomData();
 
             document.getElementById('add-prog-name').value = '';
-            FirebaseService.saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
+            saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
         };
 
         window.appendNewSubject = function () {
@@ -10917,8 +12077,8 @@ window.resetToCleanSlate = function () {
             if (doBulk && bulkNum <= 0) return showToast("Please enter a valid number of chapters to bulk add.", "error");
 
             let chaptersToAssign = doBulk ? bulkNum : 0;
-            const todayStr = Utils.formatDate(new Date());
-            let todayIdx = AppState.tasks.findIndex(t => t.date === todayStr);
+            const todayStr = formatDate(new Date());
+            let todayIdx = tasks.findIndex(t => t.date === todayStr);
             if (todayIdx === -1) todayIdx = 0;
 
             if (doBulk) {
@@ -10934,12 +12094,12 @@ window.resetToCleanSlate = function () {
             if (doBulk) {
                 let currentChapter = 1;
                 const key = track + 'Tasks';
-                for (let i = todayIdx; i < AppState.tasks.length && currentChapter <= chaptersToAssign; i++) {
-                    if (AppState.tasks[i].type !== 'study') continue;
-                    if (Array.isArray(AppState.tasks[i][key])) {
-                        const bIdx = AppState.tasks[i][key].findIndex(b => b.subject === 'Revision');
+                for (let i = todayIdx; i < tasks.length && currentChapter <= chaptersToAssign; i++) {
+                    if (tasks[i].type !== 'study') continue;
+                    if (Array.isArray(tasks[i][key])) {
+                        const bIdx = tasks[i][key].findIndex(b => b.subject === 'Revision');
                         if (bIdx > -1) {
-                            AppState.tasks[i][key][bIdx] = { subject: name, chapter: `Ch. ${currentChapter}`, title: `Topic ${currentChapter}`, completed: false, id: AppState.tasks[i][key][bIdx].id };
+                            tasks[i][key][bIdx] = { subject: name, chapter: `Ch. ${currentChapter}`, title: `Topic ${currentChapter}`, completed: false, id: tasks[i][key][bIdx].id };
                             currentChapter++;
                         }
                     }
@@ -10953,7 +12113,7 @@ window.resetToCleanSlate = function () {
             document.getElementById('add-sub-bulk-num').classList.add('hidden');
 
             recalculateTotals();
-            FirebaseService.saveToCloud();
+            saveToCloud();
 
             // Unblock main thread to allow modal to close immediately before heavy render
             setTimeout(() => {
@@ -10974,24 +12134,24 @@ window.resetToCleanSlate = function () {
 
             let isDuplicate = false;
             const key = track + 'Tasks';
-            for (let i = 0; i < AppState.tasks.length; i++) {
-                if (AppState.tasks[i].type !== 'study') continue;
-                if (Array.isArray(AppState.tasks[i][key]) && AppState.tasks[i][key].some(b => b.subject === subj && b.chapter === formattedCh)) { isDuplicate = true; break; }
+            for (let i = 0; i < tasks.length; i++) {
+                if (tasks[i].type !== 'study') continue;
+                if (Array.isArray(tasks[i][key]) && tasks[i][key].some(b => b.subject === subj && b.chapter === formattedCh)) { isDuplicate = true; break; }
             }
             if (isDuplicate) return showToast(`Chapter ${num} already exists for ${subj}!`, "error");
 
-            const todayStr = Utils.formatDate(new Date()); let todayIdx = AppState.tasks.findIndex(t => t.date === todayStr); if (todayIdx === -1) todayIdx = 0;
+            const todayStr = formatDate(new Date()); let todayIdx = tasks.findIndex(t => t.date === todayStr); if (todayIdx === -1) todayIdx = 0;
 
             ensureAvailableSlots(1, track, todayIdx);
 
             let slotted = false;
 
-            for (let i = todayIdx; i < AppState.tasks.length; i++) {
-                if (AppState.tasks[i].type !== 'study') continue;
-                if (Array.isArray(AppState.tasks[i][key])) {
-                    const bIdx = AppState.tasks[i][key].findIndex(b => b.subject === 'Revision');
+            for (let i = todayIdx; i < tasks.length; i++) {
+                if (tasks[i].type !== 'study') continue;
+                if (Array.isArray(tasks[i][key])) {
+                    const bIdx = tasks[i][key].findIndex(b => b.subject === 'Revision');
                     if (bIdx > -1) {
-                        AppState.tasks[i][key][bIdx] = { subject: subj, chapter: formattedCh, title: title, completed: false, id: AppState.tasks[i][key][bIdx].id }; slotted = true; break;
+                        tasks[i][key][bIdx] = { subject: subj, chapter: formattedCh, title: title, completed: false, id: tasks[i][key][bIdx].id }; slotted = true; break;
                     }
                 }
             }
@@ -11002,7 +12162,7 @@ window.resetToCleanSlate = function () {
             const targetSub = (syllabusStructure[track] || []).find(s => s.subject === subj);
             if (targetSub) targetSub.chapters++;
 
-            recalculateTotals(); FirebaseService.saveToCloud(); renderUI();
+            recalculateTotals(); saveToCloud(); renderUI();
             document.getElementById('add-ch-num').value = ''; document.getElementById('add-ch-title').value = '';
             showToast("Chapter added and sequenced!", "success");
         };
@@ -11034,7 +12194,7 @@ window.resetToCleanSlate = function () {
             document.getElementById('add-act-title').value = ''; 
             document.getElementById('add-act-desc').value = '';
             if (trackSelect) trackSelect.value = '';
-            FirebaseService.saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
+            saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
         };
 
         // --- Outcomes Program Visibility Logic ---
@@ -11088,7 +12248,7 @@ window.resetToCleanSlate = function () {
             }
 
             // Save and re-render everything
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
         };
 
@@ -11166,43 +12326,6 @@ window.resetToCleanSlate = function () {
         window.dailyTargetsDatabase = {};
         window.currentDailyTargetsDate = new Date();
 
-        window.getCompletedSizeForWeeklyTarget = function (target, weekKey) {
-            let completedSize = 0;
-            if (!window.dailyTargetsDatabase) return 0;
-            
-            if (!weekKey) {
-                const currentRange = window.getWeeklyTargetRange();
-                weekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
-            }
-            
-            Object.keys(window.dailyTargetsDatabase).forEach(dateKey => {
-                const d = new Date(dateKey + 'T12:00:00');
-                const range = window.getWeeklyTargetRange(d);
-                const dateWeekKey = window.formatDateRangeKey(range.start, range.end);
-                if (dateWeekKey !== weekKey) return;
-                
-                const dailyTargets = window.dailyTargetsDatabase[dateKey] || [];
-                dailyTargets.forEach(dt => {
-                    if (dt.completed && dt.track === target.track && dt.subject === target.subject && dt.chapter === target.chapter) {
-                        if (dt.totalChapterSize) {
-                            completedSize += parseFloat(dt.totalChapterSize);
-                        }
-                    }
-                });
-            });
-            return completedSize;
-        };
-
-        window.getWeeklyTargetProgress = function (target, weekKey) {
-            const total = target.totalChapterSize ? parseFloat(target.totalChapterSize) : 0;
-            if (total <= 0) {
-                return { completed: 0, total: 0, percent: 0 };
-            }
-            const completed = window.getCompletedSizeForWeeklyTarget(target, weekKey);
-            const percent = Math.min(100, Math.max(0, Math.round((completed / total) * 100)));
-            return { completed: completed, total: total, percent: percent };
-        };
-
         window.formatDateRangeKey = function (start, end) {
             const opt = { day: '2-digit', month: 'short', year: 'numeric' };
             const startStr = start.toLocaleDateString('en-GB', opt);
@@ -11238,8 +12361,8 @@ window.resetToCleanSlate = function () {
 
         window.findTaskChapter = function (track, subject, chapter) {
             const key = track + 'Tasks';
-            for (let i = 0; i < AppState.tasks.length; i++) {
-                const t = AppState.tasks[i];
+            for (let i = 0; i < tasks.length; i++) {
+                const t = tasks[i];
                 if (t.type === 'study' && Array.isArray(t[key])) {
                     const found = t[key].find(b => b.subject === subject && b.chapter === chapter);
                     if (found) {
@@ -11253,7 +12376,7 @@ window.resetToCleanSlate = function () {
         window.getChaptersForSubject = function (track, subject) {
             const key = track + 'Tasks';
             const chapters = new Set();
-            AppState.tasks.forEach(t => {
+            tasks.forEach(t => {
                 if (t.type === 'study' && Array.isArray(t[key])) {
                     t[key].forEach(b => {
                         if (b.subject === subject && b.chapter && !b.skipped) {
@@ -11263,11 +12386,11 @@ window.resetToCleanSlate = function () {
                 }
             });
             return Array.from(chapters).sort((a, b) => {
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-                return Utils.extractNum(a) - Utils.extractNum(b);
+                const extractNum = (chStr) => {
+                    const match = chStr.match(/(\d+)(?!.*\d)/);
+                    return match ? parseInt(match[0]) : 999;
+                };
+                return extractNum(a) - extractNum(b);
             });
         };
 
@@ -11335,14 +12458,12 @@ window.resetToCleanSlate = function () {
             const chSelectEl = document.getElementById('wt-select-ch');
             const daySelectEl = document.getElementById('wt-select-day');
             const scopeEl = document.getElementById('wt-target-scope');
-            const sizeEl = document.getElementById('wt-input-size');
             
             const progName = progSelectEl ? progSelectEl.value : '';
             const subject = subSelectEl ? subSelectEl.value : '';
             const chapter = chSelectEl ? chSelectEl.value : '';
             const dayName = daySelectEl ? daySelectEl.value : '';
             const scopeVal = scopeEl ? (scopeEl.value.trim() || 'Whole Chapter') : 'Whole Chapter';
-            const totalSize = sizeEl && sizeEl.value ? parseInt(sizeEl.value, 10) : null;
 
             if (!progName || !subject || !chapter) {
                 return showToast("Please select a Program, Subject, and Chapter.", "error");
@@ -11360,7 +12481,7 @@ window.resetToCleanSlate = function () {
                 return showToast("This target is already in your weekly target list.", "error");
             }
 
-            // Sync baseline completion status from daily AppState.tasks
+            // Sync baseline completion status from daily tasks
             const foundTask = window.findTaskChapter(trackId, subject, chapter);
             const isCompletedBefore = foundTask ? (foundTask.subTask.completed || false) : false;
             const completedAtBefore = foundTask ? (foundTask.subTask.completedAt || null) : null;
@@ -11373,15 +12494,13 @@ window.resetToCleanSlate = function () {
                 completed: isCompletedBefore,
                 completedAt: completedAtBefore,
                 dayName: dayName || null,
-                scope: scopeVal,
-                totalChapterSize: totalSize
+                scope: scopeVal
             });
 
             if (daySelectEl) daySelectEl.value = '';
             if (scopeEl) scopeEl.value = '';
-            if (sizeEl) sizeEl.value = '';
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('add-weekly-target-modal');
             showToast("Weekly target chapter added!", "success");
@@ -11394,7 +12513,7 @@ window.resetToCleanSlate = function () {
 
             if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[selectedWeekKey] && window.weeklyTargetsDatabase[selectedWeekKey][idx]) {
                 window.weeklyTargetsDatabase[selectedWeekKey].splice(idx, 1);
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 showToast("Weekly target removed.", "success");
             }
@@ -11412,7 +12531,7 @@ window.resetToCleanSlate = function () {
             target.completedAt = isCompleted ? new Date().toISOString() : null; // Sync date
 
             // Sync with Daily Target (if exists for today)
-            const todayKey = Utils.formatDate(new Date());
+            const todayKey = formatDate(new Date());
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[todayKey]) {
                 const matchingDt = window.dailyTargetsDatabase[todayKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
                 if (matchingDt) {
@@ -11428,7 +12547,7 @@ window.resetToCleanSlate = function () {
                 recalculateTotals();
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             showToast("Chapter completion state synchronized!", "success");
         };
@@ -11470,14 +12589,7 @@ window.resetToCleanSlate = function () {
             window.renderWeeklyTargets();
         };
 
-        /**
- * Renders weekly targets items tracking planned checklists.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.renderWeeklyTargets = function () {
+        window.renderWeeklyTargets = function () {
             const listContainer = document.getElementById('weekly-targets-list');
             const progDropdown = document.getElementById('wt-select-prog');
             const weekSelectEl = document.getElementById('wt-select-week');
@@ -11502,11 +12614,11 @@ window.renderWeeklyTargets = function () {
             allWeeksSet.add(futureWeekKey);
 
             const allWeeks = Array.from(allWeeksSet).sort((a, b) => {
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-                return Utils.parseStart(b) - Utils.parseStart(a);
+                const parseStart = (wkStr) => {
+                    const parts = wkStr.split(' - ');
+                    return parts[0] ? new Date(parts[0]) : new Date(0);
+                };
+                return parseStart(b) - parseStart(a);
             });
 
             // 3. Update week selector options if count/keys mismatch
@@ -11581,8 +12693,7 @@ window.renderWeeklyTargets = function () {
 
             targetsList.forEach((target, idx) => {
                 const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
-                const progress = window.getWeeklyTargetProgress(target, activeWeekKey);
-                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false) || (target.totalChapterSize && progress.percent >= 100);
+                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
                 if (isCompleted) completedTargets++;
 
                 const statusColor = isCompleted
@@ -11597,22 +12708,16 @@ window.renderWeeklyTargets = function () {
                     starsHtml = `<span class="inline-flex text-amber-500 text-[10px] ml-1.5" title="Added as target ${occurrenceCount} times">${'★'.repeat(occurrenceCount)}</span>`;
                 }
 
-                let bgStyle = '';
-                if (!isCompleted && target.totalChapterSize && progress.percent > 0) {
-                    bgStyle = `background: linear-gradient(to right, rgba(59, 130, 246, 0.1) ${progress.percent}%, transparent ${progress.percent}%);`;
-                }
-
-                const progressTextHtml = target.totalChapterSize ? `<span class="text-[9px] text-blue-500 font-bold ml-1.5">(${progress.completed}/${progress.total} p)</span>` : '';
                 const targetScope = target.scope || 'Whole Chapter';
                 const itemHtml = `
-                <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300" style="${bgStyle}">
+                <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300">
                     <div class="flex items-center space-x-3 min-w-0">
                         <input type="checkbox" 
                             onchange="window.toggleWeeklyTargetCompletion(${idx}, this.checked)" 
                             class="form-checkbox h-4.5 w-4.5 text-emerald-500 dark:text-emerald-500 rounded border-slate-350 focus:ring-emerald-500 transition-all cursor-pointer" 
                             ${isCompleted ? 'checked' : ''}>
                         <div class="min-w-0">
-                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}${starsHtml}${progressTextHtml}</span>
+                            <span class="block text-xs font-black text-slate-800 dark:text-slate-100 truncate">${target.chapter}: ${displaySub}${starsHtml}</span>
                             <div class="flex items-center space-x-1.5 flex-wrap">
                                 <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${target.program}${target.dayName ? ` • ${target.dayName}` : ''}</span>
                                 ${targetScope !== 'Whole Chapter' && targetScope !== 'Whole' ? `
@@ -11759,37 +12864,18 @@ window.renderWeeklyTargets = function () {
             if (chSelect) {
                 chSelect.value = chapter;
             }
-
-            // Pre-populate Daily Target input size with remaining weekly target size
-            const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate || new Date());
-            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
-            const wtList = (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) || [];
-            const matchingWt = wtList.find(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
-            
-            const sizeInput = document.getElementById('dt-input-size');
-            if (sizeInput) {
-                if (matchingWt && matchingWt.totalChapterSize !== undefined && matchingWt.totalChapterSize !== null) {
-                    const completedSize = window.getCompletedSizeForWeeklyTarget(matchingWt, currentWeekKey);
-                    const remainingSize = Math.max(0, matchingWt.totalChapterSize - completedSize);
-                    sizeInput.value = remainingSize;
-                } else {
-                    sizeInput.value = '';
-                }
-            }
         };
 
         window.addDailyTarget = function () {
             if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
-            const targetDateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            const targetDateKey = formatDate(window.currentDailyTargetsDate);
 
             const progSelectEl = document.getElementById('dt-select-prog');
             const subSelectEl = document.getElementById('dt-select-sub');
             const chSelectEl = document.getElementById('dt-select-ch');
-            const sizeEl = document.getElementById('dt-input-size');
             const progName = progSelectEl ? progSelectEl.value : '';
             const subject = subSelectEl ? subSelectEl.value : '';
             const chapter = chSelectEl ? chSelectEl.value : '';
-            const totalSize = sizeEl && sizeEl.value ? parseInt(sizeEl.value, 10) : null;
 
             if (!progName || !subject || !chapter) {
                 return showToast("Please select a Program, Subject, and Chapter.", "error");
@@ -11832,13 +12918,10 @@ window.renderWeeklyTargets = function () {
                 subject: subject,
                 chapter: chapter,
                 completed: isCompletedBefore,
-                completedAt: completedAtBefore,
-                totalChapterSize: totalSize
+                completedAt: completedAtBefore
             });
 
-            if (sizeEl) sizeEl.value = '';
-
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('add-daily-target-modal');
             showToast("Daily target chapter added!", "success");
@@ -11922,7 +13005,7 @@ window.renderWeeklyTargets = function () {
             if (!title) return showToast("Please enter a task title.", "error");
 
             if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
-            const targetDateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            const targetDateKey = formatDate(window.currentDailyTargetsDate);
 
             if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
             if (!window.dailyTargetsDatabase[targetDateKey]) window.dailyTargetsDatabase[targetDateKey] = [];
@@ -11938,7 +13021,7 @@ window.renderWeeklyTargets = function () {
             if (titleInput) titleInput.value = '';
             if (trackInput) trackInput.value = '';
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             closeModal('add-daily-target-modal');
             showToast("Custom to-do task added!", "success");
@@ -11946,11 +13029,11 @@ window.renderWeeklyTargets = function () {
 
         window.deleteDailyTarget = function (idx) {
             if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
-            const selectedDateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            const selectedDateKey = formatDate(window.currentDailyTargetsDate);
 
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[selectedDateKey] && window.dailyTargetsDatabase[selectedDateKey][idx]) {
                 window.dailyTargetsDatabase[selectedDateKey].splice(idx, 1);
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 showToast("Daily target removed.", "success");
             }
@@ -11958,7 +13041,7 @@ window.renderWeeklyTargets = function () {
 
         window.toggleDailyTargetCompletion = function (idx, isCompleted) {
             if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
-            const selectedDateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            const selectedDateKey = formatDate(window.currentDailyTargetsDate);
 
             if (!window.dailyTargetsDatabase || !window.dailyTargetsDatabase[selectedDateKey] || !window.dailyTargetsDatabase[selectedDateKey][idx]) return;
 
@@ -11967,7 +13050,7 @@ window.renderWeeklyTargets = function () {
             target.completedAt = isCompleted ? new Date().toISOString() : null;
 
             if (target.isTodo) {
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 showToast("To-Do task updated!", "success");
                 return;
@@ -11992,7 +13075,7 @@ window.renderWeeklyTargets = function () {
                 recalculateTotals();
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             showToast("Daily target completion state synchronized!", "success");
         };
@@ -12018,7 +13101,7 @@ window.renderWeeklyTargets = function () {
             if (!listContainer) return;
 
             if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
-            const targetDateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            const targetDateKey = formatDate(window.currentDailyTargetsDate);
 
             const dateDisplay = document.getElementById('dt-selected-date');
             if (dateDisplay) {
@@ -12121,7 +13204,7 @@ window.renderWeeklyTargets = function () {
             const progressEl = document.getElementById('db-daily-checklist-progress');
             if (!listContainer) return;
 
-            const todayStr = Utils.formatDate(new Date());
+            const todayStr = formatDate(new Date());
 
             if (rangeEl) rangeEl.textContent = `Today: ${todayStr}`;
 
@@ -12220,7 +13303,7 @@ window.renderWeeklyTargets = function () {
         };
 
         window.toggleDashboardDailyTargetCompletion = function (idx, isCompleted) {
-            const todayStr = Utils.formatDate(new Date());
+            const todayStr = formatDate(new Date());
 
             if (!window.dailyTargetsDatabase || !window.dailyTargetsDatabase[todayStr] || !window.dailyTargetsDatabase[todayStr][idx]) return;
 
@@ -12229,7 +13312,7 @@ window.renderWeeklyTargets = function () {
             target.completedAt = isCompleted ? new Date().toISOString() : null;
 
             if (target.isTodo) {
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 showToast("To-Do task updated!", "success");
                 return;
@@ -12253,7 +13336,7 @@ window.renderWeeklyTargets = function () {
                 recalculateTotals();
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             showToast("Daily checklist completion synchronized!", "success");
         };
@@ -12298,30 +13381,22 @@ window.renderWeeklyTargets = function () {
                     totalTargets--;
                     return;
                 }
-                const progress = window.getWeeklyTargetProgress(target, currentWeekKey);
-                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false) || (target.totalChapterSize && progress.percent >= 100);
+                const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false);
                 if (isCompleted) completedTargets++;
 
                 let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
                 const subjectColor = window.getSubjectColor ? window.getSubjectColor(target.subject) : '#10b981';
 
                 const activeStyle = `background-color: ${subjectColor}cc; border-color: ${subjectColor}; color: white; box-shadow: 0 4px 12px ${subjectColor}33;`;
-                
-                let bgStyle = '';
-                if (!isCompleted && target.totalChapterSize && progress.percent > 0) {
-                    bgStyle = `background: linear-gradient(to right, rgba(59, 130, 246, 0.12) ${progress.percent}%, transparent ${progress.percent}%);`;
-                }
-
                 const buttonClass = isCompleted
                     ? `text-white border-transparent`
                     : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
 
-                const progressTextHtml = target.totalChapterSize ? `<span class="text-[9px] text-blue-500 font-bold ml-1">(${progress.completed}/${progress.total} p)</span>` : '';
                 const targetScope = target.scope || 'Whole Chapter';
                 const itemHtml = `
                 <button onclick="window.toggleDashboardWeeklyTargetCompletion(${idx}, ${!isCompleted})"
                         class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 h-full ${buttonClass}"
-                        style="${isCompleted ? activeStyle : bgStyle}">
+                        style="${isCompleted ? activeStyle : ''}">
                     <div class="flex items-center space-x-1.5 min-w-0 flex-1">
                         <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -12329,7 +13404,7 @@ window.renderWeeklyTargets = function () {
                             </svg>
                         </div>
                         <div class="min-w-0 leading-tight">
-                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${target.chapter}: ${displaySub} ${progressTextHtml}</span>
+                            <span class="block text-[10px] md:text-xs font-black truncate ${isCompleted ? 'line-through opacity-75' : ''}">${target.chapter}: ${displaySub}</span>
                             <div class="flex items-center space-x-1.5 flex-wrap">
                                 <span class="block text-[7px] uppercase tracking-wider font-bold opacity-75 truncate">${target.program}${target.dayName ? ' | ' + target.dayName.toUpperCase() : ''} | ${isCompleted ? 'YES' : 'NO'}</span>
                                 ${targetScope !== 'Whole Chapter' && targetScope !== 'Whole' ? `
@@ -12342,8 +13417,8 @@ window.renderWeeklyTargets = function () {
                     </div>
                     <div class="shrink-0">
                         ${isCompleted 
-                            ? `<span class="flex h-4 w-4 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm text-[8px] font-black">✓</span>` 
-                            : `<span class="flex h-4 w-4 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 items-center justify-center text-[7px] font-black">✕</span>` 
+                            ? `<span class="flex h-4 w-4 rounded-full bg-white text-emerald-500 items-center justify-center shadow-sm text-[8px] font-black">✓</span>`
+                            : `<span class="flex h-4 w-4 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 items-center justify-center text-[7px] font-black">✕</span>`
                         }
                     </div>
                 </button>`;
@@ -12375,7 +13450,7 @@ window.renderWeeklyTargets = function () {
             target.completedAt = isCompleted ? new Date().toISOString() : null;
 
             // Sync with Daily Target (if exists for today)
-            const todayKey = Utils.formatDate(new Date());
+            const todayKey = formatDate(new Date());
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[todayKey]) {
                 const matchingDt = window.dailyTargetsDatabase[todayKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
                 if (matchingDt) {
@@ -12391,7 +13466,7 @@ window.renderWeeklyTargets = function () {
                 recalculateTotals();
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             showToast("Weekly checklist completion synchronized!", "success");
         };
@@ -12454,11 +13529,11 @@ window.renderWeeklyTargets = function () {
             const allWeeksSet = new Set(Object.keys(window.weeklyTargetsDatabase));
             allWeeksSet.add(currentWeekKey);
             const allWeeks = Array.from(allWeeksSet).sort((a, b) => {
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-// local helper consolidated
-                return Utils.parseStart(b) - Utils.parseStart(a);
+                const parseStart = (wkStr) => {
+                    const parts = wkStr.split(' - ');
+                    return parts[0] ? new Date(parts[0]) : new Date(0);
+                };
+                return parseStart(b) - parseStart(a);
             });
 
             const prevWeekVal = weekFilter.value;
@@ -12552,10 +13627,7 @@ window.renderWeeklyTargets = function () {
             }
         };
 
-        // Deprecated
-// Currently unused
-// Retained for compatibility
-window.addWtdbTarget = function () {
+        window.addWtdbTarget = function () {
             const weekFilter = document.getElementById('wtdb-filter-week');
             let targetWeek = weekFilter ? weekFilter.value : '';
             if (!targetWeek || targetWeek === 'all') {
@@ -12582,7 +13654,7 @@ window.addWtdbTarget = function () {
                 return showToast("This target is already in the list for the selected week.", "error");
             }
 
-            // Sync baseline completion status from daily AppState.tasks
+            // Sync baseline completion status from daily tasks
             const foundTask = window.findTaskChapter(trackId, subject, chapter);
             const isCompletedBefore = foundTask ? (foundTask.subTask.completed || false) : false;
             const completedAtBefore = foundTask ? (foundTask.subTask.completedAt || null) : null;
@@ -12596,7 +13668,7 @@ window.addWtdbTarget = function () {
                 completedAt: completedAtBefore
             });
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderWtdbList();
             showToast("Target added to week: " + targetWeek, "success");
@@ -12605,7 +13677,7 @@ window.addWtdbTarget = function () {
         window.deleteWtdbTarget = function (weekKey, idx) {
             if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[weekKey] && window.weeklyTargetsDatabase[weekKey][idx]) {
                 window.weeklyTargetsDatabase[weekKey].splice(idx, 1);
-                FirebaseService.saveToCloud();
+                saveToCloud();
                 renderUI();
                 window.renderWtdbList();
                 showToast("Weekly target removed.", "success");
@@ -12626,7 +13698,7 @@ window.addWtdbTarget = function () {
                 recalculateTotals();
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderWtdbList();
             showToast("Target completion state updated!", "success");
@@ -12716,8 +13788,8 @@ window.addWtdbTarget = function () {
                 const dates = weekKey.split(' - ');
                 if (dates.length !== 2) return;
 
-                const start = Utils.parseDateSafe(dates[0]);
-                const end = Utils.parseDateSafe(dates[1]);
+                const start = parseDateSafe(dates[0]);
+                const end = parseDateSafe(dates[1]);
                 if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
                 const weekDays = [];
@@ -12739,7 +13811,7 @@ window.addWtdbTarget = function () {
 
                     // 2. Distribute completed count
                     if (t.completed) {
-                        const compDateDirect = t.completedAt ? Utils.parseDateSafe(t.completedAt) : null;
+                        const compDateDirect = t.completedAt ? parseDateSafe(t.completedAt) : null;
                         if (compDateDirect) {
                             const compMonthKey = getMonthKey(compDateDirect);
                             if (!monthsData[compMonthKey]) {
@@ -12751,7 +13823,7 @@ window.addWtdbTarget = function () {
 
                         const found = window.findTaskChapter(t.track, t.subject, t.chapter);
                         if (found && found.subTask && found.subTask.completed) {
-                            const compDate = found.subTask.completedAt ? Utils.parseDateSafe(found.subTask.completedAt) : null;
+                            const compDate = found.subTask.completedAt ? parseDateSafe(found.subTask.completedAt) : null;
                             if (compDate) {
                                 const compMonthKey = getMonthKey(compDate);
                                 if (!monthsData[compMonthKey]) {
@@ -12761,10 +13833,10 @@ window.addWtdbTarget = function () {
                                 return;
                             }
 
-                            const taskObj = AppState.tasks[found.taskIndex];
+                            const taskObj = tasks[found.taskIndex];
                             if (taskObj && taskObj.date) {
                                 // Match the task date string against the week's days
-                                const foundDate = weekDays.find(d => Utils.formatDate(d) === taskObj.date);
+                                const foundDate = weekDays.find(d => formatDate(d) === taskObj.date);
                                 const compDateFallback = foundDate || start;
                                 const compMonthKey = getMonthKey(compDateFallback);
                                 if (!monthsData[compMonthKey]) {
@@ -12907,195 +13979,6 @@ window.addWtdbTarget = function () {
             window.renderWtdbMonthChart(monthsList);
         };
 
-        // --- Daily Targets Database Modal Controls & Logic ---
-        window.openDailyTargetsDatabase = function () {
-            window.openModal('daily-targets-db-modal');
-            window.populateDtdbFilters();
-            window.renderDtdbList();
-        };
-
-        window.populateDtdbFilters = function () {
-            const dateFilter = document.getElementById('dtdb-filter-date');
-            const progFilter = document.getElementById('dtdb-filter-prog');
-            const subFilter = document.getElementById('dtdb-filter-sub');
-
-            if (!dateFilter || !progFilter || !subFilter) return;
-
-            if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
-            const allDates = Object.keys(window.dailyTargetsDatabase).sort((a, b) => new Date(b) - new Date(a));
-
-            const prevDateVal = dateFilter.value;
-            dateFilter.innerHTML = '<option value="all">All Dates</option>';
-            allDates.forEach(dt => {
-                dateFilter.innerHTML += `<option value="${dt}">${dt}</option>`;
-            });
-            dateFilter.value = prevDateVal || 'all';
-
-            const activeProgs = [];
-            window.tracks.forEach(track => {
-                if (window.customPrograms[track.id]) {
-                    window.customPrograms[track.id].forEach(p => {
-                        activeProgs.push(p.name || p);
-                    });
-                }
-            });
-
-            const prevProgVal = progFilter.value;
-            progFilter.innerHTML = '<option value="all">All Programs</option>';
-            activeProgs.forEach(p => {
-                progFilter.innerHTML += `<option value="${p}">${p}</option>`;
-            });
-            progFilter.value = prevProgVal || 'all';
-
-            const prevSubVal = subFilter.value;
-            subFilter.innerHTML = '<option value="all">All Subjects</option>';
-            window.getAllSubjects().forEach(s => {
-                subFilter.innerHTML += `<option value="${s.subject}">${s.subject}</option>`;
-            });
-            subFilter.value = prevSubVal || 'all';
-        };
-
-        window.renderDtdbList = function () {
-            const tbody = document.getElementById('dtdb-targets-tbody');
-            if (!tbody) return;
-
-            const dFilter = document.getElementById('dtdb-filter-date').value;
-            const pFilter = document.getElementById('dtdb-filter-prog').value;
-            const sFilter = document.getElementById('dtdb-filter-sub').value;
-            const statFilter = document.getElementById('dtdb-filter-status').value;
-
-            tbody.innerHTML = '';
-            let matchedCount = 0;
-
-            if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
-
-            const sortedDates = Object.keys(window.dailyTargetsDatabase).sort((a, b) => new Date(b) - new Date(a));
-
-            sortedDates.forEach(dateKey => {
-                if (dFilter !== 'all' && dateKey !== dFilter) return;
-
-                const list = window.dailyTargetsDatabase[dateKey] || [];
-                list.forEach((target, idx) => {
-                    if (pFilter !== 'all' && target.program !== pFilter) return;
-                    if (sFilter !== 'all' && target.subject !== sFilter) return;
-
-                    const isTodo = target.isTodo || false;
-                    const isCompleted = isTodo ? (target.completed || false) : (target.completed || (window.findTaskChapter(target.track, target.subject, target.chapter)?.subTask.completed ?? false));
-
-                    if (statFilter === 'completed' && !isCompleted) return;
-                    if (statFilter === 'non-completed' && isCompleted) return;
-
-                    matchedCount++;
-
-                    let displaySub = target.subject ? target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '') : '';
-                    let chapterVal = target.chapter || '';
-                    let sizeVal = (target.totalChapterSize !== undefined && target.totalChapterSize !== null) ? target.totalChapterSize : '';
-                    let displayTitle = isTodo ? target.title : `${chapterVal}: ${displaySub}`;
-
-                    const row = `
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                        <td class="py-3 px-4 text-center">
-                            <input type="checkbox" onchange="window.toggleDtdbTargetCompletion('${dateKey}', ${idx}, this.checked)" class="form-checkbox h-4 w-4 text-emerald-500 rounded cursor-pointer" ${isCompleted ? 'checked' : ''}>
-                        </td>
-                        <td class="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 text-[10px]">${dateKey}</td>
-                        <td class="py-3 px-4 uppercase text-[10px] text-slate-400">${target.program || 'Custom'}</td>
-                        <td class="py-3 px-4 truncate max-w-[150px]" title="${isTodo ? 'To-Do Task' : target.subject}">${isTodo ? 'Custom Task' : displaySub}</td>
-                        <td class="py-3 px-4 text-blue-600 dark:text-blue-400 font-bold max-w-[150px] truncate" title="${displayTitle}">${displayTitle}</td>
-                        <td class="py-3 px-4 text-center">
-                            ${isTodo ? '<span class="text-slate-400 font-normal">-</span>' : `
-                            <input type="number" value="${sizeVal}" min="0" placeholder="-" 
-                                onchange="window.updateDtdbTargetSize('${dateKey}', ${idx}, this.value)" 
-                                class="w-16 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs font-bold text-center focus:ring-1 focus:ring-blue-500 outline-none">
-                            `}
-                        </td>
-                        <td class="py-3 px-4 text-center">
-                            <button onclick="window.deleteDtdbTarget('${dateKey}', ${idx})" class="p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 rounded transition-all active:scale-90 shadow-sm">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                            </button>
-                        </td>
-                    </tr>`;
-                    tbody.innerHTML += row;
-                });
-            });
-
-            if (matchedCount === 0) {
-                tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="py-8 text-center text-[10px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30">
-                        No daily targets found.
-                    </td>
-                </tr>`;
-            }
-        };
-
-        window.toggleDtdbTargetCompletion = function (dateKey, idx, isCompleted) {
-            if (!window.dailyTargetsDatabase || !window.dailyTargetsDatabase[dateKey] || !window.dailyTargetsDatabase[dateKey][idx]) return;
-
-            const target = window.dailyTargetsDatabase[dateKey][idx];
-            target.completed = isCompleted;
-            target.completedAt = isCompleted ? new Date().toISOString() : null;
-
-            if (target.isTodo) {
-                FirebaseService.saveToCloud();
-                renderUI();
-                window.renderDtdbList();
-                showToast("To-Do task updated!", "success");
-                return;
-            }
-
-            // Sync with Weekly Target (if exists)
-            const currentRange = window.getWeeklyTargetRange(new Date(dateKey + 'T12:00:00'));
-            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
-            if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) {
-                const matchingWt = window.weeklyTargetsDatabase[currentWeekKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
-                if (matchingWt) {
-                    matchingWt.completed = isCompleted;
-                    matchingWt.completedAt = target.completedAt;
-                }
-            }
-
-            // Sync with daily study task
-            const found = window.findTaskChapter(target.track, target.subject, target.chapter);
-            if (found) {
-                found.subTask.completed = isCompleted;
-                found.subTask.completedAt = target.completedAt;
-                recalculateTotals();
-            }
-
-            FirebaseService.saveToCloud();
-            renderUI();
-            window.renderDtdbList();
-            showToast("Daily target completion state synchronized!", "success");
-        };
-
-        window.deleteDtdbTarget = function (dateKey, idx) {
-            if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[dateKey] && window.dailyTargetsDatabase[dateKey][idx]) {
-                window.dailyTargetsDatabase[dateKey].splice(idx, 1);
-                if (window.dailyTargetsDatabase[dateKey].length === 0) {
-                    delete window.dailyTargetsDatabase[dateKey];
-                }
-                FirebaseService.saveToCloud();
-                renderUI();
-                window.populateDtdbFilters();
-                window.renderDtdbList();
-                showToast("Daily target removed.", "success");
-            }
-        };
-
-        window.updateDtdbTargetSize = function (dateKey, idx, size) {
-            if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[dateKey] && window.dailyTargetsDatabase[dateKey][idx]) {
-                const target = window.dailyTargetsDatabase[dateKey][idx];
-                const numericSize = size ? parseFloat(size) : null;
-                target.totalChapterSize = numericSize;
-                FirebaseService.saveToCloud();
-                renderUI();
-                window.renderDtdbList();
-                showToast("Target size updated!", "success");
-            }
-        };
-
         window.togglePassStatus = function (type, name, isChecked) {
             if (!window.passedItems) window.passedItems = { programs: [], subjects: [] };
 
@@ -13164,7 +14047,7 @@ window.addWtdbTarget = function () {
                 }
             }
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             updateSuccessScore();
             renderUI();
             window.renderPassConfig();
@@ -13234,8 +14117,8 @@ window.addWtdbTarget = function () {
                         if (allSubjectsAttempted && hasTgt && group && group.overall) {
                             const evalType = group.overall.evaluationType;
                             if (evalType === 'grade') {
-                                const currentGradeVal = Utils.mapGradeToNumeric(group.overall.grade, 'grade');
-                                const targetGradeVal = Utils.mapGradeToNumeric(targetGrade, 'grade');
+                                const currentGradeVal = window.mapGradeToNumeric(group.overall.grade, 'grade');
+                                const targetGradeVal = window.mapGradeToNumeric(targetGrade, 'grade');
                                 isProgramGoalMet = currentGradeVal >= targetGradeVal;
                             } else {
                                 const currentCgpaVal = parseFloat(group.overall.value) || 0;
@@ -13266,8 +14149,8 @@ window.addWtdbTarget = function () {
                             } else if (hasSubTgt && subRes) {
                                 const evalType = subRes.evaluationType || 'cgpa';
                                 if (evalType === 'grade') {
-                                    const currentGradeVal = Utils.mapGradeToNumeric(subRes.grade, 'grade');
-                                    const targetGradeVal = Utils.mapGradeToNumeric(subTargetGrade, 'grade');
+                                    const currentGradeVal = window.mapGradeToNumeric(subRes.grade, 'grade');
+                                    const targetGradeVal = window.mapGradeToNumeric(subTargetGrade, 'grade');
                                     isSubjectGoalMet = currentGradeVal >= targetGradeVal;
                                 } else {
                                     const currentCgpaVal = parseFloat(subRes.value) || 0;
@@ -13367,7 +14250,7 @@ window.addWtdbTarget = function () {
             // Re-assign order
             list.forEach((t, idx) => t.order = idx);
 
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderPriorityConfig();
             showToast("Track order updated!", "success");
@@ -13421,7 +14304,7 @@ window.addWtdbTarget = function () {
                     window.customPrograms[t.id].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || (a.order ?? 999) - (b.order ?? 999));
                 }
             });
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderPriorityConfig();
             showToast("Program order updated!", "success");
@@ -13453,7 +14336,7 @@ window.addWtdbTarget = function () {
             });
 
             window.sortAllCustomData();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderPriorityConfig();
             showToast("Subject order updated!", "success");
@@ -13487,7 +14370,7 @@ window.addWtdbTarget = function () {
             list.forEach((a, idx) => a.order = idx);
 
             window.sortAllCustomData();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderPriorityConfig();
             showToast("Daily action order updated!", "success");
@@ -13589,19 +14472,12 @@ window.addWtdbTarget = function () {
             }
 
             window.sortAllCustomData();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderPriorityConfig();
         };
 
-        /**
- * Handles prioritize views, program rankings, and drag-drop order configs.
- *
- * TODO(R2):
- * Split during module extraction.
- * No logic changes in this phase.
- */
-window.renderPriorityConfig = function () {
+        window.renderPriorityConfig = function () {
             const container = document.getElementById('sys-content-priority');
             if (!container) return;
 
@@ -13802,7 +14678,7 @@ window.renderPriorityConfig = function () {
             } else {
                 window.customActions.forEach((a, idx) => {
                     const pVal = a.priority !== undefined ? a.priority : 3;
-                    const cMap = AppState.twColors[a.color] || AppState.twColors.indigo;
+                    const cMap = twColors[a.color] || twColors.indigo;
                     html += `
                     <div class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:border-amber-400 transition-all">
                         <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -13849,7 +14725,7 @@ window.renderPriorityConfig = function () {
         window.savePriorities = function () {
             window.syncPriorityInputsFromDOM();
             window.sortAllCustomData();
-            FirebaseService.saveToCloud();
+            saveToCloud();
             renderUI();
             window.renderPriorityConfig();
             showToast("Priorities saved and synced successfully!", "success");
@@ -14006,8 +14882,8 @@ window.renderPriorityConfig = function () {
             if (!startStr) return showToast("Please select a target start date.", "error");
             if (!dateStr) return showToast("Please select a target deadline date.", "error");
 
-            const startDate = Utils.parseDateSafe(startStr);
-            const targetDate = Utils.parseDateSafe(dateStr);
+            const startDate = parseDateSafe(startStr);
+            const targetDate = parseDateSafe(dateStr);
             if (targetDate <= startDate) return showToast("Target deadline must be after the start date.", "error");
 
             if (bType === 'global') {
@@ -14055,7 +14931,7 @@ window.renderPriorityConfig = function () {
             document.getElementById('add-pace-name').value = '';
             document.getElementById('add-pace-start').value = '';
             document.getElementById('add-pace-date').value = '';
-            FirebaseService.saveToCloud(); renderUI(); showToast("Custom Pace Goal added!", "success");
+            saveToCloud(); renderUI(); showToast("Custom Pace Goal added!", "success");
         };
 
         window.requestDeletePaceGoal = function (id) {
@@ -14068,7 +14944,7 @@ window.renderPriorityConfig = function () {
                 const defaultGoal = window.paceGoals.find(g => g.id === 'global-timeline') || window.paceGoals[0];
                 window.dashboardConfig.activePaceGoalId = defaultGoal ? defaultGoal.id : null;
             }
-            FirebaseService.saveToCloud(); renderUI(); showToast("Pace Goal deleted.", "success");
+            saveToCloud(); renderUI(); showToast("Pace Goal deleted.", "success");
         };
 
         function showToast(msg, type) {
@@ -14085,10 +14961,10 @@ window.renderPriorityConfig = function () {
             if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
             resizeDebounceTimer = setTimeout(() => {
                 const charts = [
-                    AppState.progressChart, window.mainChartPrograms, window.monthlyChartActions,
+                    progressChart, window.mainChartPrograms, window.monthlyChartActions,
                     window.yearlyChartActions, window.subjectTrendChart, window.paceTrendChartInstance,
                     window.spectraPaceTrendChartInstance, window.globalPaceTrendChartInstance, window.dbProgressChartInstance,
-                    window.revisionTrendChartInstance, window.globalHistoryChartInstance, AppState.masterLineChart,
+                    window.revisionTrendChartInstance, window.globalHistoryChartInstance, masterLineChart,
                     window.dadbTrendChartInstance, window.resultsTrendChartInstance, window.programTrendChartInstance
                 ];
                 charts.forEach(c => { if (c && typeof c.resize === 'function') c.resize(); });
@@ -14182,9 +15058,9 @@ window.renderPriorityConfig = function () {
             window.customPrograms[id] = [];
             syllabusStructure[id] = [];
 
-            // Backfill tasks: Loop through all existing AppState.tasks and add the new track properties
-            if (Array.isArray(AppState.tasks)) {
-                AppState.tasks.forEach(task => {
+            // Backfill tasks: Loop through all existing tasks and add the new track properties
+            if (Array.isArray(tasks)) {
+                tasks.forEach(task => {
                     if (task.type === 'study') {
                         if (task[id + 'Study'] === undefined) {
                             task[id + 'Study'] = false;
@@ -14202,7 +15078,7 @@ window.renderPriorityConfig = function () {
             }
 
             nameInput.value = '';
-            FirebaseService.saveToCloud();
+            saveToCloud();
             window.populateTrackDropdowns();
             renderUI();
             window.renderTrackList();
@@ -14227,7 +15103,7 @@ window.renderPriorityConfig = function () {
             if (!track) return;
 
             track.name = newName;
-            FirebaseService.saveToCloud();
+            saveToCloud();
             window.populateTrackDropdowns();
             renderUI();
             window.renderTrackList();
@@ -14259,7 +15135,7 @@ window.renderPriorityConfig = function () {
             // Remove from tracks
             window.tracks = window.tracks.filter(t => t.id !== id);
 
-            // Clean up AppState.customActions track association
+            // Clean up customActions track association
             if (Array.isArray(window.customActions)) {
                 window.customActions.forEach(a => {
                     if (a.track === id) a.track = null;
@@ -14270,17 +15146,17 @@ window.renderPriorityConfig = function () {
             if (window.customPrograms[id]) delete window.customPrograms[id];
             if (syllabusStructure[id]) delete syllabusStructure[id];
 
-            // Remove from AppState.tasks properties
+            // Remove from tasks properties
             const keyTasks = id + 'Tasks';
             const keyStudy = id + 'Study';
-            if (Array.isArray(AppState.tasks)) {
-                AppState.tasks.forEach(task => {
+            if (Array.isArray(tasks)) {
+                tasks.forEach(task => {
                     if (task[keyTasks]) delete task[keyTasks];
                     if (task[keyStudy] !== undefined) delete task[keyStudy];
                 });
             }
 
-            // Cleanup AppState.passedItems
+            // Cleanup passedItems
             if (window.passedItems) {
                 if (window.passedItems.programs) {
                     window.passedItems.programs = window.passedItems.programs.filter(p => !programsToCleanup.includes(p));
@@ -14290,7 +15166,7 @@ window.renderPriorityConfig = function () {
                 }
             }
 
-            // Cleanup AppState.revisionData
+            // Cleanup revisionData
             if (window.revisionData) {
                 if (window.revisionData.active) {
                     window.revisionData.active = window.revisionData.active.filter(s => !subjectsToCleanup.includes(s));
@@ -14302,14 +15178,14 @@ window.renderPriorityConfig = function () {
                 }
             }
 
-            // Cleanup AppState.subjectTimeLinks
+            // Cleanup subjectTimeLinks
             if (window.subjectTimeLinks) {
                 subjectsToCleanup.forEach(sub => {
                     if (window.subjectTimeLinks[sub]) delete window.subjectTimeLinks[sub];
                 });
             }
 
-            // Cleanup AppState.successResults
+            // Cleanup successResults
             if (window.successResults) {
                 window.successResults = window.successResults.filter(r => {
                     if (r.type === 'cgpa') {
@@ -14320,7 +15196,7 @@ window.renderPriorityConfig = function () {
                 });
             }
 
-            // Cleanup AppState.paceGoals
+            // Cleanup paceGoals
             if (window.paceGoals) {
                 window.paceGoals = window.paceGoals.filter(g => {
                     if (g.type === 'program' && programsToCleanup.includes(g.target)) return false;
@@ -14342,7 +15218,7 @@ window.renderPriorityConfig = function () {
                 });
             }
 
-            // Cleanup AppState.subjectDetailsState
+            // Cleanup subjectDetailsState
             if (window.subjectDetailsState) {
                 subjectsToCleanup.forEach(sub => {
                     const safeSubId = sub.replace(/[^a-zA-Z0-9]/g, '-');
@@ -14353,11 +15229,11 @@ window.renderPriorityConfig = function () {
             }
 
             // Save to cloud, repopulate, and redraw
-            FirebaseService.saveToCloud();
+            saveToCloud();
             window.populateTrackDropdowns();
             renderUI();
-            if (AppState.currentFilter && (programsToCleanup.includes(AppState.currentFilter) || subjectsToCleanup.includes(AppState.currentFilter))) {
-                AppState.currentFilter = 'All';
+            if (currentFilter && (programsToCleanup.includes(currentFilter) || subjectsToCleanup.includes(currentFilter))) {
+                currentFilter = 'All';
                 renderUI();
             }
             window.renderTrackList();
@@ -14458,12 +15334,12 @@ window.renderPriorityConfig = function () {
                 }, 50);
             } else if (pageId === 'subjects') {
                 setTimeout(() => {
-                    if (AppState.progressChart) {
-                        const oldData = AppState.progressChart.data.datasets[0].data.slice();
-                        AppState.progressChart.destroy();
+                    if (progressChart) {
+                        const oldData = progressChart.data.datasets[0].data.slice();
+                        progressChart.destroy();
                         const canvas = document.getElementById('progressChart');
                         if (canvas) {
-                            AppState.progressChart = new Chart(canvas.getContext('2d'), {
+                            progressChart = new Chart(canvas.getContext('2d'), {
                                 type: 'doughnut',
                                 data: { datasets: [{ data: oldData, backgroundColor: ['#3b82f6', 'rgba(148, 163, 184, 0.1)'], borderWidth: 0 }] },
                                 options: { responsive: true, maintainAspectRatio: false, cutout: '82%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
@@ -14482,36 +15358,104 @@ window.renderPriorityConfig = function () {
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!document.getElementById('app-wrapper')) return;
-            if (AppState.isAppInitialized) return;
-            AppState.isAppInitialized = true;
-
-            // Initialize Focus Timer Service
-            if (window.TimerService) {
-                window.TimerService.init();
-            }
+            if (isAppInitialized) return;
+            isAppInitialized = true;
 
             // Start progress
             if (window.setLoadingProgress) window.setLoadingProgress(15, 'Initializing workspace...');
 
-            // Load configurations & Initialize Firebase Service
+            // Fast config loading optimization (bypasses network call if cached)
+            let config;
+            const cachedConfig = localStorage.getItem('firebaseConfig');
+            if (cachedConfig) {
+                try {
+                    config = JSON.parse(cachedConfig);
+                    console.log("Fast-boot: Loaded Firebase config from localStorage cache.");
+                    if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                } catch (e) {
+                    console.warn("Cached config parse failed:", e);
+                }
+            }
+            
+            if (!config) {
+                if (window.setLoadingProgress) window.setLoadingProgress(25, 'Fetching configuration...');
+                try {
+                    const res = await fetch('/api/config');
+                    if (!res.ok) throw new Error("API config endpoint not available");
+                    config = await res.json();
+                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                    if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                } catch (err) {
+                    console.warn("API config failed, trying static .env fallback...", err);
+                    try {
+                        const res = await fetch('/.env');
+                        if (!res.ok) throw new Error(".env file not available");
+                        const envText = await res.text();
+                        const env = {};
+                        envText.split(/\r?\n/).forEach(line => {
+                            const trimmed = line.trim();
+                            if (trimmed && !trimmed.startsWith('#')) {
+                                const parts = trimmed.split('=');
+                                const key = parts[0].trim();
+                                const val = parts.slice(1).join('=').trim();
+                                env[key] = val;
+                            }
+                        });
+
+                        config = {
+                            apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                            authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                            projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                            storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                            messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+                            appId: env.NEXT_PUBLIC_FIREBASE_APP_ID
+                        };
+
+                        if (!config.apiKey) throw new Error("No API key found in .env");
+                        console.log("Loaded Firebase config from static .env fallback successfully!");
+                        localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                        if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                    } catch (fallbackErr) {
+                        console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
+                        const cachedConfigFallback = localStorage.getItem('firebaseConfig');
+                        if (cachedConfigFallback) {
+                            config = JSON.parse(cachedConfigFallback);
+                            console.log("Loaded Firebase config from localStorage cache for offline boot.");
+                            if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                        } else {
+                            console.warn("Failed to load Firebase configuration, using offline fallback config.");
+                            config = {
+                                apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+                                authDomain: "project-x-787898.firebaseapp.com",
+                                projectId: "project-x-787898",
+                                storageBucket: "project-x-787898.firebasestorage.app",
+                                messagingSenderId: "1011303841705",
+                                appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                            };
+                            if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
+                        }
+                    }
+                }
+            }
+
             try {
-                const config = await FirebaseService.fetchConfig();
-                if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
-                FirebaseService.init(config);
+                firebase.initializeApp(config);
+                db = firebase.firestore();
+                console.log("Firebase Connected");
                 if (window.setLoadingProgress) window.setLoadingProgress(55, 'Authenticating session...');
             } catch (e) {
-                console.error("Firebase init failed:", e);
+                console.error("Firebase init error:", e);
             }
 
             // Route guard
-            FirebaseService.onAuthStateChanged(async (user) => {
+            firebase.auth().onAuthStateChanged(async (user) => {
                 if (!user) {
                     window.location.href = 'login.html';
                     return;
                 }
 
                 if (user.email !== 'ris2k29@gmail.com') {
-                    FirebaseService.logout().then(() => {
+                    firebase.auth().signOut().then(() => {
                         window.location.href = 'login.html?error=denied';
                     });
                     return;
@@ -14522,7 +15466,7 @@ window.renderPriorityConfig = function () {
                 window.currentUser = user;
                 if (window.setLoadingProgress) window.setLoadingProgress(70, 'Loading cloud workspace...');
 
-                // Update profile section
+                // Update profile section with local settings override if available
                 const localName = localStorage.getItem('studyPlan_profileName');
                 const localEmail = localStorage.getItem('studyPlan_profileEmail');
                 const displayName = localName || user.displayName || 'ris2k29';
@@ -14534,11 +15478,12 @@ window.renderPriorityConfig = function () {
                 if (profileNameEl) profileNameEl.textContent = displayName;
                 if (profileEmailEl) profileEmailEl.textContent = displayEmail;
                 if (profileAvatarEl) {
-                    profileAvatarEl.textContent = displayName.charAt(0).toUpperCase();
+                    const initial = displayName.charAt(0).toUpperCase();
+                    profileAvatarEl.textContent = initial;
                 }
 
-                // Subscribe and sync from cloud
-                FirebaseService.loadFromCloud();
+                // Subscribe to Firestore changes and load data directly into memory
+                loadFromCloud();
                 window.switchPage('dashboard');
             });
 
@@ -14592,9 +15537,9 @@ window.renderPriorityConfig = function () {
             }
         });
 
-/******************************************************************
- * LOGIN AUTH
- ******************************************************************/
+/* ==========================================
+   7. Login Page Auth Logic (login.html inline script)
+   ========================================== */
         document.addEventListener('DOMContentLoaded', async () => {
             if (!document.getElementById('login-form')) return;
             const loginForm = document.getElementById('login-form');
@@ -14620,11 +15565,65 @@ window.renderPriorityConfig = function () {
                 errorBanner.classList.add('hidden');
             }
 
-            // Load configurations & Initialize Firebase
+            // Fetch Firebase configurations
             let config;
             try {
-                config = await FirebaseService.fetchConfig();
-                FirebaseService.init(config);
+                const res = await fetch('/api/config');
+                if (!res.ok) throw new Error("API config endpoint not available");
+                config = await res.json();
+                localStorage.setItem('firebaseConfig', JSON.stringify(config));
+            } catch (err) {
+                console.warn("API config failed, trying static .env fallback...", err);
+                try {
+                    const res = await fetch('/.env');
+                    if (!res.ok) throw new Error(".env file not available");
+                    const envText = await res.text();
+                    const env = {};
+                    envText.split(/\r?\n/).forEach(line => {
+                        const trimmed = line.trim();
+                        if (trimmed && !trimmed.startsWith('#')) {
+                            const parts = trimmed.split('=');
+                            const key = parts[0].trim();
+                            const val = parts.slice(1).join('=').trim();
+                            env[key] = val;
+                        }
+                    });
+
+                    config = {
+                        apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                        authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                        projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                        storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                        messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+                        appId: env.NEXT_PUBLIC_FIREBASE_APP_ID
+                    };
+
+                    if (!config.apiKey) throw new Error("No API key found in .env");
+                    console.log("Loaded Firebase config from static .env fallback successfully!");
+                    localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                } catch (fallbackErr) {
+                    console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
+                    const cachedConfig = localStorage.getItem('firebaseConfig');
+                    if (cachedConfig) {
+                        config = JSON.parse(cachedConfig);
+                        console.log("Loaded Firebase config from localStorage cache for offline boot.");
+                    } else {
+                        console.warn("Failed to load Firebase configuration, using offline fallback config.");
+                        config = {
+                            apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+                            authDomain: "project-x-787898.firebaseapp.com",
+                            projectId: "project-x-787898",
+                            storageBucket: "project-x-787898.firebasestorage.app",
+                            messagingSenderId: "1011303841705",
+                            appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                        };
+                    }
+                }
+            }
+
+            // Initialize Firebase
+            try {
+                firebase.initializeApp(config);
                 console.log("Firebase initialized for login.");
             } catch (e) {
                 console.error("Firebase init error:", e);
@@ -14633,11 +15632,13 @@ window.renderPriorityConfig = function () {
             }
 
             // Route guard checking if user is already logged in as admin
-            FirebaseService.onAuthStateChanged((user) => {
+            firebase.auth().onAuthStateChanged((user) => {
                 if (user && user.email === 'ris2k29@gmail.com') {
+                    // Redirect to dashboard immediately
                     window.location.href = 'index.html';
                 }
             });
+
 
             // Handle Form Submission
             loginForm.addEventListener('submit', async (e) => {
@@ -14647,23 +15648,32 @@ window.renderPriorityConfig = function () {
                 const email = emailInput.value.trim();
                 const password = passwordInput.value;
 
+                // Set loading state
                 btnSubmit.disabled = true;
                 spinner.classList.remove('hidden');
 
                 try {
-                    const userCredential = await FirebaseService.login(email, password);
+                    // Explicitly set Local Persistence (Remember Device across browser restarts)
+                    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+                    // Sign in with Email / Password
+                    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
                     const user = userCredential.user;
 
                     if (user.email !== 'ris2k29@gmail.com') {
-                        await FirebaseService.logout();
+                        // User logged in but email is not authorized
+                        await firebase.auth().signOut();
                         showError("Access denied. Project X is private.");
                         btnSubmit.disabled = false;
                         spinner.classList.add('hidden');
                     } else {
+                        // Authorized admin user, redirect will happen via onAuthStateChanged or directly
                         window.location.href = 'index.html';
+
                     }
                 } catch (error) {
                     console.error("Auth error:", error);
+                    // Standard Firebase auth errors mapped to user-friendly messages
                     let friendlyMsg = "Authentication failed. Please check your credentials.";
                     if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
                         friendlyMsg = "Invalid email or password.";
