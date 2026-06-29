@@ -3864,8 +3864,8 @@ function updateMetrics() {
                 const currentPaceDisplay = globalCurPace.toFixed(2);
                 safeSetText('target-req-pace', `--`);
                 safeSetText('current-pace-stat', `${currentPaceDisplay} Ch/Day`);
-                safeSetText('AppState.db-target-req-pace', `--`);
-                safeSetText('AppState.db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
+                safeSetText('db-target-req-pace', `--`);
+                safeSetText('db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
 
                 let finishDisplay = '';
                 let globalDaysLeftStr = '<span class="opacity-50">--</span>';
@@ -3898,7 +3898,7 @@ function updateMetrics() {
                 }
 
                 safeSetHtml('projected-finish', finishDisplay);
-                safeSetHtml('AppState.db-projected-finish', finishDisplay);
+                safeSetHtml('db-projected-finish', finishDisplay);
 
                 const globalLeftEl = document.getElementById('global-days-left');
                 if (globalLeftEl) globalLeftEl.innerHTML = globalDaysLeftStr;
@@ -3921,7 +3921,7 @@ function updateMetrics() {
                 let timelineText = earliestDate ? `Started: ${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}` : `Not Started`;
                 let dbTimelineText = earliestDate ? `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : `Not Started`;
                 safeSetHtml('pace-timeline-info', `<span class="text-slate-500 font-bold">Global Baseline</span> <span class="mx-1 opacity-50">|</span> <span class="tracking-widest text-[9px] uppercase">${timelineText}</span>`);
-                safeSetHtml('AppState.db-pace-timeline-info', dbTimelineText);
+                safeSetHtml('db-pace-timeline-info', dbTimelineText);
 
                 const statusLabel = document.getElementById('target-status-label');
                 if (statusLabel) {
@@ -4095,9 +4095,9 @@ function updateMetrics() {
                 safeSetText('current-pace-stat', `${currentPaceDisplay} Ch/Day`);
                 safeSetHtml('projected-finish', finishDisplay);
 
-                safeSetText('AppState.db-target-req-pace', `${reqPaceDisplay} Ch/Day`);
-                safeSetText('AppState.db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
-                safeSetHtml('AppState.db-projected-finish', finishDisplay);
+                safeSetText('db-target-req-pace', `${reqPaceDisplay} Ch/Day`);
+                safeSetText('db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
+                safeSetHtml('db-projected-finish', finishDisplay);
 
                 const globalLeftEl = document.getElementById('global-days-left');
                 if (globalLeftEl) globalLeftEl.innerHTML = globalDaysLeftStr;
@@ -4120,7 +4120,7 @@ function updateMetrics() {
                 let timelineText = `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} &rarr; ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`;
                 let dbTimelineText = `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} &rarr; ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`;
                 safeSetHtml('pace-timeline-info', `<span class="text-blue-500 font-bold">Global Baseline</span> <span class="mx-1 opacity-50">|</span> <span class="tracking-widest text-[9px] uppercase">${timelineText}</span>`);
-                safeSetHtml('AppState.db-pace-timeline-info', dbTimelineText);
+                safeSetHtml('db-pace-timeline-info', dbTimelineText);
 
                 const statusLabel = document.getElementById('target-status-label');
                 if (statusLabel) {
@@ -4193,8 +4193,8 @@ function updateMetrics() {
             if (AppState.progressChart) { AppState.progressChart.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted]; AppState.progressChart.update(); }
 
             // Compact Global Completion for Dashboard
-            safeSetText('AppState.db-progress-text', `${percentage}%`);
-            safeSetText('AppState.db-progress-detail', `${displayCompleted} / ${scopeTotalChapters} Chapters`);
+            safeSetText('db-progress-text', `${percentage}%`);
+            safeSetText('db-progress-detail', `${displayCompleted} / ${scopeTotalChapters} Chapters`);
             const dbBar = document.getElementById('db-progress-bar');
             if (dbBar) dbBar.style.width = `${percentage}%`;
 
@@ -14461,7 +14461,7 @@ window.renderPriorityConfig = function () {
                     if (AppState.progressChart) {
                         const oldData = AppState.progressChart.data.datasets[0].data.slice();
                         AppState.progressChart.destroy();
-                        const canvas = document.getElementById('AppState.progressChart');
+                        const canvas = document.getElementById('progressChart');
                         if (canvas) {
                             AppState.progressChart = new Chart(canvas.getContext('2d'), {
                                 type: 'doughnut',
