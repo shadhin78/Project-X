@@ -3472,32 +3472,58 @@ function renderTaskList() {
         }
 
         function generateSingleTaskHtml(dayObj, taskObj, type) {
-            let colorBg = 'bg-blue-500';
-            const trackIdx = window.tracks.findIndex(t => t.id === type);
-            const classes = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500'];
-            if (trackIdx !== -1) {
-                colorBg = classes[trackIdx % classes.length];
+            let subjectColor = '#3b82f6';
+            if (window.getSubjectColor) {
+                subjectColor = window.getSubjectColor(taskObj.subject);
             }
 
             const isSkipped = !!taskObj.skipped;
-            const isCompleted = !isSkipped && !!taskObj.completed;
+            
+            // Look up matching weekly target to get size-based progress
+            const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate || new Date());
+            const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+            const wtList = (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) || [];
+            const matchingWt = wtList.find(t => t.track === type && t.subject === taskObj.subject && t.chapter === taskObj.chapter);
 
-            let cardClass = 'relative bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 dark:border-slate-700 flex flex-col justify-between min-h-[110px] overflow-hidden group';
-            let barBg = colorBg;
+            let progressPercent = 0;
+            let progressTextHtml = '';
+            let isSizeBased = false;
+
+            if (matchingWt && matchingWt.totalChapterSize) {
+                isSizeBased = true;
+                const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                progressPercent = progress.percent;
+                progressTextHtml = `<span class="text-[9px] text-blue-500 font-bold ml-1.5">(${progress.completed}/${progress.total} p)</span>`;
+            }
+
+            const isCompleted = !isSkipped && (!!taskObj.completed || (isSizeBased && progressPercent >= 100));
+
+            let cardClass = 'relative bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-h-[110px] overflow-hidden group';
+            let barBgStyle = `background-color: ${subjectColor};`;
+            let cardStyle = '';
+
+            const isDarkMode = document.documentElement.classList.contains('dark');
 
             if (isSkipped) {
-                cardClass += ' ring-1 ring-slate-350 bg-slate-50/50 dark:bg-slate-900/20 !border-slate-300 dark:!border-slate-800 opacity-60';
-                barBg = 'bg-slate-400 dark:bg-slate-600';
+                cardClass += ' border border-slate-350 bg-slate-50/50 dark:bg-slate-900/20 !border-slate-300 dark:!border-slate-800 opacity-60';
+                barBgStyle = `background-color: ${isDarkMode ? '#475569' : '#94a3b8'};`;
             } else if (isCompleted) {
-                cardClass += ' ring-1 ring-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10 !border-emerald-200 dark:!border-emerald-800';
-                barBg = 'bg-emerald-500';
+                cardClass += ' border';
+                cardStyle = `border-color: ${subjectColor}; background-color: ${isDarkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)'};`;
+                barBgStyle = `background-color: ${subjectColor};`;
+            } else {
+                cardClass += ' border border-slate-100 dark:border-slate-700';
+                if (isSizeBased && progressPercent > 0) {
+                    const fillRgba = hexToRgba(subjectColor, isDarkMode ? 0.25 : 0.15);
+                    cardStyle = `background: linear-gradient(to right, ${fillRgba} ${progressPercent}%, transparent ${progressPercent}%); border-color: ${isDarkMode ? '#334155' : '#e2e8f0'};`;
+                }
             }
 
             return `
-                <div id="single-task-${taskObj.id}-${dayObj.studyDay}" class="${cardClass}">
+                <div id="single-task-${taskObj.id}-${dayObj.studyDay}" class="${cardClass}" style="${cardStyle}">
                     
                     <!-- Color Accent Bar -->
-                    <div class="absolute top-0 left-0 w-full h-1 ${barBg} transition-colors"></div>
+                    <div class="absolute top-0 left-0 w-full h-1" style="${barBgStyle} transition: background-color 0.3s;"></div>
                     
                     <div class="flex justify-between items-start mb-3 mt-1">
                         <span class="text-[9px] px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 rounded-md font-black tracking-widest uppercase">DAY ${dayObj.studyDay} ${isSkipped ? '<span class="text-amber-600 dark:text-amber-400 font-extrabold ml-1">(SKIPPED)</span>' : ''}</span>
@@ -3509,7 +3535,7 @@ function renderTaskList() {
                     <div class="flex items-end justify-between mt-auto gap-3">
                         <div class="flex flex-col pr-1">
                             <span class="font-black text-slate-800 dark:text-slate-100 text-sm md:text-base tracking-tight leading-tight mb-0.5 ${isCompleted ? 'line-through text-emerald-700 dark:text-emerald-400 opacity-70' : ''} ${isSkipped ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400' : ''}">${taskObj.chapter}</span>
-                            <span class="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 leading-snug line-clamp-2 ${isCompleted ? 'line-through opacity-60' : ''} ${isSkipped ? 'opacity-55' : ''}">${taskObj.title}</span>
+                            <span class="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 leading-snug line-clamp-2 ${isCompleted ? 'line-through opacity-60' : ''} ${isSkipped ? 'opacity-55' : ''}">${taskObj.title}${progressTextHtml}</span>
                         </div>
                         <div class="shrink-0 mb-0.5">
                             <div class="relative flex items-center justify-center">
@@ -3579,21 +3605,42 @@ function renderTaskList() {
                 }
                 if (descEl) isCompleted ? descEl.classList.add('line-through', 'opacity-60') : descEl.classList.remove('line-through', 'opacity-60');
 
+                const subjectColor = window.getSubjectColor ? window.getSubjectColor(taskObj.subject) : '#3b82f6';
+                const isDarkMode = document.documentElement.classList.contains('dark');
+
                 if (isCompleted) {
-                    cardEl.classList.add('ring-1', 'ring-emerald-500', 'bg-emerald-50/30', 'dark:bg-emerald-900/10', '!border-emerald-200', 'dark:!border-emerald-800');
-                    cardEl.classList.remove('bg-white', 'dark:bg-slate-800');
-                    if (accentBar) accentBar.className = 'absolute top-0 left-0 w-full h-1 bg-emerald-500 transition-colors';
-                } else {
-                    cardEl.classList.remove('ring-1', 'ring-emerald-500', 'bg-emerald-50/30', 'dark:bg-emerald-900/10', '!border-emerald-200', 'dark:!border-emerald-800');
-                    cardEl.classList.add('bg-white', 'dark:bg-slate-800');
+                    cardEl.style.borderColor = subjectColor;
+                    cardEl.style.background = '';
+                    cardEl.style.backgroundColor = isDarkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)';
                     if (accentBar) {
-                        let colorBg = 'bg-blue-500';
-                        const trackIdx = window.tracks.findIndex(t => t.id === type);
-                        const classes = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500'];
-                        if (trackIdx !== -1) {
-                            colorBg = classes[trackIdx % classes.length];
-                        }
-                        accentBar.className = `absolute top-0 left-0 w-full h-1 ${colorBg} transition-colors`;
+                        accentBar.style.backgroundColor = subjectColor;
+                    }
+                } else {
+                    // Check if size-based progress should fill
+                    let progressPercent = 0;
+                    let isSizeBased = false;
+                    const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate || new Date());
+                    const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+                    const wtList = (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) || [];
+                    const matchingWt = wtList.find(t => t.track === type && t.subject === taskObj.subject && t.chapter === taskObj.chapter);
+                    if (matchingWt && matchingWt.totalChapterSize) {
+                        isSizeBased = true;
+                        const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                        progressPercent = progress.percent;
+                    }
+
+                    if (isSizeBased && progressPercent > 0) {
+                        const fillRgba = hexToRgba(subjectColor, isDarkMode ? 0.25 : 0.15);
+                        cardEl.style.background = `linear-gradient(to right, ${fillRgba} ${progressPercent}%, transparent ${progressPercent}%)`;
+                        cardEl.style.borderColor = isDarkMode ? '#334155' : '#e2e8f0';
+                        cardEl.style.backgroundColor = '';
+                    } else {
+                        cardEl.style.background = '';
+                        cardEl.style.borderColor = '';
+                        cardEl.style.backgroundColor = '';
+                    }
+                    if (accentBar) {
+                        accentBar.style.backgroundColor = subjectColor;
                     }
                 }
             }
