@@ -15,6 +15,35 @@ function getSubjectColor(subjName) {
     return color;
 }
 
+function hexToRgba(hex, alpha) {
+    if (!hex) return `rgba(16, 185, 129, ${alpha})`;
+    hex = hex.replace('#', '');
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+window.parseDailyTargetDateKey = function (dateKey) {
+    if (!dateKey) return new Date();
+    if (dateKey.includes(',') || dateKey.split(' ').length > 2) {
+        return new Date(dateKey);
+    }
+    const currentYear = new Date().getFullYear();
+    const d = new Date(dateKey + ' ' + currentYear + ' 12:00:00');
+    if (isNaN(d.getTime())) {
+        return new Date();
+    }
+    return d;
+};
+
 window.getProgramColor = function (pName) {
     const allProgs = window.getAllPrograms().map(p => p.name || p);
     const idx = allProgs.indexOf(pName);
@@ -11183,7 +11212,7 @@ window.resetToCleanSlate = function () {
             }
             
             Object.keys(window.dailyTargetsDatabase).forEach(dateKey => {
-                const d = new Date(dateKey + 'T12:00:00');
+                const d = window.parseDailyTargetDateKey(dateKey);
                 const range = window.getWeeklyTargetRange(d);
                 const dateWeekKey = window.formatDateRangeKey(range.start, range.end);
                 if (dateWeekKey !== weekKey) return;
@@ -11198,6 +11227,33 @@ window.resetToCleanSlate = function () {
                 });
             });
             return completedSize;
+        };
+
+        window.getAllocatedSizeForWeeklyTarget = function (target, weekKey) {
+            let allocatedSize = 0;
+            if (!window.dailyTargetsDatabase) return 0;
+            
+            if (!weekKey) {
+                const currentRange = window.getWeeklyTargetRange();
+                weekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+            }
+            
+            Object.keys(window.dailyTargetsDatabase).forEach(dateKey => {
+                const d = window.parseDailyTargetDateKey(dateKey);
+                const range = window.getWeeklyTargetRange(d);
+                const dateWeekKey = window.formatDateRangeKey(range.start, range.end);
+                if (dateWeekKey !== weekKey) return;
+                
+                const dailyTargets = window.dailyTargetsDatabase[dateKey] || [];
+                dailyTargets.forEach(dt => {
+                    if (dt.track === target.track && dt.subject === target.subject && dt.chapter === target.chapter) {
+                        if (dt.totalChapterSize) {
+                            allocatedSize += parseFloat(dt.totalChapterSize);
+                        }
+                    }
+                });
+            });
+            return allocatedSize;
         };
 
         window.getWeeklyTargetProgress = function (target, weekKey) {
@@ -11278,6 +11334,48 @@ window.resetToCleanSlate = function () {
             });
         };
 
+        window.updateWeeklyTargetColorSync = function () {
+            const subSelect = document.getElementById('wt-select-sub');
+            const chSelect = document.getElementById('wt-select-ch');
+            const dot = document.getElementById('wt-sub-color-dot');
+            if (!subSelect) return;
+            const subject = subSelect.value;
+            if (subject && subject !== "No Subjects") {
+                const color = window.getSubjectColor ? window.getSubjectColor(subject) : '#3b82f6';
+                if (dot) {
+                    dot.style.backgroundColor = color;
+                    dot.classList.remove('hidden');
+                }
+                subSelect.style.borderColor = color;
+                if (chSelect) chSelect.style.borderColor = color;
+            } else {
+                if (dot) dot.classList.add('hidden');
+                subSelect.style.borderColor = '';
+                if (chSelect) chSelect.style.borderColor = '';
+            }
+        };
+
+        window.updateDailyTargetColorSync = function () {
+            const subSelect = document.getElementById('dt-select-sub');
+            const chSelect = document.getElementById('dt-select-ch');
+            const dot = document.getElementById('dt-sub-color-dot');
+            if (!subSelect) return;
+            const subject = subSelect.value;
+            if (subject && subject !== "No Subjects") {
+                const color = window.getSubjectColor ? window.getSubjectColor(subject) : '#3b82f6';
+                if (dot) {
+                    dot.style.backgroundColor = color;
+                    dot.classList.remove('hidden');
+                }
+                subSelect.style.borderColor = color;
+                if (chSelect) chSelect.style.borderColor = color;
+            } else {
+                if (dot) dot.classList.add('hidden');
+                subSelect.style.borderColor = '';
+                if (chSelect) chSelect.style.borderColor = '';
+            }
+        };
+
         window.updateWeeklyTargetSubjectDropdown = function () {
             const progSelectEl = document.getElementById('wt-select-prog');
             const progName = progSelectEl ? progSelectEl.value : '';
@@ -11301,6 +11399,7 @@ window.resetToCleanSlate = function () {
                 });
             }
             window.updateWeeklyTargetChapterDropdown();
+            window.updateWeeklyTargetColorSync();
         };
 
         window.updateWeeklyTargetChapterDropdown = function () {
@@ -11315,6 +11414,7 @@ window.resetToCleanSlate = function () {
             const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
             if (!trackId || !subject) {
                 chSelect.innerHTML = '<option value="">No Chapters</option>';
+                window.updateWeeklyTargetColorSync();
                 return;
             }
 
@@ -11328,6 +11428,7 @@ window.resetToCleanSlate = function () {
                     chSelect.innerHTML += `<option value="${ch}">${ch}${stars}</option>`;
                 });
             }
+            window.updateWeeklyTargetColorSync();
         };
 
         window.addWeeklyTarget = function () {
@@ -11592,9 +11693,20 @@ window.renderWeeklyTargets = function () {
                 const isCompleted = target.completed || (foundTask ? foundTask.subTask.completed : false) || (target.totalChapterSize && progress.percent >= 100);
                 if (isCompleted) completedTargets++;
 
+                const subjectColor = window.getSubjectColor ? window.getSubjectColor(target.subject) : '#10b981';
+                const isDarkMode = document.documentElement.classList.contains('dark');
+
                 const statusColor = isCompleted
-                    ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
-                    : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30';
+                    ? 'bg-emerald-50/20 dark:bg-emerald-950/20'
+                    : 'bg-slate-50/50 dark:bg-slate-900/30';
+                
+                const cardBorderColorClass = isCompleted ? '' : 'border-slate-200 dark:border-slate-700';
+
+                let bgStyle = `border-color: ${isCompleted ? subjectColor : (isDarkMode ? '#334155' : '#e2e8f0')};`;
+                if (!isCompleted && target.totalChapterSize && progress.percent > 0) {
+                    const fillRgba = hexToRgba(subjectColor, isDarkMode ? 0.25 : 0.15);
+                    bgStyle += `background: linear-gradient(to right, ${fillRgba} ${progress.percent}%, transparent ${progress.percent}%);`;
+                }
 
                 let displaySub = target.subject.replace(target.program + ' - ', '').replace(target.program + ' ', '');
 
@@ -11604,15 +11716,10 @@ window.renderWeeklyTargets = function () {
                     starsHtml = `<span class="inline-flex text-amber-500 text-[10px] ml-1.5" title="Added as target ${occurrenceCount} times">${'★'.repeat(occurrenceCount)}</span>`;
                 }
 
-                let bgStyle = '';
-                if (!isCompleted && target.totalChapterSize && progress.percent > 0) {
-                    bgStyle = `background: linear-gradient(to right, rgba(59, 130, 246, 0.1) ${progress.percent}%, transparent ${progress.percent}%);`;
-                }
-
                 const progressTextHtml = target.totalChapterSize ? `<span class="text-[9px] text-blue-500 font-bold ml-1.5">(${progress.completed}/${progress.total} p)</span>` : '';
                 const targetScope = target.scope || 'Whole Chapter';
                 const itemHtml = `
-                <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300" style="${bgStyle}">
+                <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} ${cardBorderColorClass} transition-all duration-300" style="${bgStyle}">
                     <div class="flex items-center space-x-3 min-w-0">
                         <input type="checkbox" 
                             onchange="window.toggleWeeklyTargetCompletion(${idx}, this.checked)" 
@@ -11714,6 +11821,7 @@ window.renderWeeklyTargets = function () {
                 });
             }
             window.updateDailyTargetChapterDropdown();
+            window.updateDailyTargetColorSync();
         };
 
         window.updateDailyTargetChapterDropdown = function () {
@@ -11728,6 +11836,8 @@ window.renderWeeklyTargets = function () {
             const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
             if (!trackId || !subject) {
                 chSelect.innerHTML = '<option value="">No Chapters</option>';
+                window.handleDailyTargetChapterChange();
+                window.updateDailyTargetColorSync();
                 return;
             }
 
@@ -11740,6 +11850,7 @@ window.renderWeeklyTargets = function () {
                 });
             }
             window.handleDailyTargetChapterChange();
+            window.updateDailyTargetColorSync();
         };
 
         window.handleDailyTargetChapterChange = function () {
@@ -11770,8 +11881,8 @@ window.renderWeeklyTargets = function () {
                     totalSizeInput.classList.add('bg-slate-100', 'dark:bg-slate-800/80', 'cursor-not-allowed', 'opacity-70');
                 }
                 if (sizeInput) {
-                    const completedSize = window.getCompletedSizeForWeeklyTarget(matchingWt, currentWeekKey);
-                    const remainingSize = Math.max(0, matchingWt.totalChapterSize - completedSize);
+                    const allocatedSize = window.getAllocatedSizeForWeeklyTarget(matchingWt, currentWeekKey);
+                    const remainingSize = Math.max(0, matchingWt.totalChapterSize - allocatedSize);
                     sizeInput.value = remainingSize;
                 }
             } else {
@@ -11813,6 +11924,7 @@ window.renderWeeklyTargets = function () {
             }
             
             window.handleDailyTargetChapterChange();
+            window.updateDailyTargetColorSync();
         };
 
         window.addDailyTarget = function () {
@@ -11841,12 +11953,6 @@ window.renderWeeklyTargets = function () {
             if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
             if (!window.dailyTargetsDatabase[targetDateKey]) window.dailyTargetsDatabase[targetDateKey] = [];
 
-            // Check if already exists in daily targets database for selected date
-            const exists = window.dailyTargetsDatabase[targetDateKey].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
-            if (exists) {
-                return showToast("This target is already in your daily target list.", "error");
-            }
-
             // Sync baseline completion status
             let isCompletedBefore = false;
             let completedAtBefore = null;
@@ -11863,6 +11969,25 @@ window.renderWeeklyTargets = function () {
                 if (foundTask) {
                     isCompletedBefore = foundTask.subTask.completed || false;
                     completedAtBefore = foundTask.subTask.completedAt || null;
+                }
+            }
+
+            // Check if already exists in daily targets database for selected date
+            if (!matchingWt || !matchingWt.totalChapterSize) {
+                const exists = window.dailyTargetsDatabase[targetDateKey].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
+                if (exists) {
+                    return showToast("This target is already in your daily target list.", "error");
+                }
+            } else {
+                // If it is size-based, we allow adding multiple daily targets.
+                // But let's check if the weekly target is already fully allocated.
+                const allocatedSize = window.getAllocatedSizeForWeeklyTarget(matchingWt, currentWeekKey);
+                const remainingSize = Math.max(0, matchingWt.totalChapterSize - allocatedSize);
+                if (remainingSize <= 0) {
+                    return showToast("This chapter is already fully allocated across daily targets.", "error");
+                }
+                if (dailySize !== null && dailySize > remainingSize) {
+                    return showToast(`Daily target size (${dailySize} p) exceeds the remaining unallocated size (${remainingSize} p).`, "error");
                 }
             }
 
@@ -12015,7 +12140,28 @@ window.renderWeeklyTargets = function () {
             const selectedDateKey = Utils.formatDate(window.currentDailyTargetsDate);
 
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[selectedDateKey] && window.dailyTargetsDatabase[selectedDateKey][idx]) {
+                const target = window.dailyTargetsDatabase[selectedDateKey][idx];
                 window.dailyTargetsDatabase[selectedDateKey].splice(idx, 1);
+
+                // Sync with Weekly Target & Daily Study Task
+                const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate);
+                const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+                if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) {
+                    const matchingWt = window.weeklyTargetsDatabase[currentWeekKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
+                    if (matchingWt && matchingWt.totalChapterSize) {
+                        const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                        matchingWt.completed = (progress.percent >= 100);
+                        matchingWt.completedAt = matchingWt.completed ? new Date().toISOString() : null;
+
+                        const found = window.findTaskChapter(target.track, target.subject, target.chapter);
+                        if (found) {
+                            found.subTask.completed = matchingWt.completed;
+                            found.subTask.completedAt = matchingWt.completedAt;
+                            recalculateTotals();
+                        }
+                    }
+                }
+
                 FirebaseService.saveToCloud();
                 renderUI();
                 showToast("Daily target removed.", "success");
@@ -12042,19 +12188,37 @@ window.renderWeeklyTargets = function () {
             // Sync with Weekly Target (if exists)
             const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate);
             const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+            let wtCompleted = isCompleted;
+            let wtCompletedAt = target.completedAt;
+            let hasWtSize = false;
+
             if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) {
                 const matchingWt = window.weeklyTargetsDatabase[currentWeekKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
                 if (matchingWt) {
-                    matchingWt.completed = isCompleted;
-                    matchingWt.completedAt = target.completedAt;
+                    if (matchingWt.totalChapterSize) {
+                        hasWtSize = true;
+                        const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                        matchingWt.completed = (progress.percent >= 100);
+                        matchingWt.completedAt = matchingWt.completed ? new Date().toISOString() : null;
+                        wtCompleted = matchingWt.completed;
+                        wtCompletedAt = matchingWt.completedAt;
+                    } else {
+                        matchingWt.completed = isCompleted;
+                        matchingWt.completedAt = target.completedAt;
+                    }
                 }
             }
 
-            // Sync with daily study task
+            // Sync with daily study task (with size-based awareness)
             const found = window.findTaskChapter(target.track, target.subject, target.chapter);
             if (found) {
-                found.subTask.completed = isCompleted;
-                found.subTask.completedAt = target.completedAt;
+                if (hasWtSize) {
+                    found.subTask.completed = wtCompleted;
+                    found.subTask.completedAt = wtCompletedAt;
+                } else {
+                    found.subTask.completed = isCompleted;
+                    found.subTask.completedAt = target.completedAt;
+                }
                 recalculateTotals();
             }
 
@@ -12135,9 +12299,18 @@ window.renderWeeklyTargets = function () {
                 const isTodo = target.isTodo === true;
                 const isCompleted = isTodo ? (target.completed || false) : (target.completed || (window.findTaskChapter(target.track, target.subject, target.chapter)?.subTask.completed ?? false));
 
+                let subjectColor = '#3b82f6';
+                if (!isTodo) {
+                    subjectColor = window.getSubjectColor ? window.getSubjectColor(target.subject) : '#3b82f6';
+                }
+                const isDarkMode = document.documentElement.classList.contains('dark');
+                
                 const statusColor = isCompleted
-                    ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20'
-                    : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30';
+                    ? 'bg-emerald-50/20 dark:bg-emerald-950/20'
+                    : 'bg-slate-50/50 dark:bg-slate-900/30';
+                
+                const cardBorderColorClass = isCompleted ? '' : 'border-slate-200 dark:border-slate-700';
+                const cardStyle = `border-color: ${isCompleted ? subjectColor : (isDarkMode ? '#334155' : '#e2e8f0')};`;
 
                 let displayTitle = '';
                 let displaySubtitle = '';
@@ -12152,7 +12325,7 @@ window.renderWeeklyTargets = function () {
                 }
 
                 const itemHtml = `
-                <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} transition-all duration-300">
+                <div class="flex items-center justify-between p-3 rounded-2xl border ${statusColor} ${cardBorderColorClass} transition-all duration-300" style="${cardStyle}">
                     <div class="flex items-center space-x-3 min-w-0">
                         <input type="checkbox" 
                             onchange="window.toggleDailyTargetCompletion(${idx}, this.checked)" 
@@ -12383,7 +12556,10 @@ window.renderWeeklyTargets = function () {
                 
                 let bgStyle = '';
                 if (!isCompleted && target.totalChapterSize && progress.percent > 0) {
-                    bgStyle = `background: linear-gradient(to right, rgba(59, 130, 246, 0.12) ${progress.percent}%, transparent ${progress.percent}%);`;
+                    const isDarkMode = document.documentElement.classList.contains('dark');
+                    const fillAlpha = isDarkMode ? 0.25 : 0.15;
+                    const fillRgba = hexToRgba(subjectColor, fillAlpha);
+                    bgStyle = `background: linear-gradient(to right, ${fillRgba} ${progress.percent}%, transparent ${progress.percent}%);`;
                 }
 
                 const buttonClass = isCompleted
@@ -13120,21 +13296,39 @@ window.addWtdbTarget = function () {
             }
 
             // Sync with Weekly Target (if exists)
-            const currentRange = window.getWeeklyTargetRange(new Date(dateKey + 'T12:00:00'));
+            const currentRange = window.getWeeklyTargetRange(window.parseDailyTargetDateKey(dateKey));
             const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+            let wtCompleted = isCompleted;
+            let wtCompletedAt = target.completedAt;
+            let hasWtSize = false;
+
             if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) {
                 const matchingWt = window.weeklyTargetsDatabase[currentWeekKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
                 if (matchingWt) {
-                    matchingWt.completed = isCompleted;
-                    matchingWt.completedAt = target.completedAt;
+                    if (matchingWt.totalChapterSize) {
+                        hasWtSize = true;
+                        const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                        matchingWt.completed = (progress.percent >= 100);
+                        matchingWt.completedAt = matchingWt.completed ? new Date().toISOString() : null;
+                        wtCompleted = matchingWt.completed;
+                        wtCompletedAt = matchingWt.completedAt;
+                    } else {
+                        matchingWt.completed = isCompleted;
+                        matchingWt.completedAt = target.completedAt;
+                    }
                 }
             }
 
-            // Sync with daily study task
+            // Sync with daily study task (with size-based awareness)
             const found = window.findTaskChapter(target.track, target.subject, target.chapter);
             if (found) {
-                found.subTask.completed = isCompleted;
-                found.subTask.completedAt = target.completedAt;
+                if (hasWtSize) {
+                    found.subTask.completed = wtCompleted;
+                    found.subTask.completedAt = wtCompletedAt;
+                } else {
+                    found.subTask.completed = isCompleted;
+                    found.subTask.completedAt = target.completedAt;
+                }
                 recalculateTotals();
             }
 
@@ -13146,10 +13340,31 @@ window.addWtdbTarget = function () {
 
         window.deleteDtdbTarget = function (dateKey, idx) {
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[dateKey] && window.dailyTargetsDatabase[dateKey][idx]) {
+                const target = window.dailyTargetsDatabase[dateKey][idx];
                 window.dailyTargetsDatabase[dateKey].splice(idx, 1);
                 if (window.dailyTargetsDatabase[dateKey].length === 0) {
                     delete window.dailyTargetsDatabase[dateKey];
                 }
+
+                // Sync with Weekly Target & Daily Study Task
+                const currentRange = window.getWeeklyTargetRange(window.parseDailyTargetDateKey(dateKey));
+                const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+                if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) {
+                    const matchingWt = window.weeklyTargetsDatabase[currentWeekKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
+                    if (matchingWt && matchingWt.totalChapterSize) {
+                        const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                        matchingWt.completed = (progress.percent >= 100);
+                        matchingWt.completedAt = matchingWt.completed ? new Date().toISOString() : null;
+
+                        const found = window.findTaskChapter(target.track, target.subject, target.chapter);
+                        if (found) {
+                            found.subTask.completed = matchingWt.completed;
+                            found.subTask.completedAt = matchingWt.completedAt;
+                            recalculateTotals();
+                        }
+                    }
+                }
+
                 FirebaseService.saveToCloud();
                 renderUI();
                 window.populateDtdbFilters();
@@ -13163,6 +13378,26 @@ window.addWtdbTarget = function () {
                 const target = window.dailyTargetsDatabase[dateKey][idx];
                 const numericSize = size ? parseFloat(size) : null;
                 target.totalChapterSize = numericSize;
+
+                // Sync with Weekly Target & Daily Study Task
+                const currentRange = window.getWeeklyTargetRange(window.parseDailyTargetDateKey(dateKey));
+                const currentWeekKey = window.formatDateRangeKey(currentRange.start, currentRange.end);
+                if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[currentWeekKey]) {
+                    const matchingWt = window.weeklyTargetsDatabase[currentWeekKey].find(t => t.track === target.track && t.subject === target.subject && t.chapter === target.chapter);
+                    if (matchingWt && matchingWt.totalChapterSize) {
+                        const progress = window.getWeeklyTargetProgress(matchingWt, currentWeekKey);
+                        matchingWt.completed = (progress.percent >= 100);
+                        matchingWt.completedAt = matchingWt.completed ? new Date().toISOString() : null;
+
+                        const found = window.findTaskChapter(target.track, target.subject, target.chapter);
+                        if (found) {
+                            found.subTask.completed = matchingWt.completed;
+                            found.subTask.completedAt = matchingWt.completedAt;
+                            recalculateTotals();
+                        }
+                    }
+                }
+
                 FirebaseService.saveToCloud();
                 renderUI();
                 window.renderDtdbList();
