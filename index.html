@@ -332,13 +332,6 @@
                                         <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 truncate">Daily Targets</h3>
                                         <span class="text-[7px] text-slate-400 uppercase tracking-wider block font-black truncate" id="db-daily-checklist-date">Today</span>
                                     </div>
-                                    <button onclick="window.openDailyTargetsDatabase()" 
-                                        class="p-1 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all" 
-                                        title="Edit Daily Targets">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                        </svg>
-                                    </button>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -395,13 +388,6 @@
                                         <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 truncate">Weekly Targets</h3>
                                         <span class="text-[7px] text-slate-400 uppercase tracking-wider block font-black truncate" id="db-weekly-checklist-range">Present Week</span>
                                     </div>
-                                    <button onclick="window.openWeeklyTargetsDatabase()" 
-                                        class="p-1 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all" 
-                                        title="Edit Weekly Targets">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                        </svg>
-                                    </button>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -652,9 +638,9 @@
             </div>
 
             <!-- Page: Spectra Pulse Analytics -->
-            <div id="page-spectra-analytics" class="hidden space-y-6 md:space-y-8 animate-page-enter">
+            <div id="page-spectra-analytics" class="hidden space-y-4 md:space-y-8 animate-page-enter overflow-x-hidden">
                 <!-- Page Header with Ambient Glow -->
-                <div class="relative overflow-hidden bg-gradient-to-r from-slate-900 to-indigo-950 dark:from-slate-900 dark:to-slate-800 p-6 md:p-8 rounded-[2rem] border border-slate-200/50 dark:border-slate-800 shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div class="relative overflow-hidden bg-gradient-to-r from-slate-900 to-indigo-950 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-800 shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6">
                     <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
                     <div class="absolute -left-16 -bottom-16 w-64 h-64 bg-fuchsia-500/10 dark:bg-fuchsia-500/5 rounded-full blur-3xl pointer-events-none"></div>
                     
@@ -669,12 +655,12 @@
                 </div>
 
                 <!-- Interactive Analytics Summary Grid -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-6">
                     <!-- Stat Card 1: Completion Progress -->
-                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300">
+                    <div class="bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300 min-w-0">
                         <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 block">Avg Completion</span>
                         <div class="flex items-baseline gap-1.5">
-                            <span id="analytics-avg-completion" class="text-2xl font-black text-slate-800 dark:text-slate-100">--%</span>
+                            <span id="analytics-avg-completion" class="text-lg md:text-2xl font-black text-slate-800 dark:text-slate-100">--%</span>
                             <span class="text-[10px] text-emerald-500 font-bold flex items-center gap-0.5">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
@@ -688,30 +674,30 @@
                     </div>
 
                     <!-- Stat Card 2: Logged Actions -->
-                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300">
+                    <div class="bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300 min-w-0">
                         <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 block">Logged Actions</span>
                         <div class="flex items-baseline gap-1.5">
-                            <span id="analytics-total-actions" class="text-2xl font-black text-slate-800 dark:text-slate-100">--</span>
+                            <span id="analytics-total-actions" class="text-lg md:text-2xl font-black text-slate-800 dark:text-slate-100">--</span>
                             <span class="text-[10px] text-blue-500 font-bold uppercase tracking-wide">Entries</span>
                         </div>
                         <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-3 font-semibold">Total tracked action logs across all filters</p>
                     </div>
 
                     <!-- Stat Card 3: Current Streak -->
-                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300">
+                    <div class="bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300 min-w-0">
                         <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 block">Active Streak</span>
                         <div class="flex items-baseline gap-1.5">
-                            <span id="analytics-active-streak" class="text-2xl font-black text-orange-500">-- days</span>
+                            <span id="analytics-active-streak" class="text-lg md:text-2xl font-black text-orange-500">-- days</span>
                             <span class="text-xs">🔥</span>
                         </div>
                         <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-3 font-semibold">Consecutive days with logged actions</p>
                     </div>
 
                     <!-- Stat Card 4: Plan Completion -->
-                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300">
+                    <div class="bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col hover:shadow-md transition-all group hover:-translate-y-1 duration-300 min-w-0">
                         <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 block">Days Remaining</span>
                         <div class="flex items-baseline gap-1.5">
-                            <span id="analytics-days-remaining" class="text-2xl font-black text-emerald-500">--</span>
+                            <span id="analytics-days-remaining" class="text-lg md:text-2xl font-black text-emerald-500">--</span>
                             <span class="text-[9px] text-slate-400 uppercase tracking-widest font-black">Days</span>
                         </div>
                         <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-3 font-semibold">Remaining days until target completion</p>
@@ -719,7 +705,7 @@
                 </div>
 
                 <!-- Charts and Custom Filter Panel -->
-                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+                <div class="bg-white dark:bg-slate-800 p-3 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm overflow-hidden">
                     <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-6 border-b border-slate-100 dark:border-slate-700 gap-4">
                         <div class="space-y-1 hidden md:block">
                             <h3 class="text-base font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Visual Analysis</h3>
@@ -741,8 +727,8 @@
                     </div>
 
                     <!-- Program Completion & Daily Actions Grid (First) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 mb-4 md:mb-8">
+                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-slate-800/80 overflow-hidden min-w-0">
                             <div class="flex justify-between items-center mb-4 md:mb-6">
                                 <div class="space-y-0.5">
                                     <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
@@ -752,14 +738,14 @@
                                 <button onclick="openSubjectTrendModal()"
                                     class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all">Subject View</button>
                             </div>
-                            <div class="relative h-[220px] md:h-[280px] mt-auto w-full"><canvas
+                            <div class="relative h-[200px] md:h-[280px] mt-auto w-full min-w-0"><canvas
                                     id="mainChartPrograms"></canvas></div>
                             <div class="mt-4 md:mt-6 flex flex-col gap-3">
                                 <div id="prog-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
                                 <div id="prog-comment" class="text-[9px] text-slate-400 dark:text-slate-500 font-medium"></div>
                             </div>
                         </div>
-                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-slate-800/80 overflow-hidden min-w-0">
                             <div class="flex justify-between items-center mb-4 md:mb-6">
                                 <div class="space-y-0.5">
                                     <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest"
@@ -770,7 +756,7 @@
                                 <button onclick="openYearlyActionsModal()"
                                     class="text-[8px] sm:text-[9px] md:text-[10px] font-black text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all">Year View</button>
                             </div>
-                            <div class="relative h-[220px] md:h-[280px] mt-auto w-full"><canvas
+                            <div class="relative h-[200px] md:h-[280px] mt-auto w-full min-w-0"><canvas
                                     id="monthlyActionsChart"></canvas></div>
                             <div class="mt-4 md:mt-6 flex flex-col gap-3">
                                 <div id="act-legend" class="flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3"></div>
@@ -781,9 +767,9 @@
                     </div>
 
                     <!-- Pacing Trend charts (Second) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                         <!-- X Bar Pacing Trend (Burn-up Chart) -->
-                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-slate-800/80 overflow-hidden min-w-0">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
                                 <div class="space-y-0.5">
                                     <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest" id="spectra-pace-title">
@@ -798,13 +784,13 @@
                                     <div>Est Finish: <span id="spectra-pace-finish" class="font-black text-orange-500">--</span></div>
                                 </div>
                             </div>
-                            <div class="relative h-[240px] md:h-[320px] w-full">
+                            <div class="relative h-[200px] md:h-[320px] w-full min-w-0">
                                 <canvas id="spectraPaceTrendCanvas"></canvas>
                             </div>
                         </div>
 
                         <!-- Global Pace Line Trend (Burn-up Chart) -->
-                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                        <div class="flex flex-col bg-slate-50 dark:bg-slate-900/30 p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-slate-800/80 overflow-hidden min-w-0">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
                                 <div class="space-y-0.5">
                                     <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest" id="global-pace-title">
@@ -819,7 +805,7 @@
                                     <div>Est Finish: <span id="global-pace-finish" class="font-black text-orange-500">--</span></div>
                                 </div>
                             </div>
-                            <div class="relative h-[240px] md:h-[320px] w-full">
+                            <div class="relative h-[200px] md:h-[320px] w-full min-w-0">
                                 <canvas id="globalPaceTrendCanvas"></canvas>
                             </div>
                         </div>
@@ -1166,6 +1152,14 @@
                                         </svg>
                                         <span>Targets Database</span>
                                     </button>
+                                    <button onclick="window.openAddWeeklyTargetModal()"
+                                        class="flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2.5 rounded-lg transition-colors shadow-md shadow-emerald-500/10 active:scale-95 shrink-0"
+                                        title="Add Weekly Target">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span>Add</span>
+                                    </button>
                                     <select id="wt-select-week" class="hidden"></select>
                                 </div>
                             </div>
@@ -1199,17 +1193,6 @@
                                         class="text-xs font-black text-purple-600 dark:text-purple-400">N/A</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Compact Add Button -->
-                        <div class="flex justify-end">
-                            <button onclick="window.openAddWeeklyTargetModal()"
-                                class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span>Add Weekly Target</span>
-                            </button>
                         </div>
 
                         <!-- Targets List -->
@@ -1277,19 +1260,16 @@
                                         </svg>
                                         <span>Targets Database</span>
                                     </button>
+                                    <button onclick="window.openAddDailyTargetModal()"
+                                        class="flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2.5 rounded-lg transition-colors shadow-md shadow-emerald-500/10 active:scale-95 shrink-0"
+                                        title="Add Daily Target / Task">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span>Add</span>
+                                    </button>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Compact Add Button -->
-                        <div class="flex justify-end">
-                            <button onclick="window.openAddDailyTargetModal()"
-                                class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span>Add Daily Target / Task</span>
-                            </button>
                         </div>
 
                         <!-- Targets List -->
@@ -3597,20 +3577,29 @@
                         </div>
                     </div>
 
+                    <!-- Explanation Alert/Callout -->
+                    <div class="p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-[10px] text-blue-800 dark:text-blue-300 leading-normal flex items-start gap-2.5 select-none">
+                        <svg class="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <span class="font-black uppercase tracking-wider block mb-0.5">How Proportional Allocation Works</span>
+                            Since weekly ranges often cross month boundaries (e.g., Jun 27 - Jul 03), weekly targets are split day-by-day (1/7th per day) and allocated to their respective months. This ensures month-wise charts represent targets and completions with 100% mathematical accuracy.
+                        </div>
+                    </div>
+
                     <!-- Month-wise Sorted Target Summary -->
                     <div class="space-y-3">
-                        <h3
-                            class="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">
-                            Proportional Month-Wise Targets Sorting</h3>
+                        <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">
+                            Month-Wise Targets Summary
+                        </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
-                                    <tr
-                                        class="border-b border-slate-100 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                    <tr class="border-b border-slate-100 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-400">
                                         <th class="py-3 px-4">Month</th>
-                                        <th class="py-3 px-4 text-center">Total Targets Set (Proportional)</th>
-                                        <th class="py-3 px-4 text-center">Completed Targets (Day-wise / Proportional)
-                                        </th>
+                                        <th class="py-3 px-4 text-center">Targets Set</th>
+                                        <th class="py-3 px-4 text-center">Targets Completed</th>
                                         <th class="py-3 px-4 text-center">Completion Rate</th>
                                     </tr>
                                 </thead>

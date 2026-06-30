@@ -2894,6 +2894,7 @@ window.updateTrendsBar = function () {
             renderTrendCharts();
             window.renderResults();
             window.renderWeeklyTargets();
+            if (window.autoSyncWeeklyToDailyTargets) window.autoSyncWeeklyToDailyTargets();
             if (window.renderDashboardWeeklyChecklist) window.renderDashboardWeeklyChecklist();
             if (window.renderDailyTargets) window.renderDailyTargets();
             if (window.renderDashboardDailyChecklist) window.renderDashboardDailyChecklist();
@@ -11548,6 +11549,28 @@ window.resetToCleanSlate = function () {
             const selectedWeekKey = weekSelectEl.value;
 
             if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[selectedWeekKey] && window.weeklyTargetsDatabase[selectedWeekKey][idx]) {
+                const target = window.weeklyTargetsDatabase[selectedWeekKey][idx];
+                
+                // Also mark any synced daily targets in this week as deleted
+                const trackId = target.track;
+                const subject = target.subject;
+                const chapter = target.chapter;
+                
+                const range = Utils.parseStart ? { start: Utils.parseStart(selectedWeekKey) } : window.getWeeklyTargetRange(window.parseDailyTargetDateKey ? window.parseDailyTargetDateKey(selectedWeekKey.split(' - ')[0]) : new Date());
+                if (window.dailyTargetsDatabase) {
+                    for (let i = 0; i < 7; i++) {
+                        const startVal = range.start ? range.start.getTime() : new Date().getTime();
+                        const d = new Date(startVal + i * 24 * 60 * 60 * 1000);
+                        const dateKey = Utils.formatDate(d);
+                        const list = window.dailyTargetsDatabase[dateKey] || [];
+                        list.forEach(dt => {
+                            if (dt.track === trackId && dt.subject === subject && dt.chapter === chapter) {
+                                dt.isDeleted = true;
+                            }
+                        });
+                    }
+                }
+
                 window.weeklyTargetsDatabase[selectedWeekKey].splice(idx, 1);
                 FirebaseService.saveToCloud();
                 renderUI();
@@ -11784,11 +11807,18 @@ window.renderWeeklyTargets = function () {
                             </div>
                         </div>
                     </div>
-                    <button onclick="window.deleteWeeklyTarget(${idx})" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 rounded-lg transition-all active:scale-90 shadow-sm shrink-0">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-1 shrink-0">
+                        <button onclick="window.openEditWeeklyTargetModal(${idx}, '${activeWeekKey}')" class="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-300 hover:text-blue-550 dark:hover:text-blue-400 rounded-lg transition-all active:scale-90 shadow-sm" title="Edit Weekly Target">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="window.deleteWeeklyTarget(${idx})" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 rounded-lg transition-all active:scale-90 shadow-sm" title="Delete Weekly Target">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>`;
                 listContainer.innerHTML += itemHtml;
             });
@@ -12083,9 +12113,32 @@ window.renderWeeklyTargets = function () {
         };
 
         window.openAddDailyTargetModal = function () {
+            window.editingDailyTargetIndex = null;
+            const modalTitle = document.querySelector('#add-daily-target-modal h2');
+            if (modalTitle) modalTitle.textContent = "Add Daily Target";
+            const modalDesc = document.querySelector('#add-daily-target-modal p');
+            if (modalDesc) modalDesc.textContent = "Create a task or select study chapters";
+            const todoBtn = document.querySelector('#adt-view-todo button[onclick*="addCustomTodoTarget"], #adt-view-todo button[onclick*="saveDailyTarget"]');
+            if (todoBtn) {
+                todoBtn.textContent = "Add Task";
+                todoBtn.setAttribute('onclick', 'window.addCustomTodoTarget()');
+            }
+            const studyBtn = document.querySelector('#adt-view-study button[onclick*="addDailyTarget"], #adt-view-study button[onclick*="saveDailyTarget"]');
+            if (studyBtn) {
+                studyBtn.textContent = "Add Target";
+                studyBtn.setAttribute('onclick', 'window.addDailyTarget()');
+            }
+
             window.switchAdtTab('todo');
             window.populateTrackDropdowns();
             
+            const titleInput = document.getElementById('adt-todo-title');
+            if (titleInput) titleInput.value = '';
+            const sizeInput = document.getElementById('dt-input-size');
+            if (sizeInput) sizeInput.value = '';
+            const totalSizeInput = document.getElementById('dt-input-total-size');
+            if (totalSizeInput) totalSizeInput.value = '';
+
             const progDropdown = document.getElementById('dt-select-prog');
             if (progDropdown) {
                 const activeProgs = [];
@@ -12109,6 +12162,22 @@ window.renderWeeklyTargets = function () {
         };
 
         window.openAddWeeklyTargetModal = function () {
+            window.editingWeeklyTargetIndex = null;
+            const modalTitle = document.querySelector('#add-weekly-target-modal h2');
+            if (modalTitle) modalTitle.textContent = "Add Weekly Target";
+            const modalDesc = document.querySelector('#add-weekly-target-modal p');
+            if (modalDesc) modalDesc.textContent = "Select a chapter and specify target scope";
+            const modalBtn = document.querySelector('#add-weekly-target-modal button[onclick*="addWeeklyTarget"], #add-weekly-target-modal button[onclick*="saveWeeklyTarget"]');
+            if (modalBtn) {
+                modalBtn.textContent = "Add Target";
+                modalBtn.setAttribute('onclick', 'window.addWeeklyTarget()');
+            }
+
+            const sizeInput = document.getElementById('wt-input-size');
+            if (sizeInput) sizeInput.value = '';
+            const daySelect = document.getElementById('wt-select-day');
+            if (daySelect) daySelect.value = '';
+
             const progDropdown = document.getElementById('wt-select-prog');
             if (progDropdown) {
                 const activeProgs = [];
@@ -12128,6 +12197,363 @@ window.renderWeeklyTargets = function () {
                 }
             }
             window.openModal('add-weekly-target-modal');
+        };
+
+        window.openEditWeeklyTargetModal = function (idx, weekKey = null) {
+            if (!weekKey) {
+                const range = window.getWeeklyTargetRange();
+                weekKey = window.formatDateRangeKey(range.start, range.end);
+            }
+            if (!window.weeklyTargetsDatabase || !window.weeklyTargetsDatabase[weekKey] || !window.weeklyTargetsDatabase[weekKey][idx]) return;
+
+            const target = window.weeklyTargetsDatabase[weekKey][idx];
+            window.editingWeeklyTargetIndex = idx;
+
+            window.openModal('add-weekly-target-modal');
+
+            const modalTitle = document.querySelector('#add-weekly-target-modal h2');
+            if (modalTitle) modalTitle.textContent = "Edit Weekly Target";
+            const modalDesc = document.querySelector('#add-weekly-target-modal p');
+            if (modalDesc) modalDesc.textContent = "Modify chapter, day, or size for this weekly target";
+            const modalBtn = document.querySelector('#add-weekly-target-modal button[onclick*="addWeeklyTarget"], #add-weekly-target-modal button[onclick*="saveWeeklyTarget"]');
+            if (modalBtn) {
+                modalBtn.textContent = "Save Target";
+                modalBtn.setAttribute('onclick', `window.saveWeeklyTarget(${idx}, '${weekKey}')`);
+            }
+
+            const progDropdown = document.getElementById('wt-select-prog');
+            if (progDropdown) {
+                const activeProgs = [];
+                window.tracks.forEach(track => {
+                    if (window.customPrograms[track.id]) {
+                        window.customPrograms[track.id].forEach(p => {
+                            activeProgs.push(p.name || p);
+                        });
+                    }
+                });
+                progDropdown.innerHTML = '';
+                activeProgs.forEach(p => {
+                    progDropdown.innerHTML += `<option value="${p}">${p}</option>`;
+                });
+            }
+
+            const progSelect = document.getElementById('wt-select-prog');
+            if (progSelect) {
+                progSelect.value = target.program;
+                window.updateWeeklyTargetSubjectDropdown();
+            }
+
+            const subSelect = document.getElementById('wt-select-sub');
+            if (subSelect) {
+                subSelect.value = target.subject;
+                window.updateWeeklyTargetChapterDropdown();
+            }
+
+            const chSelect = document.getElementById('wt-select-ch');
+            if (chSelect) {
+                chSelect.value = target.chapter;
+            }
+
+            const daySelect = document.getElementById('wt-select-day');
+            if (daySelect) {
+                daySelect.value = target.dayName || '';
+            }
+
+            const sizeInput = document.getElementById('wt-input-size');
+            if (sizeInput) {
+                sizeInput.value = target.totalChapterSize || '';
+            }
+        };
+
+        window.openEditWeeklyTargetModalFromWtdb = function (weekKey, idx) {
+            closeModal('weekly-targets-db-modal');
+            setTimeout(() => {
+                window.openEditWeeklyTargetModal(idx, weekKey);
+            }, 350);
+        };
+
+        window.saveWeeklyTarget = function (idx, weekKey = null) {
+            if (!weekKey) {
+                const range = window.getWeeklyTargetRange();
+                weekKey = window.formatDateRangeKey(range.start, range.end);
+            }
+            if (!window.weeklyTargetsDatabase || !window.weeklyTargetsDatabase[weekKey] || !window.weeklyTargetsDatabase[weekKey][idx]) return;
+
+            const target = window.weeklyTargetsDatabase[weekKey][idx];
+
+            const progSelectEl = document.getElementById('wt-select-prog');
+            const subSelectEl = document.getElementById('wt-select-sub');
+            const chSelectEl = document.getElementById('wt-select-ch');
+            const daySelectEl = document.getElementById('wt-select-day');
+            const sizeEl = document.getElementById('wt-input-size');
+
+            const progName = progSelectEl ? progSelectEl.value : '';
+            const subject = subSelectEl ? subSelectEl.value : '';
+            const chapter = chSelectEl ? chSelectEl.value : '';
+            const dayName = daySelectEl ? daySelectEl.value : '';
+            const totalSize = sizeEl && sizeEl.value ? parseInt(sizeEl.value, 10) : null;
+
+            if (!progName || !subject || !chapter) {
+                return showToast("Please select a Program, Subject, and Chapter.", "error");
+            }
+
+            const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+            if (!trackId) return;
+
+            const exists = window.weeklyTargetsDatabase[weekKey].some((t, i) => i !== idx && t.track === trackId && t.subject === subject && t.chapter === chapter);
+            if (exists) {
+                return showToast("This target already exists in your weekly targets list.", "error");
+            }
+
+            const oldDayName = target.dayName;
+
+            target.track = trackId;
+            target.program = progName;
+            target.subject = subject;
+            target.chapter = chapter;
+            target.dayName = dayName || null;
+            target.totalChapterSize = totalSize;
+
+            if (oldDayName && oldDayName !== target.dayName) {
+                const range = Utils.parseStart ? { start: Utils.parseStart(weekKey) } : window.getWeeklyTargetRange(window.parseDailyTargetDateKey ? window.parseDailyTargetDateKey(weekKey.split(' - ')[0]) : new Date());
+                for (let i = 0; i < 7; i++) {
+                    const startVal = range.start ? range.start.getTime() : new Date().getTime();
+                    const d = new Date(startVal + i * 24 * 60 * 60 * 1000);
+                    const dayOfWeekName = d.toLocaleDateString('en-US', { weekday: 'long' });
+                    if (dayOfWeekName === oldDayName) {
+                        const oldDateKey = Utils.formatDate(d);
+                        const list = window.dailyTargetsDatabase[oldDateKey] || [];
+                        const oldDtIdx = list.findIndex(dt => dt.track === trackId && dt.subject === subject && dt.chapter === chapter);
+                        if (oldDtIdx !== -1) {
+                            list[oldDtIdx].isDeleted = true;
+                        }
+                    }
+                }
+            }
+
+            if (window.autoSyncWeeklyToDailyTargets) window.autoSyncWeeklyToDailyTargets();
+
+            FirebaseService.saveToCloud();
+            renderUI();
+            closeModal('add-weekly-target-modal');
+            showToast("Weekly target updated!", "success");
+        };
+
+        window.openEditDailyTargetModal = function (idx, dateKey = null) {
+            if (!dateKey) {
+                if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
+                dateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            }
+            if (!window.dailyTargetsDatabase || !window.dailyTargetsDatabase[dateKey] || !window.dailyTargetsDatabase[dateKey][idx]) return;
+
+            const target = window.dailyTargetsDatabase[dateKey][idx];
+            window.editingDailyTargetIndex = idx;
+            window.editingDailyTargetDateKey = dateKey;
+
+            window.openModal('add-daily-target-modal');
+
+            const modalTitle = document.querySelector('#add-daily-target-modal h2');
+            if (modalTitle) modalTitle.textContent = "Edit Daily Target";
+            const modalDesc = document.querySelector('#add-daily-target-modal p');
+            if (modalDesc) modalDesc.textContent = "Modify details for this daily target";
+
+            const todoBtn = document.querySelector('#adt-view-todo button[onclick*="addCustomTodoTarget"], #adt-view-todo button[onclick*="saveDailyTarget"]');
+            if (todoBtn) {
+                todoBtn.textContent = "Save Task";
+                todoBtn.setAttribute('onclick', `window.saveDailyTarget(${idx}, '${dateKey}')`);
+            }
+            const studyBtn = document.querySelector('#adt-view-study button[onclick*="addDailyTarget"], #adt-view-study button[onclick*="saveDailyTarget"]');
+            if (studyBtn) {
+                studyBtn.textContent = "Save Target";
+                studyBtn.setAttribute('onclick', `window.saveDailyTarget(${idx}, '${dateKey}')`);
+            }
+
+            if (target.isTodo) {
+                window.switchAdtTab('todo');
+                const titleInput = document.getElementById('adt-todo-title');
+                if (titleInput) titleInput.value = target.title || '';
+                const trackSelect = document.getElementById('adt-todo-track');
+                if (trackSelect) trackSelect.value = target.track || '';
+            } else {
+                window.switchAdtTab('study');
+                
+                const progDropdown = document.getElementById('dt-select-prog');
+                if (progDropdown) {
+                    const activeProgs = [];
+                    window.tracks.forEach(track => {
+                        if (window.customPrograms[track.id]) {
+                            window.customPrograms[track.id].forEach(p => {
+                                activeProgs.push(p.name || p);
+                            });
+                        }
+                    });
+                    progDropdown.innerHTML = '';
+                    activeProgs.forEach(p => {
+                        progDropdown.innerHTML += `<option value="${p}">${p}</option>`;
+                    });
+                }
+
+                const progSelect = document.getElementById('dt-select-prog');
+                if (progSelect) {
+                    progSelect.value = target.program;
+                    window.updateDailyTargetSubjectDropdown();
+                }
+
+                const subSelect = document.getElementById('dt-select-sub');
+                if (subSelect) {
+                    subSelect.value = target.subject;
+                    window.updateDailyTargetChapterDropdown();
+                }
+
+                const chSelect = document.getElementById('dt-select-ch');
+                if (chSelect) {
+                    chSelect.value = target.chapter;
+                }
+
+                const sizeInput = document.getElementById('dt-input-size');
+                if (sizeInput) {
+                    sizeInput.value = target.totalChapterSize || '';
+                }
+                
+                window.handleDailyTargetChapterChange();
+            }
+        };
+
+        window.openEditDailyTargetModalFromDtdb = function (dateKey, idx) {
+            closeModal('daily-targets-db-modal');
+            setTimeout(() => {
+                window.openEditDailyTargetModal(idx, dateKey);
+            }, 350);
+        };
+
+        window.saveDailyTarget = function (idx, dateKey = null) {
+            if (!dateKey) {
+                if (!window.currentDailyTargetsDate) window.currentDailyTargetsDate = new Date();
+                dateKey = Utils.formatDate(window.currentDailyTargetsDate);
+            }
+            if (!window.dailyTargetsDatabase || !window.dailyTargetsDatabase[dateKey] || !window.dailyTargetsDatabase[dateKey][idx]) return;
+
+            const target = window.dailyTargetsDatabase[dateKey][idx];
+            const isTodoTab = document.getElementById('adt-tab-btn-todo').classList.contains('bg-blue-600');
+
+            if (isTodoTab) {
+                const titleInput = document.getElementById('adt-todo-title');
+                const trackSelect = document.getElementById('adt-todo-track');
+                const title = titleInput ? titleInput.value.trim() : '';
+                const trackVal = trackSelect ? trackSelect.value : '';
+
+                if (!title) {
+                    return showToast("Please enter a task title.", "error");
+                }
+
+                target.isTodo = true;
+                target.title = title;
+                target.track = trackVal || null;
+            } else {
+                const progSelectEl = document.getElementById('dt-select-prog');
+                const subSelectEl = document.getElementById('dt-select-sub');
+                const chSelectEl = document.getElementById('dt-select-ch');
+                const sizeEl = document.getElementById('dt-input-size');
+
+                const progName = progSelectEl ? progSelectEl.value : '';
+                const subject = subSelectEl ? subSelectEl.value : '';
+                const chapter = chSelectEl ? chSelectEl.value : '';
+                const dailySize = sizeEl && sizeEl.value ? parseInt(sizeEl.value, 10) : null;
+
+                if (!progName || !subject || !chapter) {
+                    return showToast("Please select a Program, Subject, and Chapter.", "error");
+                }
+
+                const trackId = window.tracks.find(t => window.customPrograms[t.id] && window.customPrograms[t.id].some(p => (p.name || p) === progName))?.id;
+                if (!trackId) return;
+
+                const exists = window.dailyTargetsDatabase[dateKey].some((t, i) => i !== idx && !t.isDeleted && t.track === trackId && t.subject === subject && t.chapter === chapter);
+                if (exists) {
+                    return showToast("This target is already in your daily target list.", "error");
+                }
+
+                target.isTodo = false;
+                target.track = trackId;
+                target.program = progName;
+                target.subject = subject;
+                target.chapter = chapter;
+                target.totalChapterSize = dailySize;
+            }
+
+            FirebaseService.saveToCloud();
+            renderUI();
+            closeModal('add-daily-target-modal');
+            showToast("Daily target updated!", "success");
+        };
+
+        window.autoSyncWeeklyToDailyTargets = function () {
+            if (!window.weeklyTargetsDatabase) return;
+            if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
+
+            let updated = false;
+
+            const datesToSync = [new Date()];
+            if (window.currentDailyTargetsDate) {
+                datesToSync.push(new Date(window.currentDailyTargetsDate));
+            }
+
+            const processedWeeks = new Set();
+
+            datesToSync.forEach(dateObj => {
+                const range = window.getWeeklyTargetRange(dateObj);
+                const weekKey = window.formatDateRangeKey(range.start, range.end);
+                
+                if (processedWeeks.has(weekKey)) return;
+                processedWeeks.add(weekKey);
+
+                const weeklyTargets = window.weeklyTargetsDatabase[weekKey] || [];
+                if (weeklyTargets.length === 0) return;
+
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(range.start.getTime() + i * 24 * 60 * 60 * 1000);
+                    const dayOfWeekName = d.toLocaleDateString('en-US', { weekday: 'long' });
+                    const dateKey = Utils.formatDate(d);
+
+                    const dayTargets = weeklyTargets.filter(t => t.dayName === dayOfWeekName);
+
+                    if (dayTargets.length > 0) {
+                        if (!window.dailyTargetsDatabase[dateKey]) {
+                            window.dailyTargetsDatabase[dateKey] = [];
+                        }
+
+                        dayTargets.forEach(wt => {
+                            const exists = window.dailyTargetsDatabase[dateKey].some(dt => 
+                                dt.track === wt.track && 
+                                dt.subject === wt.subject && 
+                                dt.chapter === wt.chapter
+                            );
+
+                            if (!exists) {
+                                const foundTask = window.findTaskChapter(wt.track, wt.subject, wt.chapter);
+                                const isCompleted = wt.completed || (foundTask ? foundTask.subTask.completed : false);
+                                const completedAt = wt.completedAt || (foundTask ? foundTask.subTask.completedAt : null);
+
+                                window.dailyTargetsDatabase[dateKey].push({
+                                    track: wt.track,
+                                    program: wt.program,
+                                    subject: wt.subject,
+                                    chapter: wt.chapter,
+                                    completed: isCompleted,
+                                    completedAt: completedAt,
+                                    totalChapterSize: wt.totalChapterSize,
+                                    scope: wt.scope || 'Whole Chapter',
+                                    isAutoSynced: true
+                                });
+                                updated = true;
+                            }
+                        });
+                    }
+                }
+            });
+
+            if (updated) {
+                FirebaseService.saveToCloud();
+            }
         };
 
         window.switchAdtTab = function (tab) {
@@ -12188,7 +12614,7 @@ window.renderWeeklyTargets = function () {
 
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[selectedDateKey] && window.dailyTargetsDatabase[selectedDateKey][idx]) {
                 const target = window.dailyTargetsDatabase[selectedDateKey][idx];
-                window.dailyTargetsDatabase[selectedDateKey].splice(idx, 1);
+                target.isDeleted = true;
 
                 // Sync with Weekly Target & Daily Study Task
                 const currentRange = window.getWeeklyTargetRange(window.currentDailyTargetsDate);
@@ -12342,7 +12768,10 @@ window.renderWeeklyTargets = function () {
             if (!window.dailyTargetsDatabase) window.dailyTargetsDatabase = {};
             const targetsList = window.dailyTargetsDatabase[targetDateKey] || [];
 
+            let renderedCount = 0;
             targetsList.forEach((target, idx) => {
+                if (target.isDeleted) return;
+                renderedCount++;
                 const isTodo = target.isTodo === true;
                 const isCompleted = isTodo ? (target.completed || false) : (target.completed || (window.findTaskChapter(target.track, target.subject, target.chapter)?.subTask.completed ?? false));
 
@@ -12387,16 +12816,23 @@ window.renderWeeklyTargets = function () {
                             <span class="block text-[8px] font-black uppercase text-slate-400 tracking-wider">${displaySubtitle}</span>
                         </div>
                     </div>
-                    <button onclick="window.deleteDailyTarget(${idx})" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 rounded-lg transition-all active:scale-90 shadow-sm shrink-0">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-1 shrink-0">
+                        <button onclick="window.openEditDailyTargetModal(${idx}, '${targetDateKey}')" class="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-300 hover:text-blue-550 dark:hover:text-blue-400 rounded-lg transition-all active:scale-90 shadow-sm" title="Edit Daily Target">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="window.deleteDailyTarget(${idx})" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 rounded-lg transition-all active:scale-90 shadow-sm" title="Delete Daily Target">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>`;
                 listContainer.innerHTML += itemHtml;
             });
 
-            if (targetsList.length === 0) {
+            if (renderedCount === 0) {
                 listContainer.innerHTML = `
                 <div class="col-span-full py-8 text-center text-[10px] uppercase font-black tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                     No daily targets set for this day.
@@ -12438,6 +12874,10 @@ window.renderWeeklyTargets = function () {
             }
 
             targetsList.forEach((target, idx) => {
+                if (target.isDeleted) {
+                    totalTargets--;
+                    return;
+                }
                 const isTodo = target.isTodo === true;
                 if (!isTodo) {
                     const foundTask = window.findTaskChapter(target.track, target.subject, target.chapter);
@@ -13101,7 +13541,7 @@ window.addWtdbTarget = function () {
             const labels = monthsList.map(m => m.month);
             const setDataset = {
                 type: 'bar',
-                label: 'Targets Set (Proportional)',
+                label: 'Targets Set',
                 data: monthsList.map(m => m.set),
                 backgroundColor: 'rgba(59, 130, 246, 0.65)',
                 borderColor: '#3b82f6',
@@ -13176,7 +13616,10 @@ window.addWtdbTarget = function () {
             tbody.innerHTML = '';
             const monthsList = window.calculateMonthWiseTargets();
 
-            monthsList.forEach(m => {
+            // Show latest month first in the table
+            const tableList = [...monthsList].reverse();
+
+            tableList.forEach(m => {
                 const rate = m.set > 0 ? Math.round((m.completed / m.set) * 100) : 0;
                 let rateColor = 'text-rose-600 dark:text-rose-400';
                 if (rate >= 50) rateColor = 'text-orange-500';
@@ -13273,6 +13716,7 @@ window.addWtdbTarget = function () {
 
                 const list = window.dailyTargetsDatabase[dateKey] || [];
                 list.forEach((target, idx) => {
+                    if (target.isDeleted) return;
                     if (pFilter !== 'all' && target.program !== pFilter) return;
                     if (sFilter !== 'all' && target.subject !== sFilter) return;
 
@@ -13388,10 +13832,7 @@ window.addWtdbTarget = function () {
         window.deleteDtdbTarget = function (dateKey, idx) {
             if (window.dailyTargetsDatabase && window.dailyTargetsDatabase[dateKey] && window.dailyTargetsDatabase[dateKey][idx]) {
                 const target = window.dailyTargetsDatabase[dateKey][idx];
-                window.dailyTargetsDatabase[dateKey].splice(idx, 1);
-                if (window.dailyTargetsDatabase[dateKey].length === 0) {
-                    delete window.dailyTargetsDatabase[dateKey];
-                }
+                target.isDeleted = true;
 
                 // Sync with Weekly Target & Daily Study Task
                 const currentRange = window.getWeeklyTargetRange(window.parseDailyTargetDateKey(dateKey));
