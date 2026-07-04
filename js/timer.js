@@ -6,6 +6,20 @@
 (function () {
     // --- PRIVATE UTILITIES & HELPERS ---
 
+    function parseStartTime(startTime) {
+        if (!startTime) return 0;
+        if (typeof startTime.toDate === 'function') {
+            return startTime.toDate().getTime();
+        }
+        if (startTime instanceof Date) {
+            return startTime.getTime();
+        }
+        if (typeof startTime === 'string') {
+            return new Date(startTime).getTime();
+        }
+        return Number(startTime);
+    }
+
     function playCompletionChime() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -48,7 +62,7 @@
 
         let elapsedMs = AppState.activeTimerState.elapsedBeforeStart || 0;
         if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
-            elapsedMs += (Date.now() - AppState.activeTimerState.startTime);
+            elapsedMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
         }
 
         let displaySeconds = 0;
@@ -69,7 +83,7 @@
                 AppState.activeTimerState.startTime = null;
 
                 playCompletionChime();
-                FirebaseService.saveToCloud(true);
+                FirebaseService.saveTimerToCloud();
 
                 const saveBtn = document.getElementById('timer-btn-save');
                 if (saveBtn) {
@@ -311,7 +325,7 @@
         } else {
             AppState.activeTimerState.targetDuration = 0;
         }
-        FirebaseService.saveToCloud(true);
+        FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
     };
 
@@ -323,7 +337,7 @@
         AppState.activeTimerState.targetDuration = minutes * 60;
         AppState.activeTimerState.elapsedBeforeStart = 0;
         AppState.activeTimerState.startTime = null;
-        FirebaseService.saveToCloud(true);
+        FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
         showToast(`Timer set to ${minutes} minutes.`, "success");
     };
@@ -351,7 +365,7 @@
         AppState.activeTimerState.targetDuration = minutes * 60;
         AppState.activeTimerState.elapsedBeforeStart = 0;
         AppState.activeTimerState.startTime = null;
-        FirebaseService.saveToCloud(true);
+        FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
         closeModal('custom-timer-modal');
         showToast(`Timer set to ${minutes} minutes.`, "success");
@@ -435,7 +449,7 @@
 
         let elapsedMs = AppState.activeTimerState.elapsedBeforeStart || 0;
         if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
-            elapsedMs += (Date.now() - AppState.activeTimerState.startTime);
+            elapsedMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
         }
 
         const elapsedSeconds = Math.floor(elapsedMs / 1000);
@@ -451,7 +465,7 @@
             id: 'timer-log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
             subject: subject,
             duration: elapsedSeconds,
-            date: new Date().toISOString(),
+            date: new Date(window.getServerTime()).toISOString(),
             mode: mode
         };
 
@@ -463,6 +477,7 @@
         AppState.activeTimerState.elapsedBeforeStart = 0;
 
         FirebaseService.saveToCloud(true);
+        FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
         window.TimerService.updateDisplay();
         showToast(`Saved session: ${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s for ${subject}.`, "success");
@@ -945,7 +960,7 @@
                 if (e.target && e.target.id === 'timer-subject-select') {
                     if (AppState.activeTimerState) {
                         AppState.activeTimerState.selectedSubject = e.target.value;
-                        FirebaseService.saveToCloud(true);
+                        FirebaseService.saveTimerToCloud();
                     }
                 }
             });
@@ -969,8 +984,8 @@
         start: function () {
             if (AppState.activeTimerState && !AppState.activeTimerState.isRunning) {
                 AppState.activeTimerState.isRunning = true;
-                AppState.activeTimerState.startTime = Date.now();
-                FirebaseService.saveToCloud(true);
+                AppState.activeTimerState.startTime = window.getServerTime();
+                FirebaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
         },
@@ -979,10 +994,10 @@
             if (AppState.activeTimerState && AppState.activeTimerState.isRunning) {
                 AppState.activeTimerState.isRunning = false;
                 if (AppState.activeTimerState.startTime) {
-                    AppState.activeTimerState.elapsedBeforeStart += (Date.now() - AppState.activeTimerState.startTime);
+                    AppState.activeTimerState.elapsedBeforeStart += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
                 }
                 AppState.activeTimerState.startTime = null;
-                FirebaseService.saveToCloud(true);
+                FirebaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
         },
@@ -1000,7 +1015,7 @@
                 AppState.activeTimerState.isRunning = false;
                 AppState.activeTimerState.startTime = null;
                 AppState.activeTimerState.elapsedBeforeStart = 0;
-                FirebaseService.saveToCloud(true);
+                FirebaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
         },

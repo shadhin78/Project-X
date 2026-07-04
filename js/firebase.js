@@ -37,9 +37,20 @@ window.FirebaseService = {
     fetchConfig: async function() {
         let config;
         try {
+            const clientSendTime = Date.now();
             const res = await fetch('/api/config');
+            const clientRecvTime = Date.now();
             if (!res.ok) throw new Error("API config endpoint not available");
             config = await res.json();
+            
+            const serverDateStr = res.headers.get('Date');
+            if (serverDateStr) {
+                const serverTime = new Date(serverDateStr).getTime();
+                const latency = (clientRecvTime - clientSendTime) / 2;
+                window.serverTimeOffset = serverTime - (clientSendTime + latency);
+                console.log("Estimated server clock offset (ms):", window.serverTimeOffset);
+            }
+            
             localStorage.setItem('firebaseConfig', JSON.stringify(config));
         } catch (err) {
             console.warn("API config failed, trying static .env fallback...", err);
@@ -141,47 +152,41 @@ window.FirebaseService = {
 
     // 8. Push Local Workspace to Firestore Cloud Database
     saveToCloud: async function(immediate = false) {
-        const payload = {
-            tasks: AppState.tasks,
-            tracks: window.tracks,
-            customSyllabus: syllabusStructure,
-            customPrograms: window.customPrograms,
-            customActions: window.customActions,
-            paceGoals: window.paceGoals,
-            passedItems: window.passedItems,
-            revisionData: window.revisionData,
-            programVisibility: window.programVisibility || {},
-            subjectTimeLinks: window.subjectTimeLinks,
-            successResults: window.successResults,
-            timerLogs: window.timerLogs || [],
-            dailyFocusHoursTarget: window.dailyFocusHoursTarget || 4.0,
-            dailyFocusHoursTargetDate: window.dailyFocusHoursTargetDate || "",
-            activeTimerState: window.activeTimerState || {
-                isRunning: false,
-                mode: 'stopwatch',
-                startTime: null,
-                elapsedBeforeStart: 0,
-                targetDuration: 0,
-                selectedSubject: 'General Study'
-            },
-            dashboardConfig: window.dashboardConfig,
-            weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
-            dailyTargetsDatabase: window.dailyTargetsDatabase || {},
-            scheduleBlocks: window.scheduleBlocks || [],
-            scheduleBlocks2: window.scheduleBlocks2 || [],
-            scheduleGroups: window.scheduleGroups || []
-        };
-        window.appState = payload;
-
         const executeSave = () => {
             if (!AppState.db) return;
             const fbUser = window.FirebaseService.getCurrentUser();
             if (!fbUser) return;
 
+            const payload = {
+                tasks: AppState.tasks,
+                tracks: window.tracks,
+                customSyllabus: window.syllabusStructure,
+                customPrograms: window.customPrograms,
+                customActions: window.customActions,
+                paceGoals: window.paceGoals,
+                passedItems: window.passedItems,
+                revisionData: window.revisionData,
+                programVisibility: window.programVisibility || {},
+                subjectTimeLinks: window.subjectTimeLinks,
+                successResults: window.successResults,
+                timerLogs: window.timerLogs || [],
+                dailyFocusHoursTarget: window.dailyFocusHoursTarget || 4.0,
+                dailyFocusHoursTargetDate: window.dailyFocusHoursTargetDate || "",
+                dashboardConfig: window.dashboardConfig,
+                weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
+                dailyTargetsDatabase: window.dailyTargetsDatabase || {},
+                scheduleBlocks: window.scheduleBlocks || [],
+                scheduleBlocks2: window.scheduleBlocks2 || [],
+                scheduleGroups: window.scheduleGroups || []
+            };
+            window.appState = payload;
+
             window.isSyncing = true;
             showSync('saving');
             const uid = fbUser.uid;
-            AppState.db.collection('userData').doc(uid).set(payload)
+
+            const sanitized = window.sanitizeAllData ? window.sanitizeAllData(payload) : payload;
+            AppState.db.collection('userData').doc(uid).set(sanitized, { merge: true })
                 .then(() => {
                     showSync('saved');
                 })
@@ -201,6 +206,34 @@ window.FirebaseService = {
             if (window.saveTimeout) clearTimeout(window.saveTimeout);
             window.saveTimeout = setTimeout(executeSave, 800);
         }
+    },
+
+    saveTimerToCloud: async function() {
+        if (!AppState.db) return;
+        const fbUser = window.FirebaseService.getCurrentUser();
+        if (!fbUser) return;
+
+        const uid = fbUser.uid;
+        const timerPayload = {
+            activeTimerState: window.activeTimerState || {
+                isRunning: false,
+                mode: 'stopwatch',
+                startTime: null,
+                elapsedBeforeStart: 0,
+                targetDuration: 0,
+                selectedSubject: 'General Study'
+            }
+        };
+
+
+        const sanitizedTimer = window.sanitizeAllData ? window.sanitizeAllData(timerPayload) : timerPayload;
+        return AppState.db.collection('userData').doc(uid).set(sanitizedTimer, { merge: true })
+            .then(() => {
+                console.log("Firestore timer state updated successfully.");
+            })
+            .catch((error) => {
+                console.error("Firestore timer state update failed:", error);
+            });
     },
 
     // 9. Load workspace from Cloud Snapshot Listener
@@ -226,7 +259,7 @@ window.FirebaseService = {
                 // Direct in-memory load
                 if (data.tasks) { AppState.tasks = data.tasks; window.tasks = data.tasks; }
                 if (data.tracks) window.tracks = data.tracks;
-                if (data.customSyllabus) syllabusStructure = data.customSyllabus;
+                if (data.customSyllabus) window.syllabusStructure = data.customSyllabus;
                 if (data.customPrograms) window.customPrograms = data.customPrograms;
                 if (data.customActions) window.customActions = data.customActions;
                 if (data.paceGoals) window.paceGoals = data.paceGoals;
@@ -309,4 +342,5 @@ window.FirebaseService = {
 // Global compatibility aliases
 window.saveToCloud = window.FirebaseService.saveToCloud;
 window.loadFromCloud = window.FirebaseService.loadFromCloud;
+window.saveTimerToCloud = window.FirebaseService.saveTimerToCloud;
 window.showSync = showSync;

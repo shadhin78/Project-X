@@ -128,17 +128,21 @@ window.setLoadingProgress = function (pct, statusText) {
 };
 
 window.sanitizeAllData = function (val) {
+    if (val === undefined) return undefined;
     if (typeof val === 'string') {
         return val.replace(/<[^>]*>/g, '');
     } else if (Array.isArray(val)) {
-        return val.map(window.sanitizeAllData);
+        return val.map(window.sanitizeAllData).filter(item => item !== undefined);
     } else if (val !== null && typeof val === 'object') {
         if (val instanceof Date) return val;
         if (typeof val.toDate === 'function') return val;
         const cleaned = {};
         for (const key in val) {
             if (Object.prototype.hasOwnProperty.call(val, key)) {
-                cleaned[key] = window.sanitizeAllData(val[key]);
+                const cleanVal = window.sanitizeAllData(val[key]);
+                if (cleanVal !== undefined) {
+                    cleaned[key] = cleanVal;
+                }
             }
         }
         return cleaned;
@@ -804,7 +808,7 @@ window.handleLogout = function () {
 
         window.customPrograms = {};
 
-        let syllabusStructure = {};
+        window.syllabusStructure = window.syllabusStructure || {};
 
         function getDynamicChartLabel(subjName) {
             let programName = "";
@@ -1326,7 +1330,18 @@ window.updateActiveScheduleSlot = function () {
             if (window.activeTimerState) {
                 let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
                 if (window.activeTimerState.isRunning && window.activeTimerState.startTime) {
-                    elapsedMs += (Date.now() - window.activeTimerState.startTime);
+                    let startTimeMs = window.activeTimerState.startTime;
+                    if (startTimeMs && typeof startTimeMs.toDate === 'function') {
+                        startTimeMs = startTimeMs.toDate().getTime();
+                    } else if (startTimeMs instanceof Date) {
+                        startTimeMs = startTimeMs.getTime();
+                    } else if (typeof startTimeMs === 'string') {
+                        startTimeMs = new Date(startTimeMs).getTime();
+                    } else {
+                        startTimeMs = Number(startTimeMs);
+                    }
+                    const serverTime = (typeof window.getServerTime === 'function') ? window.getServerTime() : Date.now();
+                    elapsedMs += (serverTime - startTimeMs);
                 }
                 timerElapsedMs = elapsedMs;
                 isTimerActive = window.activeTimerState.isRunning || elapsedMs > 0;
