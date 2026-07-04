@@ -12066,7 +12066,7 @@ window.renderWeeklyTargets = function () {
 
             // Check if already exists in daily targets database for selected date
             if (!matchingWt || !matchingWt.totalChapterSize) {
-                const exists = window.dailyTargetsDatabase[targetDateKey].some(t => t.track === trackId && t.subject === subject && t.chapter === chapter);
+                const exists = window.dailyTargetsDatabase[targetDateKey].some(t => !t.isDeleted && t.track === trackId && t.subject === subject && t.chapter === chapter);
                 if (exists) {
                     return showToast("This target is already in your daily target list.", "error");
                 }
@@ -12107,16 +12107,25 @@ window.renderWeeklyTargets = function () {
                 window.weeklyTargetsDatabase[currentWeekKey].push(matchingWtObj);
             }
 
-            window.dailyTargetsDatabase[targetDateKey].push({
-                track: trackId,
-                program: progName,
-                subject: subject,
-                chapter: chapter,
-                completed: isCompletedBefore,
-                completedAt: completedAtBefore,
-                totalChapterSize: dailySize,
-                scope: 'Whole Chapter'
-            });
+            const existingDeleted = window.dailyTargetsDatabase[targetDateKey].find(t => t.isDeleted && t.track === trackId && t.subject === subject && t.chapter === chapter);
+            if (existingDeleted) {
+                delete existingDeleted.isDeleted;
+                existingDeleted.completed = isCompletedBefore;
+                existingDeleted.completedAt = completedAtBefore;
+                existingDeleted.totalChapterSize = dailySize;
+                existingDeleted.scope = 'Whole Chapter';
+            } else {
+                window.dailyTargetsDatabase[targetDateKey].push({
+                    track: trackId,
+                    program: progName,
+                    subject: subject,
+                    chapter: chapter,
+                    completed: isCompletedBefore,
+                    completedAt: completedAtBefore,
+                    totalChapterSize: dailySize,
+                    scope: 'Whole Chapter'
+                });
+            }
 
             if (sizeEl) sizeEl.value = '';
             if (totalSizeEl) totalSizeEl.value = '';
