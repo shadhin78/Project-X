@@ -304,7 +304,7 @@
             <!-- Page: Dashboard -->
             <div id="page-dashboard" class="space-y-6 md:space-y-8">
                 <!-- Responsive Grid for Dashboard Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-6">
                     
                     <!-- Active Now Card Container -->
                     <div id="dashboard-active-now-container" class="w-full">
@@ -318,8 +318,7 @@
 
                     <!-- Daily Targets Checklist Card -->
                     <div id="dashboard-daily-targets-section"
-                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none"
-                        style="height: 225px; min-height: 225px;">
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center space-x-2">
                                 <div class="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg shrink-0">
@@ -353,7 +352,7 @@
                     </div>
 
                     <!-- Daily Actions Check-in Card -->
-                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col select-none" style="height: 225px; min-height: 225px;">
+                    <div id="dashboard-daily-actions-section" class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl p-4 shadow-sm flex flex-col select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
                         <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
                             <div>
                                 <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily Actions</h3>
@@ -374,8 +373,7 @@
 
                     <!-- Weekly Targets Checklist Card -->
                     <div id="dashboard-weekly-targets-section"
-                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none"
-                        style="height: 225px; min-height: 225px;">
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center space-x-2">
                                 <div class="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0">
@@ -410,8 +408,7 @@
 
                     <!-- Pace & Timeline Summary Dashboard Card -->
                     <div id="dashboard-pace-section"
-                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none"
-                        style="height: 225px; min-height: 225px;">
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
                         <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 dark:border-slate-700/60">
                             <div class="flex items-center space-x-2">
                                 <div class="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg shrink-0">
@@ -468,8 +465,7 @@
 
                     <!-- Global Overall Completion Dashboard Card -->
                     <div id="dashboard-global-completion"
-                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none"
-                        style="height: 225px; min-height: 225px;">
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center space-x-2">
                                 <div class="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg shrink-0">
@@ -661,7 +657,7 @@
             </div>
 
             <!-- Page: Spectra Pulse Analytics -->
-            <div id="page-spectra-analytics" class="hidden space-y-4 md:space-y-8 animate-page-enter overflow-x-hidden">
+            <div id="page-spectra-analytics" class="hidden relative space-y-4 md:space-y-8 animate-page-enter overflow-x-hidden">
                 <!-- Page Header with Ambient Glow -->
                 <div class="relative overflow-hidden bg-gradient-to-r from-slate-900 to-indigo-950 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-800 shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6">
                     <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -724,6 +720,41 @@
                             <span class="text-[9px] text-slate-400 uppercase tracking-widest font-black">Days</span>
                         </div>
                         <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-3 font-semibold">Remaining days until target completion</p>
+                    </div>
+                </div>
+
+                <!-- Global Chapters Goal Chart (Full Row Card) -->
+                <div class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col md:flex-row items-center justify-around gap-8 w-full">
+                    <!-- Tooltip inside spectra page -->
+                    <div id="spectra-gcm-tooltip" class="absolute hidden bg-slate-950/95 text-white text-[11px] font-bold px-3 py-2 rounded-xl border border-white/10 shadow-2xl pointer-events-none z-[90] backdrop-blur-md transition-all duration-75"></div>
+
+                    <div class="flex flex-col max-w-sm space-y-4 w-full md:w-auto">
+                        <div class="space-y-1.5">
+                            <span class="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 rounded-full border border-indigo-100 dark:border-indigo-900/50 w-fit block">Interactive Map</span>
+                            <h3 class="text-lg md:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Syllabus Chapters Analysis</h3>
+                            <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">A visual distribution of all chapters in your study goals. Hover over segments to view subject names, chapter index, and completion statuses.</p>
+                        </div>
+                        
+                        <!-- Legend Inside Spectra Page -->
+                        <div class="flex flex-col gap-2.5 pt-2 text-[10px] font-black uppercase tracking-wider">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-3 h-3 rounded bg-emerald-500"></div>
+                                <span class="text-slate-600 dark:text-slate-300">Complete (<span id="spectra-legend-complete">0</span>)</span>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-3 h-3 rounded bg-rose-500"></div>
+                                <span class="text-slate-600 dark:text-slate-300">Incomplete (<span id="spectra-legend-incomplete">0</span>)</span>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-3 h-3 rounded bg-slate-300 dark:bg-slate-600"></div>
+                                <span class="text-slate-600 dark:text-slate-300">Skipped (<span id="spectra-legend-skipped">0</span>)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Display Container -->
+                    <div id="spectra-circle-chart-wrapper" class="relative flex items-center justify-center">
+                        <!-- Placed dynamically via JS to update automatically -->
                     </div>
                 </div>
 
@@ -1599,7 +1630,7 @@
                     </div>
                     <div
                         class="bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 relative flex items-center justify-center shadow-sm hover:shadow-xl transition-shadow">
-                        <button onclick="window.openProgramCompletionsModal('Global', 'Global')"
+                        <button onclick="window.openGlobalChaptersModal()"
                             class="relative flex items-center justify-center hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer group"
                             title="View All Subject Completions">
                             <canvas id="progressChart"
@@ -2594,12 +2625,7 @@
                     </div>
                     <div
                         class="relative z-10 overflow-y-auto flex-1 flex flex-col gap-4 sm:gap-6 md:gap-8 custom-scrollbar pr-1 md:pr-2">
-                        <div class="flex flex-col shrink-0 pb-4">
-                            <div class="relative w-full h-[280px] sm:h-[400px] md:h-[500px] shrink-0"><canvas
-                                    id="subjectTrendChart"></canvas></div>
-                            <div id="subject-trend-legend"
-                                class="mt-4 sm:mt-6 md:mt-8 flex flex-wrap justify-center gap-1.5 sm:gap-2 md:gap-3 bg-slate-900/50 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl border border-slate-800 backdrop-blur-md shrink-0">
-                            </div>
+                        <div id="subject-trend-circle-container" class="flex flex-col items-center shrink-0 pb-4">
                         </div>
                     </div>
                 </div>
@@ -3950,6 +3976,49 @@
                         class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
                         Add Session
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Chapters Goal Chart Modal -->
+        <div id="global-chapters-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="gcm-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="closeModal('global-chapters-modal')"></div>
+            <div id="gcm-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-2xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col max-h-[90vh]">
+                
+                <!-- Tooltip for hover details -->
+                <div id="gcm-tooltip" class="absolute hidden bg-slate-950/95 text-white text-[11px] font-bold px-3 py-2 rounded-xl border border-white/10 shadow-2xl pointer-events-none z-[90] backdrop-blur-md transition-all duration-75"></div>
+
+                <div
+                    class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 id="gcm-title" class="text-xl font-black font-sans text-slate-800 dark:text-white">Global Chapters Analytics</h2>
+                            <p id="gcm-subtitle" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Visual overall syllabus progress</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal('global-chapters-modal')"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="gcm-chart-container" class="flex-1 flex flex-col items-center justify-center overflow-y-auto custom-scrollbar p-4 gap-6">
+                    <!-- Dynamic chart rendering area -->
                 </div>
             </div>
         </div>

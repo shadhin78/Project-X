@@ -35,6 +35,18 @@ function showSync(state) {
 window.FirebaseService = {
     // 1. Fetch Firebase Configuration from API, fallback to .env or cached settings
     fetchConfig: async function() {
+        if (window.location.protocol === 'file:') {
+            console.log("file:// protocol detected in fetchConfig. Using offline fallback config.");
+            return {
+                apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
+                authDomain: "project-x-787898.firebaseapp.com",
+                projectId: "project-x-787898",
+                storageBucket: "project-x-787898.firebasestorage.app",
+                messagingSenderId: "1011303841705",
+                appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+            };
+        }
+
         let config;
         try {
             const clientSendTime = Date.now();
@@ -42,6 +54,11 @@ window.FirebaseService = {
             const clientRecvTime = Date.now();
             if (!res.ok) throw new Error("API config endpoint not available");
             config = await res.json();
+
+            // Validate that the config contains the required apiKey
+            if (!config || !config.apiKey) {
+                throw new Error("Invalid or empty configuration from API config endpoint");
+            }
             
             const serverDateStr = res.headers.get('Date');
             if (serverDateStr) {
@@ -51,7 +68,7 @@ window.FirebaseService = {
                 console.log("Estimated server clock offset (ms):", window.serverTimeOffset);
             }
             
-            localStorage.setItem('firebaseConfig', JSON.stringify(config));
+            safeStorage.setItem('firebaseConfig', JSON.stringify(config));
         } catch (err) {
             console.warn("API config failed, trying static .env fallback...", err);
             try {
@@ -80,10 +97,10 @@ window.FirebaseService = {
 
                 if (!config.apiKey) throw new Error("No API key found in .env");
                 console.log("Loaded Firebase config from static .env fallback successfully!");
-                localStorage.setItem('firebaseConfig', JSON.stringify(config));
+                safeStorage.setItem('firebaseConfig', JSON.stringify(config));
             } catch (fallbackErr) {
                 console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
-                const cachedConfig = localStorage.getItem('firebaseConfig');
+                const cachedConfig = safeStorage.getItem('firebaseConfig');
                 if (cachedConfig) {
                     config = JSON.parse(cachedConfig);
                     console.log("Loaded Firebase config from localStorage cache for offline boot.");
@@ -105,6 +122,11 @@ window.FirebaseService = {
 
     // 2. Initialize Firebase Client App and Firestore reference
     init: function(config) {
+        if (window.location.protocol === 'file:') {
+            AppState.db = null;
+            console.log("Firebase initialized in mock mode for file:// protocol.");
+            return;
+        }
         if (typeof firebase !== 'undefined') {
             firebase.initializeApp(config);
             if (typeof firebase.firestore === 'function') {
@@ -116,6 +138,10 @@ window.FirebaseService = {
 
     // 3. Authenticate with Email / Password under Local Persistence
     login: async function(email, password) {
+        if (window.location.protocol === 'file:') {
+            console.log("Firebase login mocked under file:// protocol.");
+            return { user: { email: 'ris2k29@gmail.com', uid: 'mock-local-user-id' } };
+        }
         if (typeof firebase !== 'undefined' && firebase.auth) {
             await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
             return firebase.auth().signInWithEmailAndPassword(email, password);
@@ -125,6 +151,10 @@ window.FirebaseService = {
 
     // 4. Log out the current session
     logout: async function() {
+        if (window.location.protocol === 'file:') {
+            console.log("Firebase logout mocked under file:// protocol.");
+            return;
+        }
         if (typeof firebase !== 'undefined' && firebase.auth) {
             return firebase.auth().signOut();
         }
@@ -133,11 +163,25 @@ window.FirebaseService = {
 
     // 5. Expose current authenticated user reference
     getCurrentUser: function() {
+        if (window.location.protocol === 'file:') {
+            return { email: 'ris2k29@gmail.com', uid: 'mock-local-user-id', displayName: 'ris2k29 (Local)' };
+        }
         return (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
     },
 
     // 6. Auth State Changes Listener
     onAuthStateChanged: function(callback) {
+        if (window.location.protocol === 'file:') {
+            console.log("file:// protocol detected in onAuthStateChanged. Emitting mock user.");
+            setTimeout(() => {
+                callback({
+                    email: 'ris2k29@gmail.com',
+                    uid: 'mock-local-user-id',
+                    displayName: 'ris2k29 (Local)'
+                });
+            }, 100);
+            return () => {};
+        }
         if (typeof firebase !== 'undefined' && firebase.auth) {
             return firebase.auth().onAuthStateChanged(callback);
         }

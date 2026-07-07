@@ -179,6 +179,37 @@ window.Utils = {
         if (val < 0) val = 0.00;
         if (val > 4.0) val = 4.00;
         return window.Utils.formatCgpaMin2Dec(val);
+    },
+
+    /**
+     * Safe wrapper for LocalStorage to avoid crashes under the file:// protocol or private/sandboxed browsing.
+     */
+    storage: {
+        fallbackStore: {},
+        getItem: function(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (e) {
+                console.warn(`localStorage.getItem failed for key "${key}":`, e);
+                return this.fallbackStore[key] || null;
+            }
+        },
+        setItem: function(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (e) {
+                console.warn(`localStorage.setItem failed for key "${key}":`, e);
+                this.fallbackStore[key] = String(value);
+            }
+        },
+        removeItem: function(key) {
+            try {
+                localStorage.removeItem(key);
+            } catch (e) {
+                console.warn(`localStorage.removeItem failed for key "${key}":`, e);
+                delete this.fallbackStore[key];
+            }
+        }
     }
 };
 
@@ -195,3 +226,5 @@ window.mapGradeToNumeric = window.Utils.mapGradeToNumeric;
 window.mapCgpaToGrade = window.Utils.mapCgpaToGrade;
 window.formatCgpaMin2Dec = window.Utils.formatCgpaMin2Dec;
 window.validateAndFormatCgpa = window.Utils.validateAndFormatCgpa;
+window.safeStorage = window.Utils.storage;
+

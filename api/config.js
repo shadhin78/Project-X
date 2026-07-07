@@ -1,4 +1,4 @@
-export default function handler(req, res) {
+module.exports = function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.status(200).json({
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -8,4 +8,5 @@ export default function handler(req, res) {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || ""
   });
-}
+};
+
