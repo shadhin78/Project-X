@@ -4985,7 +4985,7 @@ window.showChapterTooltip = function(event, subject, chapterNum, status) {
         statusColor = 'text-slate-400';
     } else {
         statusText = 'Incomplete';
-        statusColor = 'text-rose-450';
+        statusColor = 'text-rose-400';
     }
     
     tooltip.innerHTML = `
@@ -5023,10 +5023,10 @@ window.showSpectraChapterTooltip = function(event, subject, chapterNum, status) 
         statusColor = 'text-emerald-400';
     } else if (status === 'skip') {
         statusText = 'Skipped';
-        statusColor = 'text-slate-405';
+        statusColor = 'text-slate-400';
     } else {
         statusText = 'Incomplete';
-        statusColor = 'text-rose-450';
+        statusColor = 'text-rose-400';
     }
     
     tooltip.innerHTML = `
@@ -5170,7 +5170,7 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             } else if (chap.status === 'skip') {
                 colorClass = 'fill-slate-300 hover:fill-slate-400 dark:fill-slate-600 dark:hover:fill-slate-500 text-slate-400';
             } else {
-                colorClass = 'fill-rose-500 hover:fill-rose-450 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
+                colorClass = 'fill-rose-500 hover:fill-rose-400 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
             }
             
             const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
@@ -5194,8 +5194,8 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
     }
     
     // Sizes
-    let containerSizeClass = "w-[360px] h-[360px] md:w-[420px] md:h-[420px]";
-    let centerCircleSizeClass = "w-36 h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
+    let containerSizeClass = "w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] md:w-[420px] md:h-[420px]";
+    let centerCircleSizeClass = "w-28 h-28 sm:w-36 sm:h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
     
     let progressLabelClass = "text-slate-400 dark:text-slate-500";
     let countsClass = "text-slate-800 dark:text-white";
@@ -5204,7 +5204,7 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
     
     if (isSubjectModal) {
         containerSizeClass = "w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px]";
-        centerCircleSizeClass = "w-28 h-28 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
+        centerCircleSizeClass = "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
         progressLabelClass = "text-slate-400";
         countsClass = "text-white";
         pctClass = "text-emerald-400 bg-emerald-950/40 border-emerald-900/50";
@@ -5330,7 +5330,7 @@ window.showSubjectChapterTooltip = function(event, subject, chapterNum, status) 
         statusColor = 'text-slate-400';
     } else {
         statusText = 'Incomplete';
-        statusColor = 'text-rose-450';
+        statusColor = 'text-rose-400';
     }
     
     tooltip.innerHTML = `
@@ -5562,7 +5562,7 @@ window.renderSubjectTrendCircle = function() {
             </div>
 
             <!-- Right Side: Circle Chart -->
-            <div class="flex flex-col items-center justify-center shrink-0 w-full lg:w-[40%] min-w-[240px]">
+            <div class="flex flex-col items-center justify-center shrink-0 w-full lg:w-[40%] min-w-0">
                 ${data.html}
             </div>
 
