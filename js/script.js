@@ -1543,9 +1543,9 @@ window.updateActiveScheduleSlot = function () {
                              onclick="window.switchPage('schedule')">
                             <div class="flex items-center gap-2.5">
                                 <span class="text-2xl">☀️</span>
-                                <h4 class="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-450">Free Time</h4>
+                                <h4 class="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Free Time</h4>
                             </div>
-                            <p class="text-xs font-bold text-slate-400 dark:text-slate-555 mt-2.5">No active routine slot right now.<br>Go to Schedule &rarr;</p>
+                            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mt-2.5">No active routine slot right now.<br>Go to Schedule &rarr;</p>
                         </div>
                     </div>
                 `;
@@ -4033,7 +4033,7 @@ function updateMetrics() {
 
         const dbStatusLabel = document.getElementById('db-target-status-label');
         if (dbStatusLabel) {
-            dbStatusLabel.className = "text-[7px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider mt-1 truncate";
+            dbStatusLabel.className = "text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1 truncate";
             dbStatusLabel.textContent = "NO GOAL";
         }
 
@@ -4247,7 +4247,7 @@ function updateMetrics() {
         const dbStatusLabel = document.getElementById('db-target-status-label');
         if (dbStatusLabel) {
             if (paceTotalChapters === 0) {
-                dbStatusLabel.className = "text-[7px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider mt-1 truncate";
+                dbStatusLabel.className = "text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1 truncate";
                 dbStatusLabel.textContent = "NO TARGETS";
             } else if (today < start) {
                 dbStatusLabel.className = "text-[7px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wider mt-1 truncate";
@@ -4688,9 +4688,6 @@ function renderSubjectProgress(subjectStats) {
                                 <div class="w-full bg-slate-100 dark:bg-slate-700/50 h-1.5 rounded-full overflow-hidden shadow-inner border border-slate-200/40 dark:border-slate-600/30">
                                     <div class="${cp.bg} h-full rounded-full transition-all duration-700 ease-out shadow-sm" style="width: ${perc}%"></div>
                                 </div>
-                                <div class="relative w-full h-[40px] mt-2 bg-slate-50/50 dark:bg-slate-900/10 rounded-lg border border-slate-100/30 dark:border-slate-800/30 overflow-hidden">
-                                    <canvas id="mini-trend-canvas-${sub.subject.replace(/[^a-zA-Z0-9]/g, '-')}" class="w-full h-full"></canvas>
-                                </div>
                             </div>
                             `;
                 });
@@ -4705,66 +4702,7 @@ function renderSubjectProgress(subjectStats) {
         }
     });
     container.innerHTML = html;
-    
-    // Render the mini subject trend line charts on the canvases
-    if (window.renderSubjectMiniCharts) {
-        setTimeout(window.renderSubjectMiniCharts, 50);
-    }
 }
-
-window.renderSubjectMiniCharts = function() {
-    window.getAllSubjects().forEach(sub => {
-        const safeSubId = sub.subject.replace(/[^a-zA-Z0-9]/g, '-');
-        const canvas = document.getElementById(`mini-trend-canvas-${safeSubId}`);
-        if (!canvas) return;
-
-        const trendData = (window.lastSubjectTrendData && window.lastSubjectTrendData[sub.subject]) || [];
-        const labels = window.lastTrendMonths || [];
-        const color = window.getSubjectColor ? window.getSubjectColor(sub.subject) : '#3b82f6';
-
-        if (canvas.chartInstance) {
-            canvas.chartInstance.destroy();
-        }
-
-        canvas.chartInstance = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: trendData,
-                    borderColor: color,
-                    borderWidth: 1.5,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    fill: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        enabled: true,
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#fff',
-                        bodyColor: '#cbd5e1',
-                        padding: 6,
-                        cornerRadius: 6,
-                        callbacks: {
-                            label: c => ' ' + c.parsed.y + '%'
-                        }
-                    }
-                },
-                scales: {
-                    x: { display: false },
-                    y: { display: false, min: 0, max: 100 }
-                }
-            }
-        });
-    });
-};
 
 function renderSubjectNavigation() {
     const container = document.getElementById('subject-navigation-container');
@@ -5115,11 +5053,23 @@ window.hideSpectraChapterTooltip = function() {
     if (tooltip) tooltip.classList.add('hidden');
 };
 
-window.generateGlobalChaptersSVG = function(isSpectra = false) {
+window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = 'global', isSubjectModal = false) {
     let allChapters = [];
     let completedCount = 0;
     let skippedCount = 0;
     let incompleteCount = 0;
+    
+    let filterType = 'global';
+    let filterTarget = '';
+    if (isSpectra && spectraFilter) {
+        const parts = spectraFilter.split(':');
+        filterType = parts[0];
+        filterTarget = parts.slice(1).join(':');
+    } else if (isSubjectModal && spectraFilter) {
+        const parts = spectraFilter.split(':');
+        filterType = parts[0];
+        filterTarget = parts.slice(1).join(':');
+    }
     
     const sortedSubjects = window.getAllSubjects();
     sortedSubjects.forEach(sub => {
@@ -5130,6 +5080,11 @@ window.generateGlobalChaptersSVG = function(isSpectra = false) {
                 break;
             }
         }
+        
+        // Filter out based on selection
+        if (filterType === 'track' && trackId !== filterTarget) return;
+        if (filterType === 'program' && sub.program !== filterTarget) return;
+        if (filterType === 'subject' && sub.subject !== filterTarget) return;
         
         for (let i = 1; i <= sub.chapters; i++) {
             const status = window.getChapterStatus(sub.subject, i, trackId);
@@ -5223,20 +5178,38 @@ window.generateGlobalChaptersSVG = function(isSpectra = false) {
             
             const mouseOverHandler = isSpectra 
                 ? `window.showSpectraChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
-                : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`;
+                : (isSubjectModal 
+                    ? `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
+                    : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`);
                 
             const mouseOutHandler = isSpectra 
                 ? `window.hideSpectraChapterTooltip()`
-                : `window.hideChapterTooltip()`;
+                : (isSubjectModal 
+                    ? `window.hideSubjectChapterTooltip()`
+                    : `window.hideChapterTooltip()`);
             
             svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" />\n`;
             currentChapterIdx++;
         }
     }
     
-    // BIG size sizes
-    const containerSizeClass = "w-[360px] h-[360px] md:w-[420px] md:h-[420px]";
-    const centerCircleSizeClass = "w-36 h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
+    // Sizes
+    let containerSizeClass = "w-[360px] h-[360px] md:w-[420px] md:h-[420px]";
+    let centerCircleSizeClass = "w-36 h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
+    
+    let progressLabelClass = "text-slate-400 dark:text-slate-500";
+    let countsClass = "text-slate-800 dark:text-white";
+    let pctClass = "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-indigo-900/50";
+    let remainClass = "text-slate-500 dark:text-slate-400";
+    
+    if (isSubjectModal) {
+        containerSizeClass = "w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px]";
+        centerCircleSizeClass = "w-28 h-28 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
+        progressLabelClass = "text-slate-400";
+        countsClass = "text-white";
+        pctClass = "text-emerald-400 bg-emerald-950/40 border-emerald-900/50";
+        remainClass = "text-slate-400";
+    }
     
     const svgHtml = `
         <div class="relative ${containerSizeClass} flex items-center justify-center shrink-0">
@@ -5245,10 +5218,10 @@ window.generateGlobalChaptersSVG = function(isSpectra = false) {
             </svg>
             
             <div class="absolute flex flex-col items-center justify-center text-center pointer-events-none ${centerCircleSizeClass}">
-                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Progress</span>
-                <span class="text-2xl md:text-3xl font-black text-slate-800 dark:text-white mt-0.5">${completedCount}/${totalChapters}</span>
-                <span class="text-[11px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-100 dark:border-emerald-900/50 mt-1.5 shadow-sm">${completionPercent}%</span>
-                <span class="text-[9px] md:text-[10px] italic font-bold text-slate-500 dark:text-slate-400 mt-1.5">${remainingCount} remaining</span>
+                <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest ${progressLabelClass}">Progress</span>
+                <span class="text-lg md:text-xl font-black ${countsClass} mt-0.5">${completedCount}/${totalChapters}</span>
+                <span class="text-[10px] font-black ${pctClass} px-2 py-0.5 rounded-lg border mt-1 shadow-sm">${completionPercent}%</span>
+                <span class="text-[8px] md:text-[9px] italic font-bold ${remainClass} mt-1">${remainingCount} remaining</span>
             </div>
         </div>
     `;
@@ -5259,7 +5232,8 @@ window.generateGlobalChaptersSVG = function(isSpectra = false) {
         skippedCount,
         incompleteCount,
         totalChapters,
-        completionPercent
+        completionPercent,
+        allChapters
     };
 };
 
@@ -5293,11 +5267,11 @@ window.openGlobalChaptersModal = function() {
             <!-- Quick subject list completions inside the modal for premium layout details -->
             <div class="grid grid-cols-2 gap-3 text-xs">
                 <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100/50 dark:border-slate-800/40 flex flex-col justify-center shadow-sm">
-                    <span class="text-[8px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">Total Syllabus Size</span>
+                    <span class="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Syllabus Size</span>
                     <span class="text-sm font-black text-slate-800 dark:text-white mt-1">${window.getAllSubjects().length} Subjects</span>
                 </div>
                 <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100/50 dark:border-slate-800/40 flex flex-col justify-center shadow-sm">
-                    <span class="text-[8px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">Completed Chapters</span>
+                    <span class="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Completed Chapters</span>
                     <span class="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1">${data.completedCount} / ${data.totalChapters} CH</span>
                 </div>
             </div>
@@ -5308,12 +5282,123 @@ window.openGlobalChaptersModal = function() {
     openModal('global-chapters-modal');
 };
 
+window.populateSpectraFilterSelect = function() {
+    const select = document.getElementById('spectra-filter-select');
+    if (!select) return;
+    
+    const currentVal = select.value || 'global';
+    
+    let html = '<option value="global" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🌍 Global View</option>';
+    
+    // Tracks
+    html += '<optgroup label="Tracks" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">';
+    window.tracks.forEach(track => {
+        html += `<option value="track:${track.id}" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🏁 ${track.name || track.id.toUpperCase()}</option>`;
+    });
+    html += '</optgroup>';
+    
+    // Programs
+    html += '<optgroup label="Programs" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">';
+    const uniquePrograms = Array.from(new Set(window.getAllSubjects().map(s => s.program).filter(Boolean)));
+    uniquePrograms.forEach(prog => {
+        html += `<option value="program:${prog}" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🎓 ${prog}</option>`;
+    });
+    html += '</optgroup>';
+    
+    // Subjects
+    html += '<optgroup label="Subjects" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">';
+    window.getAllSubjects().forEach(sub => {
+        html += `<option value="subject:${sub.subject}" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">📚 ${sub.subject}</option>`;
+    });
+    html += '</optgroup>';
+    
+    select.innerHTML = html;
+    select.value = currentVal;
+};
+
+window.showSubjectChapterTooltip = function(event, subject, chapterNum, status) {
+    const tooltip = document.getElementById('stm-tooltip');
+    if (!tooltip) return;
+    
+    let statusText = '';
+    let statusColor = '';
+    if (status === 'complete') {
+        statusText = 'Completed';
+        statusColor = 'text-emerald-400';
+    } else if (status === 'skip') {
+        statusText = 'Skipped';
+        statusColor = 'text-slate-400';
+    } else {
+        statusText = 'Incomplete';
+        statusColor = 'text-rose-450';
+    }
+    
+    tooltip.innerHTML = `
+        <div class="font-extrabold text-white text-[11px]">${subject}</div>
+        <div class="text-[10px] text-slate-400 mt-0.5 font-bold">Chapter ${chapterNum}</div>
+        <div class="text-[10px] font-black uppercase mt-1 ${statusColor}">${statusText}</div>
+    `;
+    
+    tooltip.classList.remove('hidden');
+    
+    const modalContent = document.getElementById('stm-content');
+    if (modalContent) {
+        const rect = modalContent.getBoundingClientRect();
+        const x = event.clientX - rect.left + 15;
+        const y = event.clientY - rect.top + 15;
+        
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+    }
+};
+
+window.hideSubjectChapterTooltip = function() {
+    const tooltip = document.getElementById('stm-tooltip');
+    if (tooltip) tooltip.classList.add('hidden');
+};
+
+window.onSpectraFilterChange = function(val) {
+    window.renderSpectraCircleChart();
+};
+
 window.renderSpectraCircleChart = function() {
+    const select = document.getElementById('spectra-filter-select');
+    if (select && select.children.length === 0) {
+        window.populateSpectraFilterSelect();
+    }
+    
+    const filterVal = select ? select.value : 'global';
     const wrapper = document.getElementById('spectra-circle-chart-wrapper');
     if (!wrapper) return;
     
-    const data = window.generateGlobalChaptersSVG(true);
+    const data = window.generateGlobalChaptersSVG(true, filterVal);
     wrapper.innerHTML = data.html;
+    
+    // Dynamic text detail updates
+    let title = 'Syllabus Chapters Analysis';
+    let desc = 'A visual distribution of all chapters in your study goals. Hover over segments to view subject names, chapter index, and completion statuses.';
+    
+    if (filterVal !== 'global') {
+        const parts = filterVal.split(':');
+        const type = parts[0];
+        const target = parts.slice(1).join(':');
+        
+        if (type === 'track') {
+            const trackObj = window.tracks.find(t => t.id === target);
+            const trackName = trackObj ? trackObj.name : target.toUpperCase();
+            title = `${trackName} Chapters Analysis`;
+            desc = `A visual distribution of all chapters in the ${trackName} track. Hover over segments to view details.`;
+        } else if (type === 'program') {
+            title = `${target} Chapters Analysis`;
+            desc = `A visual distribution of all chapters in the ${target} program. Hover over segments to view details.`;
+        } else if (type === 'subject') {
+            title = `${target} Chapters Analysis`;
+            desc = `A visual distribution of all chapters in the ${target} subject. Hover over segments to view details.`;
+        }
+    }
+    
+    safeSetText('spectra-analysis-title', title);
+    safeSetText('spectra-analysis-desc', desc);
     
     const legendComplete = document.getElementById('spectra-legend-complete');
     const legendIncomplete = document.getElementById('spectra-legend-incomplete');
@@ -5332,7 +5417,19 @@ window.renderSubjectTrendCircle = function() {
     const container = document.getElementById('subject-trend-circle-container');
     if (!container) return;
 
-    const subjectName = window.activeSingleSubjectTrend;
+    let subjectName = window.activeSingleSubjectTrend;
+
+    // Pick first subject as default if none is active/selected
+    if (!subjectName) {
+        for (const track of window.tracks) {
+            if (syllabusStructure[track.id] && syllabusStructure[track.id].length > 0) {
+                subjectName = syllabusStructure[track.id][0].subject;
+                window.activeSingleSubjectTrend = subjectName;
+                break;
+            }
+        }
+    }
+
     if (!subjectName) {
         container.innerHTML = '<p class="text-slate-400 text-sm font-bold py-10">No subject selected.</p>';
         return;
@@ -5357,98 +5454,19 @@ window.renderSubjectTrendCircle = function() {
         return;
     }
 
-    const totalChapters = subjectObj.chapters;
-    const subjectColor = getSubjectColor(subjectName);
-
-    // Build chapter status list
-    const chapters = [];
-    for (let i = 1; i <= totalChapters; i++) {
-        let status = 'incomplete';
-        let completedAt = null;
-
-        // Check completion in AppState.tasks
-        for (const t of AppState.tasks) {
-            const key = trackId + 'Tasks';
-            if (t.type === 'study' && Array.isArray(t[key])) {
-                const block = t[key].find(b => b.subject === subjectName && b.chapter === `Ch. ${i}`);
-                if (block) {
-                    if (block.skipped) { status = 'skip'; break; }
-                    if (block.completed) {
-                        status = 'complete';
-                        completedAt = block.completedAt || getTaskDate(t);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Also check weekly targets
-        if (status === 'incomplete' && window.weeklyTargetsDatabase) {
-            Object.keys(window.weeklyTargetsDatabase).forEach(weekKey => {
-                const targets = window.weeklyTargetsDatabase[weekKey] || [];
-                targets.forEach(wt => {
-                    if (wt.subject === subjectName && wt.chapter === `Ch. ${i}` && wt.track === trackId && wt.completed) {
-                        status = 'complete';
-                        completedAt = wt.completedAt || null;
-                    }
-                });
-            });
-        }
-
-        chapters.push({ num: i, status, completedAt });
-    }
-
-    const completedCount = chapters.filter(c => c.status === 'complete').length;
-    const skippedCount = chapters.filter(c => c.status === 'skip').length;
-    const incompleteCount = chapters.filter(c => c.status === 'incomplete').length;
-    const completionPct = totalChapters > 0 ? Math.round((completedCount / totalChapters) * 100) : 0;
+    const data = window.generateGlobalChaptersSVG(false, 'subject:' + subjectName, true);
+    
+    const completedCount = data.completedCount;
+    const skippedCount = data.skippedCount;
+    const incompleteCount = data.incompleteCount;
+    const totalChapters = data.totalChapters;
+    const completionPct = parseFloat(data.completionPercent);
 
     // Frozen / Passed check
     const isFrozen = window.passedItems && ((window.passedItems.subjects && window.passedItems.subjects.includes(subjectName)) ||
         (window.passedItems.programs && subjectObj.program && window.passedItems.programs.includes(subjectObj.program)));
 
-    const effectivePct = isFrozen ? 100 : completionPct;
-
-    // Generate SVG donut ring
-    const ringRadius = 140;
-    const ringThickness = 28;
-    const innerR = ringRadius - ringThickness / 2;
-    const outerR = ringRadius + ringThickness / 2;
-    const viewBoxSize = (outerR + 20) * 2;
-    const viewBoxHalf = outerR + 20;
-
-    const getArcPath = (cx, cy, r1, r2, theta1, theta2) => {
-        const x1o = cx + r2 * Math.cos(theta1), y1o = cy + r2 * Math.sin(theta1);
-        const x2o = cx + r2 * Math.cos(theta2), y2o = cy + r2 * Math.sin(theta2);
-        const x2i = cx + r1 * Math.cos(theta2), y2i = cy + r1 * Math.sin(theta2);
-        const x1i = cx + r1 * Math.cos(theta1), y1i = cy + r1 * Math.sin(theta1);
-        const largeArc = (theta2 - theta1) > Math.PI ? 1 : 0;
-        return `M ${x1o} ${y1o} A ${r2} ${r2} 0 ${largeArc} 1 ${x2o} ${y2o} L ${x2i} ${y2i} A ${r1} ${r1} 0 ${largeArc} 0 ${x1i} ${y1i} Z`;
-    };
-
-    let svgPaths = '';
-    const anglePerChapter = (2 * Math.PI) / totalChapters;
-    const gap = totalChapters > 1 ? 0.015 : 0;
-
-    for (let i = 0; i < totalChapters; i++) {
-        const ch = chapters[i];
-        const thetaStart = -Math.PI / 2 + i * anglePerChapter + gap;
-        const thetaEnd = -Math.PI / 2 + (i + 1) * anglePerChapter - gap;
-
-        let fillColor = '';
-        let hoverColor = '';
-        if (ch.status === 'complete') {
-            fillColor = '#10b981'; hoverColor = '#34d399';
-        } else if (ch.status === 'skip') {
-            fillColor = '#475569'; hoverColor = '#64748b';
-        } else {
-            fillColor = hexToRgba(subjectColor, 0.25); hoverColor = hexToRgba(subjectColor, 0.45);
-        }
-
-        const pathData = getArcPath(0, 0, innerR, outerR, thetaStart, thetaEnd);
-        svgPaths += `<path d="${pathData}" fill="${fillColor}" stroke="rgba(15,23,42,0.6)" stroke-width="0.5" class="transition-all duration-200 cursor-pointer" onmouseover="this.style.fill='${hoverColor}';this.style.transform='scale(1.02)';this.style.transformOrigin='center'" onmouseout="this.style.fill='${fillColor}';this.style.transform='scale(1)'" />
-`;
-    }
+    const effectivePct = isFrozen ? 100 : Math.round(completionPct);
 
     // Status color for center
     let statusColor = 'text-indigo-400';
@@ -5461,74 +5479,93 @@ window.renderSubjectTrendCircle = function() {
     else if (effectivePct > 0) { statusColor = 'text-orange-400'; statusText = 'Getting Started'; statusEmoji = '🚀'; }
     else { statusColor = 'text-slate-400'; statusText = 'Not Started'; statusEmoji = '📋'; }
 
+    // Generate subject selection dropdown choices
+    let subjectDropdownOptionsHtml = '';
+    for (const track of window.tracks) {
+        if (syllabusStructure[track.id]) {
+            syllabusStructure[track.id].forEach(s => {
+                const selectedAttr = s.subject === subjectName ? 'selected' : '';
+                subjectDropdownOptionsHtml += `<option value="${s.subject.replace(/"/g, '&quot;')}" ${selectedAttr}>${s.subject}</option>`;
+            });
+        }
+    }
+
     const html = `
-        <!-- Circle Chart -->
-        <div class="relative w-[300px] h-[300px] sm:w-[360px] sm:h-[360px] md:w-[400px] md:h-[400px] flex items-center justify-center shrink-0 mb-6">
-            <svg class="w-full h-full" viewBox="-${viewBoxHalf} -${viewBoxHalf} ${viewBoxSize} ${viewBoxSize}">
-                ${svgPaths}
-            </svg>
-            <div class="absolute flex flex-col items-center justify-center text-center pointer-events-none">
-                <span class="text-lg md:text-xl">${statusEmoji}</span>
-                <span class="text-2xl sm:text-3xl md:text-4xl font-black text-white mt-1">${effectivePct}%</span>
-                <span class="text-[10px] sm:text-xs font-black uppercase tracking-widest ${statusColor} mt-1">${statusText}</span>
-                <span class="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">${completedCount} / ${totalChapters} CH</span>
-            </div>
-        </div>
+        <div class="flex flex-col-reverse lg:flex-row gap-6 md:gap-8 items-center lg:items-start w-full max-w-5xl">
+            
+            <!-- Left Side: Controls, Legend, Stats, and Chapter Breakdown Grid -->
+            <div class="flex flex-col flex-1 w-full lg:max-w-[60%]">
+                
+                <!-- Subject Selector Dropdown -->
+                <div class="w-full mb-4 flex flex-col gap-1.5 shrink-0">
+                    <label class="text-[9px] font-black uppercase tracking-widest text-slate-500">Select Subject</label>
+                    <select onchange="window.activeSingleSubjectTrend = this.value; window.renderSubjectTrendCircle();" class="w-full bg-slate-900 border border-slate-700 text-white text-xs font-black uppercase tracking-wider px-3 py-2 rounded-xl outline-none focus:border-indigo-500 transition-colors cursor-pointer">
+                        ${subjectDropdownOptionsHtml}
+                    </select>
+                </div>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-3 gap-3 md:gap-4 w-full max-w-lg mb-6">
-            <div class="flex flex-col items-center p-3 md:p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                <span class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-emerald-400/80 mb-1">Complete</span>
-                <span class="text-lg md:text-xl font-black text-emerald-400">${completedCount}</span>
-                <span class="text-[9px] font-bold text-emerald-500/60 mt-0.5">${totalChapters > 0 ? Math.round((completedCount / totalChapters) * 100) : 0}%</span>
-            </div>
-            <div class="flex flex-col items-center p-3 md:p-4 rounded-2xl border border-slate-700/50" style="background: ${hexToRgba(subjectColor, 0.08)}">
-                <span class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400/80 mb-1">Remaining</span>
-                <span class="text-lg md:text-xl font-black" style="color: ${subjectColor}">${incompleteCount}</span>
-                <span class="text-[9px] font-bold text-slate-500/60 mt-0.5">${totalChapters > 0 ? Math.round((incompleteCount / totalChapters) * 100) : 0}%</span>
-            </div>
-            <div class="flex flex-col items-center p-3 md:p-4 rounded-2xl bg-slate-500/10 border border-slate-600/30">
-                <span class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400/80 mb-1">Skipped</span>
-                <span class="text-lg md:text-xl font-black text-slate-400">${skippedCount}</span>
-                <span class="text-[9px] font-bold text-slate-500/60 mt-0.5">${totalChapters > 0 ? Math.round((skippedCount / totalChapters) * 100) : 0}%</span>
-            </div>
-        </div>
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-3 gap-2.5 w-full mb-4 shrink-0">
+                    <div class="flex flex-col items-center p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                        <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-emerald-400/80 mb-0.5">Complete</span>
+                        <span class="text-sm md:text-base font-black text-emerald-400">${completedCount}</span>
+                        <span class="text-[8px] font-bold text-emerald-500/60 mt-0.5">${totalChapters > 0 ? Math.round((completedCount / totalChapters) * 100) : 0}%</span>
+                    </div>
+                    <div class="flex flex-col items-center p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                        <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-rose-400/80 mb-0.5">Remaining</span>
+                        <span class="text-sm md:text-base font-black text-rose-400">${incompleteCount}</span>
+                        <span class="text-[8px] font-bold text-rose-500/60 mt-0.5">${totalChapters > 0 ? Math.round((incompleteCount / totalChapters) * 100) : 0}%</span>
+                    </div>
+                    <div class="flex flex-col items-center p-2.5 rounded-xl bg-slate-500/10 border border-slate-600/30">
+                        <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400/80 mb-0.5">Skipped</span>
+                        <span class="text-sm md:text-base font-black text-slate-400">${skippedCount}</span>
+                        <span class="text-[8px] font-bold text-slate-500/60 mt-0.5">${totalChapters > 0 ? Math.round((skippedCount / totalChapters) * 100) : 0}%</span>
+                    </div>
+                </div>
 
-        <!-- Legend -->
-        <div class="flex flex-wrap justify-center items-center gap-4 md:gap-6 text-[10px] font-black uppercase tracking-wider bg-slate-900/50 p-3 md:p-4 rounded-2xl border border-slate-800 backdrop-blur-md w-full max-w-lg mb-6">
-            <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-sm bg-emerald-500 shadow-sm"></div>
-                <span class="text-slate-300">Complete</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-sm shadow-sm" style="background: ${hexToRgba(subjectColor, 0.3)}"></div>
-                <span class="text-slate-300">Remaining</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-sm bg-slate-600 shadow-sm"></div>
-                <span class="text-slate-300">Skipped</span>
-            </div>
-        </div>
+                <!-- Legend -->
+                <div class="flex flex-wrap items-center gap-3 text-[9px] font-black uppercase tracking-wider bg-slate-900/50 p-2 rounded-xl border border-slate-800 backdrop-blur-md w-full mb-5 justify-center">
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-sm bg-emerald-500 shadow-sm"></div>
+                        <span class="text-slate-300">Complete</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-sm bg-rose-500 shadow-sm"></div>
+                        <span class="text-slate-300">Remaining</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-sm bg-slate-600 shadow-sm"></div>
+                        <span class="text-slate-300">Skipped</span>
+                    </div>
+                </div>
 
-        <!-- Chapter Details Grid -->
-        <div class="w-full max-w-2xl">
-            <h3 class="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-500 mb-3 text-center">Chapter Breakdown</h3>
-            <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 md:gap-2">
-                ${chapters.map(ch => {
-                    let bgClass = '', textClass = '', icon = '';
-                    if (ch.status === 'complete') {
-                        bgClass = 'bg-emerald-500/20 border-emerald-500/30'; textClass = 'text-emerald-400'; icon = '✓';
-                    } else if (ch.status === 'skip') {
-                        bgClass = 'bg-slate-600/20 border-slate-600/30'; textClass = 'text-slate-500'; icon = '—';
-                    } else {
-                        bgClass = 'border-slate-700/40'; textClass = 'text-slate-500'; icon = '';
-                    }
-                    return `<div class="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl border ${bgClass} transition-all hover:scale-105">
-                        <span class="text-[10px] md:text-xs font-black ${textClass}">${ch.num}</span>
-                        ${icon ? `<span class="text-[9px] ${textClass} mt-0.5">${icon}</span>` : ''}
-                    </div>`;
-                }).join('')}
+                <!-- Chapter Details Grid -->
+                <div class="w-full">
+                    <h3 class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 text-left">Chapter Breakdown</h3>
+                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 md:gap-2">
+                        ${data.allChapters.map(ch => {
+                            let bgClass = '', textClass = '', icon = '';
+                            if (ch.status === 'complete') {
+                                bgClass = 'bg-emerald-500/20 border-emerald-500/30'; textClass = 'text-emerald-400'; icon = '✓';
+                            } else if (ch.status === 'skip') {
+                                bgClass = 'bg-slate-600/20 border-slate-600/30'; textClass = 'text-slate-500'; icon = '—';
+                            } else {
+                                bgClass = 'bg-rose-500/10 border-rose-500/20'; textClass = 'text-rose-400'; icon = '';
+                            }
+                            return `<div class="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl border ${bgClass} transition-all hover:scale-105">
+                                <span class="text-[10px] md:text-xs font-black ${textClass}">${ch.chapterNum}</span>
+                                ${icon ? `<span class="text-[9px] ${textClass} mt-0.5">${icon}</span>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
             </div>
+
+            <!-- Right Side: Circle Chart -->
+            <div class="flex flex-col items-center justify-center shrink-0 w-full lg:w-[40%] min-w-[240px]">
+                ${data.html}
+            </div>
+
         </div>
     `;
 
@@ -6033,9 +6070,7 @@ function renderTrendCharts() {
     if (window.renderSpectraCircleChart) {
         window.renderSpectraCircleChart();
     }
-    if (window.renderSubjectMiniCharts) {
-        window.renderSubjectMiniCharts();
-    }
+
 
     window.updateLegends();
     renderHeatmap();
@@ -6277,7 +6312,7 @@ window.renderDailyTracker = function () {
             const activeStyle = `background-color: ${cMap.hex}; border-color: ${cMap.hex}; color: white; box-shadow: 0 4px 12px ${cMap.hex}33;`;
             const cardClass = isActive
                 ? `text-white border-transparent`
-                : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
+                : 'bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
 
             const compactHtml = `
                     <button onclick="window.setDailyState('${cfg.id}', ${!isActive})"
@@ -13650,7 +13685,7 @@ window.renderDashboardDailyChecklist = function () {
         const activeStyle = `background-color: ${subjectColor}cc; border-color: ${subjectColor}; color: white; box-shadow: 0 4px 12px ${subjectColor}33;`;
         const buttonClass = isCompleted
             ? `text-white border-transparent`
-            : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200/50 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
+            : 'bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
 
         const itemHtml = `
                 <button onclick="window.toggleDashboardDailyTargetCompletion(${idx}, ${!isCompleted})"
@@ -13793,7 +13828,7 @@ window.renderDashboardWeeklyChecklist = function () {
 
         const buttonClass = isCompleted
             ? `text-white border-transparent`
-            : 'bg-slate-50 dark:bg-slate-900/40 text-slate-650 dark:text-slate-450 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
+            : 'bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900/60';
 
         const progressTextHtml = target.totalChapterSize ? `<span class="text-[9px] text-blue-500 font-bold ml-1">(${progress.completed}/${progress.total} p)</span>` : '';
         const targetScope = target.scope || 'Whole Chapter';

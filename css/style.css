@@ -472,3 +472,16 @@ h2 {
 .gcm-chapter-block:active {
     transform: scale(0.98);
 }
+
+/* Select Option & Optgroup Colors Fix */
+select option,
+select optgroup {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+}
+
+.dark select option,
+.dark select optgroup {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}

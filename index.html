@@ -356,7 +356,7 @@
                         <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
                             <div>
                                 <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Daily Actions</h3>
-                                <p class="text-[8px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">Quick Check-in</p>
+                                <p class="text-[8px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">Quick Check-in</p>
                             </div>
                             <div class="flex items-center space-x-2">
                                 <span id="dashboard-daily-actions-percent" class="text-[10px] font-black text-slate-700 dark:text-slate-200">0%</span>
@@ -458,7 +458,7 @@
                                     <span class="block text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Global Baseline</span>
                                     <div id="db-pace-timeline-info" class="text-[10px] font-black text-slate-800 dark:text-slate-100 mt-1 truncate">--</div>
                                 </div>
-                                <div id="db-target-status-label" class="text-[9px] text-slate-450 dark:text-slate-555 font-bold uppercase tracking-wider mt-1 truncate">--</div>
+                                <div id="db-target-status-label" class="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-1 truncate">--</div>
                             </div>
                         </div>
                     </div>
@@ -729,12 +729,20 @@
                     <div id="spectra-gcm-tooltip" class="absolute hidden bg-slate-950/95 text-white text-[11px] font-bold px-3 py-2 rounded-xl border border-white/10 shadow-2xl pointer-events-none z-[90] backdrop-blur-md transition-all duration-75"></div>
 
                     <div class="flex flex-col max-w-sm space-y-4 w-full md:w-auto">
+                        <!-- Dropdown Selector -->
+                        <div class="flex flex-col gap-1.5 mb-2">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Filter Map View</label>
+                            <select id="spectra-filter-select" onchange="window.onSpectraFilterChange(this.value)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-[11px] font-black uppercase tracking-wider px-3 py-2.5 rounded-xl outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-sm">
+                                <!-- Populated dynamically by JS -->
+                            </select>
+                        </div>
+
                         <div class="space-y-1.5">
                             <span class="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 rounded-full border border-indigo-100 dark:border-indigo-900/50 w-fit block">Interactive Map</span>
-                            <h3 class="text-lg md:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Syllabus Chapters Analysis</h3>
-                            <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">A visual distribution of all chapters in your study goals. Hover over segments to view subject names, chapter index, and completion statuses.</p>
+                            <h3 id="spectra-analysis-title" class="text-lg md:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Syllabus Chapters Analysis</h3>
+                            <p id="spectra-analysis-desc" class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">A visual distribution of all chapters in your study goals. Hover over segments to view subject names, chapter index, and completion statuses.</p>
                         </div>
-                        
+
                         <!-- Legend Inside Spectra Page -->
                         <div class="flex flex-col gap-2.5 pt-2 text-[10px] font-black uppercase tracking-wider">
                             <div class="flex items-center gap-2.5">
@@ -1507,13 +1515,13 @@
                                         Daily Timeline Grid
                                         <!-- Arrow Switcher -->
                                         <span class="inline-flex items-center bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 ml-1 select-none">
-                                            <button onclick="window.switchRoutineSet(-1)" class="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-250 transition-colors active:scale-75">
+                                            <button onclick="window.switchRoutineSet(-1)" class="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors active:scale-75">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                                                 </svg>
                                             </button>
                                             <span id="active-routine-badge" class="text-[9px] font-black uppercase px-1.5 text-slate-700 dark:text-slate-350 min-w-[50px] text-center">Routine 1</span>
-                                            <button onclick="window.switchRoutineSet(1)" class="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-250 transition-colors active:scale-75">
+                                            <button onclick="window.switchRoutineSet(1)" class="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors active:scale-75">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                                                 </svg>
@@ -2586,6 +2594,9 @@
                     onclick="closeModal('subject-trend-modal')"></div>
                 <div id="stm-content"
                     class="relative bg-[#0f172a] border border-slate-700 p-4 sm:p-6 md:p-10 rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] w-full max-w-6xl transform scale-95 opacity-0 translate-y-4 transition-all duration-300 flex flex-col max-h-[95vh] mx-3 sm:mx-4 z-10 overflow-hidden group">
+                    
+                    <!-- Tooltip inside subject trend modal -->
+                    <div id="stm-tooltip" class="absolute hidden bg-slate-950/95 text-white text-[11px] font-bold px-3 py-2 rounded-xl border border-white/10 shadow-2xl pointer-events-none z-[90] backdrop-blur-md transition-all duration-75"></div>
                     <div
                         class="absolute -top-32 -left-32 w-80 h-80 bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none group-hover:bg-indigo-600/30 transition-colors duration-700">
                     </div>
