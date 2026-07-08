@@ -5111,9 +5111,9 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
     else numRings = 5;
     
     let radii = [];
-    // Start innermost radius at 80, step 30 for BIG scale
+    // Start innermost radius at 96, step 30 for BIG scale
     for (let i = 0; i < numRings; i++) {
-        radii.push(80 + i * 30);
+        radii.push(96 + i * 30);
     }
     
     let totalRadiusSum = radii.reduce((a, b) => a + b, 0);
@@ -5151,7 +5151,7 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
         const numSegments = distribution[ringIdx];
         if (numSegments <= 0) continue;
         
-        const innerRadius = 80 + ringIdx * 30;
+        const innerRadius = 96 + ringIdx * 30;
         const outerRadius = innerRadius + 24; // block thickness is 24, gap is 6
         
         const anglePerSegment = (2 * Math.PI) / numSegments;
@@ -5202,26 +5202,38 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
     let pctClass = "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-indigo-900/50";
     let remainClass = "text-slate-500 dark:text-slate-400";
     
+    let progressTextSize = "text-[8px] md:text-[9px] leading-none";
+    let countsTextSize = "text-lg md:text-xl font-black leading-none mt-1.5";
+    let pctTextSize = "text-[10px] font-black px-2 py-0.5 rounded-lg border mt-1.5 shadow-sm leading-none";
+    let remainTextSize = "text-[8px] md:text-[9px] italic font-bold leading-none mt-1.5";
+    let remainingLabel = `${remainingCount} remaining`;
+    
     if (isSubjectModal) {
-        containerSizeClass = "w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px]";
-        centerCircleSizeClass = "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
+        containerSizeClass = "w-[250px] h-[250px] sm:w-[280px] sm:h-[280px] md:w-[320px] md:h-[320px]";
+        centerCircleSizeClass = "w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
         progressLabelClass = "text-slate-400";
         countsClass = "text-white";
         pctClass = "text-emerald-400 bg-emerald-950/40 border-emerald-900/50";
         remainClass = "text-slate-400";
+        
+        progressTextSize = "text-[7px] sm:text-[8px] md:text-[9px] leading-none";
+        countsTextSize = "text-sm sm:text-base md:text-lg font-black leading-none mt-1";
+        pctTextSize = "text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md border mt-1 shadow-sm leading-none";
+        remainTextSize = "text-[7px] sm:text-[8px] md:text-[9px] italic font-bold leading-none mt-1 whitespace-nowrap";
+        remainingLabel = `${remainingCount} left`;
     }
     
     const svgHtml = `
         <div class="relative ${containerSizeClass} flex items-center justify-center shrink-0">
-            <svg class="w-full h-full transform" viewBox="-240 -240 480 480">
+            <svg class="w-full h-full transform" viewBox="-250 -250 500 500">
                 ${svgPathsHtml}
             </svg>
             
             <div class="absolute flex flex-col items-center justify-center text-center pointer-events-none ${centerCircleSizeClass}">
-                <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest ${progressLabelClass}">Progress</span>
-                <span class="text-lg md:text-xl font-black ${countsClass} mt-0.5">${completedCount}/${totalChapters}</span>
-                <span class="text-[10px] font-black ${pctClass} px-2 py-0.5 rounded-lg border mt-1 shadow-sm">${completionPercent}%</span>
-                <span class="text-[8px] md:text-[9px] italic font-bold ${remainClass} mt-1">${remainingCount} remaining</span>
+                <span class="${progressTextSize} uppercase tracking-widest ${progressLabelClass}">Progress</span>
+                <span class="${countsTextSize} ${countsClass}">${completedCount}/${totalChapters}</span>
+                <span class="${pctTextSize} ${pctClass}">${completionPercent}%</span>
+                <span class="${remainTextSize} ${remainClass}">${remainingLabel}</span>
             </div>
         </div>
     `;
