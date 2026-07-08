@@ -5107,54 +5107,51 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
     let svgPathsHtml = '';
     
     if (isSubjectModal) {
-        // High performance simple circular progress ring for mobile
-        const radius = 160;
-        const circumference = 2 * Math.PI * radius; // ~1005.3
+        // Simple segmented circular progress ring: 1 box = 1 chapter in a single ring
+        const innerRadius = 130;
+        const outerRadius = 165;
         
-        const compPct = totalChapters > 0 ? (completedCount / totalChapters) : 0;
-        const skipPct = totalChapters > 0 ? (skippedCount / totalChapters) : 0;
+        const getArcPath = (cx, cy, r1, r2, theta1, theta2) => {
+            const x1_inner = cx + r1 * Math.cos(theta1);
+            const y1_inner = cy + r1 * Math.sin(theta1);
+            const x2_inner = cx + r1 * Math.cos(theta2);
+            const y2_inner = cy + r1 * Math.sin(theta2);
+            
+            const x1_outer = cx + r2 * Math.cos(theta1);
+            const y1_outer = cy + r2 * Math.sin(theta1);
+            const x2_outer = cx + r2 * Math.cos(theta2);
+            const y2_outer = cy + r2 * Math.sin(theta2);
+            
+            const largeArc = (theta2 - theta1) > Math.PI ? 1 : 0;
+            
+            return `M ${x1_outer} ${y1_outer} A ${r2} ${r2} 0 ${largeArc} 1 ${x2_outer} ${y2_outer} L ${x2_inner} ${y2_inner} A ${r1} ${r1} 0 ${largeArc} 0 ${x1_inner} ${y1_inner} Z`;
+        };
         
-        const compLength = compPct * circumference;
-        const skipLength = skipPct * circumference;
+        const anglePerSegment = totalChapters > 0 ? (2 * Math.PI) / totalChapters : 0;
+        const angularGap = totalChapters > 0 ? Math.min(0.04, anglePerSegment * 0.15) : 0;
         
-        const compOffset = circumference - compLength;
-        const skipOffset = circumference - skipLength;
-        
-        const skipRotation = -90 + (compPct * 360);
-        
-        // Find subjectObj to check for isFrozen
-        let subjectName = filterTarget;
-        let subjectObj = null;
-        for (const track of window.tracks) {
-            if (syllabusStructure[track.id]) {
-                const found = syllabusStructure[track.id].find(s => s.subject === subjectName);
-                if (found) { subjectObj = found; break; }
+        for (let i = 0; i < totalChapters; i++) {
+            const chap = allChapters[i];
+            const thetaStart = -Math.PI / 2 + i * anglePerSegment + angularGap;
+            const thetaEnd = -Math.PI / 2 + (i + 1) * anglePerSegment - angularGap;
+            
+            let colorClass = '';
+            if (chap.status === 'complete') {
+                colorClass = 'fill-emerald-500 hover:fill-emerald-400 text-emerald-500';
+            } else if (chap.status === 'skip') {
+                colorClass = 'fill-slate-600 hover:fill-slate-500 text-slate-400';
+            } else {
+                colorClass = 'fill-rose-950/40 hover:fill-rose-900/50 text-rose-500';
             }
-        }
-        const isFrozen = window.passedItems && ((window.passedItems.subjects && window.passedItems.subjects.includes(subjectName)) ||
-            (window.passedItems.programs && subjectObj && subjectObj.program && window.passedItems.programs.includes(subjectObj.program)));
-        
-        const effectivePct = isFrozen ? 100 : Math.round(compPct * 100);
-        
-        let strokeColor = '#818cf8'; // text-indigo-400 equivalent
-        if (isFrozen || effectivePct >= 100) { strokeColor = '#34d399'; } // text-emerald-400
-        else if (effectivePct >= 75) { strokeColor = '#60a5fa'; } // text-blue-400
-        else if (effectivePct >= 50) { strokeColor = '#fbbf24'; } // text-yellow-400
-        else if (effectivePct > 0) { strokeColor = '#fb923c'; } // text-orange-400
-        else { strokeColor = '#94a3b8'; } // text-slate-400
-        
-        svgPathsHtml += `<circle cx="0" cy="0" r="${radius}" fill="none" stroke="rgba(148, 163, 184, 0.1)" stroke-width="18" />\n`;
-        
-        if (compLength > 0) {
-            svgPathsHtml += `<circle cx="0" cy="0" r="${radius}" fill="none" stroke="${strokeColor}" stroke-width="18"
-                stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${compOffset.toFixed(2)}"
-                transform="rotate(-90)" stroke-linecap="butt" class="transition-all duration-700 ease-out" />\n`;
-        }
-        
-        if (skippedCount > 0 && skipLength > 0) {
-            svgPathsHtml += `<circle cx="0" cy="0" r="${radius}" fill="none" stroke="#64748b" stroke-width="18"
-                stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${skipOffset.toFixed(2)}"
-                transform="rotate(${skipRotation.toFixed(2)})" stroke-linecap="butt" class="transition-all duration-700 ease-out" />\n`;
+            
+            const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
+            const safeSubject = chap.subject.replace(/'/g, "\\'");
+            
+            const mouseOverHandler = `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`;
+            const mouseOutHandler = `window.hideSubjectChapterTooltip()`;
+            const onClickHandler = `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`;
+            
+            svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" onclick="${onClickHandler}" />\n`;
         }
     } else {
         let numRings = 4;
