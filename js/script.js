@@ -5104,92 +5104,145 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
     const completionPercent = totalChapters > 0 ? ((completedCount / totalChapters) * 100).toFixed(1) : "0.0";
     const remainingCount = totalChapters - completedCount;
     
-    let numRings = 4;
-    if (totalChapters <= 50) numRings = 2;
-    else if (totalChapters <= 120) numRings = 3;
-    else if (totalChapters <= 250) numRings = 4;
-    else numRings = 5;
-    
-    let radii = [];
-    // Start innermost radius at 96, step 30 for BIG scale
-    for (let i = 0; i < numRings; i++) {
-        radii.push(96 + i * 30);
-    }
-    
-    let totalRadiusSum = radii.reduce((a, b) => a + b, 0);
-    let distribution = [];
-    let allocated = 0;
-    for (let i = 0; i < numRings; i++) {
-        let count = Math.round((radii[i] / totalRadiusSum) * totalChapters);
-        if (i === numRings - 1) {
-            count = totalChapters - allocated;
-        }
-        distribution.push(count);
-        allocated += count;
-    }
-    
-    const getArcPath = (cx, cy, r1, r2, theta1, theta2) => {
-        const x1_inner = cx + r1 * Math.cos(theta1);
-        const y1_inner = cy + r1 * Math.sin(theta1);
-        const x2_inner = cx + r1 * Math.cos(theta2);
-        const y2_inner = cy + r1 * Math.sin(theta2);
-        
-        const x1_outer = cx + r2 * Math.cos(theta1);
-        const y1_outer = cy + r2 * Math.sin(theta1);
-        const x2_outer = cx + r2 * Math.cos(theta2);
-        const y2_outer = cy + r2 * Math.sin(theta2);
-        
-        const largeArc = (theta2 - theta1) > Math.PI ? 1 : 0;
-        
-        return `M ${x1_outer} ${y1_outer} A ${r2} ${r2} 0 ${largeArc} 1 ${x2_outer} ${y2_outer} L ${x2_inner} ${y2_inner} A ${r1} ${r1} 0 ${largeArc} 0 ${x1_inner} ${y1_inner} Z`;
-    };
-    
     let svgPathsHtml = '';
-    let currentChapterIdx = 0;
     
-    for (let ringIdx = 0; ringIdx < numRings; ringIdx++) {
-        const numSegments = distribution[ringIdx];
-        if (numSegments <= 0) continue;
+    if (isSubjectModal) {
+        // High performance simple circular progress ring for mobile
+        const radius = 160;
+        const circumference = 2 * Math.PI * radius; // ~1005.3
         
-        const innerRadius = 96 + ringIdx * 30;
-        const outerRadius = innerRadius + 24; // block thickness is 24, gap is 6
+        const compPct = totalChapters > 0 ? (completedCount / totalChapters) : 0;
+        const skipPct = totalChapters > 0 ? (skippedCount / totalChapters) : 0;
         
-        const anglePerSegment = (2 * Math.PI) / numSegments;
-        const angularGap = 0.012;
+        const compLength = compPct * circumference;
+        const skipLength = skipPct * circumference;
         
-        for (let segIdx = 0; segIdx < numSegments; segIdx++) {
-            if (currentChapterIdx >= allChapters.length) break;
-            const chap = allChapters[currentChapterIdx];
-            
-            const thetaStart = -Math.PI / 2 + segIdx * anglePerSegment + angularGap;
-            const thetaEnd = -Math.PI / 2 + (segIdx + 1) * anglePerSegment - angularGap;
-            
-            let colorClass = '';
-            if (chap.status === 'complete') {
-                colorClass = 'fill-emerald-500 hover:fill-emerald-400 dark:fill-emerald-500 dark:hover:fill-emerald-400 text-emerald-500';
-            } else if (chap.status === 'skip') {
-                colorClass = 'fill-slate-300 hover:fill-slate-400 dark:fill-slate-600 dark:hover:fill-slate-500 text-slate-400';
-            } else {
-                colorClass = 'fill-rose-500 hover:fill-rose-400 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
+        const compOffset = circumference - compLength;
+        const skipOffset = circumference - skipLength;
+        
+        const skipRotation = -90 + (compPct * 360);
+        
+        // Find subjectObj to check for isFrozen
+        let subjectName = filterTarget;
+        let subjectObj = null;
+        for (const track of window.tracks) {
+            if (syllabusStructure[track.id]) {
+                const found = syllabusStructure[track.id].find(s => s.subject === subjectName);
+                if (found) { subjectObj = found; break; }
             }
+        }
+        const isFrozen = window.passedItems && ((window.passedItems.subjects && window.passedItems.subjects.includes(subjectName)) ||
+            (window.passedItems.programs && subjectObj && subjectObj.program && window.passedItems.programs.includes(subjectObj.program)));
+        
+        const effectivePct = isFrozen ? 100 : Math.round(compPct * 100);
+        
+        let strokeColor = '#818cf8'; // text-indigo-400 equivalent
+        if (isFrozen || effectivePct >= 100) { strokeColor = '#34d399'; } // text-emerald-400
+        else if (effectivePct >= 75) { strokeColor = '#60a5fa'; } // text-blue-400
+        else if (effectivePct >= 50) { strokeColor = '#fbbf24'; } // text-yellow-400
+        else if (effectivePct > 0) { strokeColor = '#fb923c'; } // text-orange-400
+        else { strokeColor = '#94a3b8'; } // text-slate-400
+        
+        svgPathsHtml += `<circle cx="0" cy="0" r="${radius}" fill="none" stroke="rgba(148, 163, 184, 0.1)" stroke-width="18" />\n`;
+        
+        if (compLength > 0) {
+            svgPathsHtml += `<circle cx="0" cy="0" r="${radius}" fill="none" stroke="${strokeColor}" stroke-width="18"
+                stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${compOffset.toFixed(2)}"
+                transform="rotate(-90)" stroke-linecap="butt" class="transition-all duration-700 ease-out" />\n`;
+        }
+        
+        if (skippedCount > 0 && skipLength > 0) {
+            svgPathsHtml += `<circle cx="0" cy="0" r="${radius}" fill="none" stroke="#64748b" stroke-width="18"
+                stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${skipOffset.toFixed(2)}"
+                transform="rotate(${skipRotation.toFixed(2)})" stroke-linecap="butt" class="transition-all duration-700 ease-out" />\n`;
+        }
+    } else {
+        let numRings = 4;
+        if (totalChapters <= 50) numRings = 2;
+        else if (totalChapters <= 120) numRings = 3;
+        else if (totalChapters <= 250) numRings = 4;
+        else numRings = 5;
+        
+        let radii = [];
+        // Start innermost radius at 96, step 30 for BIG scale
+        for (let i = 0; i < numRings; i++) {
+            radii.push(96 + i * 30);
+        }
+        
+        let totalRadiusSum = radii.reduce((a, b) => a + b, 0);
+        let distribution = [];
+        let allocated = 0;
+        for (let i = 0; i < numRings; i++) {
+            let count = Math.round((radii[i] / totalRadiusSum) * totalChapters);
+            if (i === numRings - 1) {
+                count = totalChapters - allocated;
+            }
+            distribution.push(count);
+            allocated += count;
+        }
+        
+        const getArcPath = (cx, cy, r1, r2, theta1, theta2) => {
+            const x1_inner = cx + r1 * Math.cos(theta1);
+            const y1_inner = cy + r1 * Math.sin(theta1);
+            const x2_inner = cx + r1 * Math.cos(theta2);
+            const y2_inner = cy + r1 * Math.sin(theta2);
             
-            const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
-            const safeSubject = chap.subject.replace(/'/g, "\\'");
+            const x1_outer = cx + r2 * Math.cos(theta1);
+            const y1_outer = cy + r2 * Math.sin(theta1);
+            const x2_outer = cx + r2 * Math.cos(theta2);
+            const y2_outer = cy + r2 * Math.sin(theta2);
             
-            const mouseOverHandler = isSpectra 
-                ? `window.showSpectraChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
-                : (isSubjectModal 
-                    ? `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
-                    : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`);
+            const largeArc = (theta2 - theta1) > Math.PI ? 1 : 0;
+            
+            return `M ${x1_outer} ${y1_outer} A ${r2} ${r2} 0 ${largeArc} 1 ${x2_outer} ${y2_outer} L ${x2_inner} ${y2_inner} A ${r1} ${r1} 0 ${largeArc} 0 ${x1_inner} ${y1_inner} Z`;
+        };
+        
+        let currentChapterIdx = 0;
+        
+        for (let ringIdx = 0; ringIdx < numRings; ringIdx++) {
+            const numSegments = distribution[ringIdx];
+            if (numSegments <= 0) continue;
+            
+            const innerRadius = 96 + ringIdx * 30;
+            const outerRadius = innerRadius + 24; // block thickness is 24, gap is 6
+            
+            const anglePerSegment = (2 * Math.PI) / numSegments;
+            const angularGap = 0.012;
+            
+            for (let segIdx = 0; segIdx < numSegments; segIdx++) {
+                if (currentChapterIdx >= allChapters.length) break;
+                const chap = allChapters[currentChapterIdx];
                 
-            const mouseOutHandler = isSpectra 
-                ? `window.hideSpectraChapterTooltip()`
-                : (isSubjectModal 
-                    ? `window.hideSubjectChapterTooltip()`
-                    : `window.hideChapterTooltip()`);
-            
-            svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" />\n`;
-            currentChapterIdx++;
+                const thetaStart = -Math.PI / 2 + segIdx * anglePerSegment + angularGap;
+                const thetaEnd = -Math.PI / 2 + (segIdx + 1) * anglePerSegment - angularGap;
+                
+                let colorClass = '';
+                if (chap.status === 'complete') {
+                    colorClass = 'fill-emerald-500 hover:fill-emerald-400 dark:fill-emerald-500 dark:hover:fill-emerald-400 text-emerald-500';
+                } else if (chap.status === 'skip') {
+                    colorClass = 'fill-slate-300 hover:fill-slate-400 dark:fill-slate-600 dark:hover:fill-slate-500 text-slate-400';
+                } else {
+                    colorClass = 'fill-rose-500 hover:fill-rose-400 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
+                }
+                
+                const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
+                const safeSubject = chap.subject.replace(/'/g, "\\'");
+                
+                const mouseOverHandler = isSpectra 
+                    ? `window.showSpectraChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
+                    : (isSubjectModal 
+                        ? `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
+                        : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`);
+                    
+                const mouseOutHandler = isSpectra 
+                    ? `window.hideSpectraChapterTooltip()`
+                    : (isSubjectModal 
+                        ? `window.hideSubjectChapterTooltip()`
+                        : `window.hideChapterTooltip()`);
+                
+                svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" />\n`;
+                currentChapterIdx++;
+            }
         }
     }
     
