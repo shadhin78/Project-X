@@ -459,15 +459,23 @@ h2 {
     box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
 }
 
-/* ===== Global Chapters Goal Chart Blocks ===== */
+/* ===== Consolidated Stylesheet ===== */
+
+/* ==========================================
+   From css/styles.css
+   ========================================== */
+/* ===== Timer Fullscreen Entry/Exit Animations ===== */
 .gcm-chapter-block {
     transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.22s ease, opacity 0.22s ease;
+    transform-box: view-box;
     transform-origin: 0px 0px;
     cursor: pointer;
 }
-.gcm-chapter-block:hover {
-    filter: brightness(1.18) saturate(1.1) drop-shadow(0 0 5px currentColor);
-    transform: scale(1.035);
+@media (hover: hover) {
+    .gcm-chapter-block:hover {
+        filter: brightness(1.18) saturate(1.1) drop-shadow(0 0 5px currentColor);
+        transform: scale(1.035);
+    }
 }
 .gcm-chapter-block:active {
     transform: scale(0.98);

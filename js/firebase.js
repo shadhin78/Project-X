@@ -253,10 +253,14 @@ window.FirebaseService = {
     },
 
     saveTimerToCloud: async function() {
+        if (window.TimerService && typeof window.TimerService.saveActiveStateToStore === 'function') {
+            window.TimerService.saveActiveStateToStore();
+        }
         if (!AppState.db) return;
         const fbUser = window.FirebaseService.getCurrentUser();
         if (!fbUser) return;
 
+        window.isSyncing = true;
         const uid = fbUser.uid;
         const timerPayload = {
             activeTimerState: window.activeTimerState || {
@@ -277,6 +281,9 @@ window.FirebaseService = {
             })
             .catch((error) => {
                 console.error("Firestore timer state update failed:", error);
+            })
+            .finally(() => {
+                setTimeout(() => { window.isSyncing = false; }, 300);
             });
     },
 

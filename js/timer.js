@@ -20,6 +20,15 @@
         return Number(startTime);
     }
 
+    function isAnyTimerRunning() {
+        if (!AppState.activeTimerState) return false;
+        if (AppState.activeTimerState.isRunning) return true;
+        if (AppState.activeTimerState.timerStates) {
+            return Object.values(AppState.activeTimerState.timerStates).some(store => store.isRunning);
+        }
+        return false;
+    }
+
     function playCompletionChime() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -60,6 +69,9 @@
     function tickTimer() {
         if (!AppState.activeTimerState) return;
 
+        // Run background timer check
+        checkBackgroundTimers();
+
         let elapsedMs = AppState.activeTimerState.elapsedBeforeStart || 0;
         if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
             elapsedMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
@@ -82,6 +94,9 @@
                 AppState.activeTimerState.elapsedBeforeStart = targetMs;
                 AppState.activeTimerState.startTime = null;
 
+                // Sync to store for current mode since it changed status
+                saveActiveStateToStore();
+
                 playCompletionChime();
                 FirebaseService.saveTimerToCloud();
 
@@ -98,6 +113,13 @@
         }
 
         updateTimerUI(displaySeconds);
+
+        if (!isAnyTimerRunning()) {
+            if (AppState.timerInterval) {
+                clearInterval(AppState.timerInterval);
+                AppState.timerInterval = null;
+            }
+        }
     }
 
     function updateTimerUI(displaySeconds) {
@@ -224,10 +246,163 @@
         }, 300);
     };
 
+    // --- MULTI-MODE STATE PERSISTENCE HELPERS ---
+
+    function saveActiveStateToStore() {
+        if (!AppState.activeTimerState) return;
+        if (!AppState.activeTimerState.timerStates) {
+            AppState.activeTimerState.timerStates = {
+                stopwatch: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 0, selectedSubject: 'General Study' },
+                timer: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 25 * 60, selectedSubject: 'General Study' },
+                alarm: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 0, selectedSubject: 'General Study', alarmStart: '', alarmEnd: '', alarmUseCurrent: true }
+            };
+        }
+        const currentMode = AppState.activeTimerState.mode;
+        if (!AppState.activeTimerState.timerStates[currentMode]) {
+            AppState.activeTimerState.timerStates[currentMode] = {};
+        }
+        const store = AppState.activeTimerState.timerStates[currentMode];
+        
+        store.isRunning = AppState.activeTimerState.isRunning;
+        store.startTime = AppState.activeTimerState.startTime;
+        store.elapsedBeforeStart = AppState.activeTimerState.elapsedBeforeStart;
+        store.targetDuration = AppState.activeTimerState.targetDuration;
+        store.selectedSubject = AppState.activeTimerState.selectedSubject || 'General Study';
+        
+        if (currentMode === 'alarm') {
+            const startEl = document.getElementById('timer-alarm-start');
+            const endEl = document.getElementById('timer-alarm-end');
+            const useCurrentCb = document.getElementById('timer-alarm-use-current');
+            
+            store.alarmStart = startEl ? startEl.value : '';
+            store.alarmEnd = endEl ? endEl.value : '';
+            store.alarmUseCurrent = useCurrentCb ? useCurrentCb.checked : true;
+        }
+    }
+
+    function loadActiveStateFromStore(mode) {
+        if (!AppState.activeTimerState) return;
+        if (!AppState.activeTimerState.timerStates) {
+            AppState.activeTimerState.timerStates = {
+                stopwatch: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 0, selectedSubject: 'General Study' },
+                timer: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 25 * 60, selectedSubject: 'General Study' },
+                alarm: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 0, selectedSubject: 'General Study', alarmStart: '', alarmEnd: '', alarmUseCurrent: true }
+            };
+        }
+        if (!AppState.activeTimerState.timerStates[mode]) {
+            AppState.activeTimerState.timerStates[mode] = {
+                isRunning: false,
+                startTime: null,
+                elapsedBeforeStart: 0,
+                targetDuration: mode === 'timer' ? 25 * 60 : 0,
+                selectedSubject: 'General Study'
+            };
+        }
+        const store = AppState.activeTimerState.timerStates[mode];
+        
+        AppState.activeTimerState.mode = mode;
+        AppState.activeTimerState.isRunning = store.isRunning;
+        AppState.activeTimerState.startTime = store.startTime;
+        AppState.activeTimerState.elapsedBeforeStart = store.elapsedBeforeStart;
+        AppState.activeTimerState.targetDuration = store.targetDuration;
+        AppState.activeTimerState.selectedSubject = store.selectedSubject || 'General Study';
+        
+        // Restore DOM inputs for alarm mode
+        if (mode === 'alarm') {
+            setTimeout(() => {
+                const startEl = document.getElementById('timer-alarm-start');
+                const endEl = document.getElementById('timer-alarm-end');
+                const useCurrentCb = document.getElementById('timer-alarm-use-current');
+                
+                if (startEl && store.alarmStart !== undefined) startEl.value = store.alarmStart;
+                if (endEl && store.alarmEnd !== undefined) endEl.value = store.alarmEnd;
+                if (useCurrentCb && store.alarmUseCurrent !== undefined) {
+                    useCurrentCb.checked = store.alarmUseCurrent;
+                    window.toggleAlarmUseCurrent();
+                }
+            }, 50);
+        }
+        
+        const subjectSelect = document.getElementById('timer-subject-select');
+        if (subjectSelect) {
+            subjectSelect.value = AppState.activeTimerState.selectedSubject;
+        }
+    }
+
+    function checkBackgroundTimers() {
+        if (!AppState.activeTimerState || !AppState.activeTimerState.timerStates) return;
+        
+        let stateChanged = false;
+        
+        Object.entries(AppState.activeTimerState.timerStates).forEach(([mode, store]) => {
+            if (mode === AppState.activeTimerState.mode) return; // skip currently active mode
+            if (!store.isRunning) return;
+            
+            let elapsedMs = store.elapsedBeforeStart || 0;
+            if (store.startTime) {
+                elapsedMs += (window.getServerTime() - parseStartTime(store.startTime));
+            }
+            
+            if (mode === 'timer' || mode === 'alarm') {
+                const targetMs = (store.targetDuration || 0) * 1000;
+                if (elapsedMs >= targetMs) {
+                    store.isRunning = false;
+                    store.elapsedBeforeStart = targetMs;
+                    store.startTime = null;
+                    
+                    playCompletionChime();
+                    stateChanged = true;
+                    showToast(`Background ${mode === 'alarm' ? 'Alarm Range' : 'Timer'} has completed!`, "success");
+                }
+            }
+        });
+        
+        if (stateChanged) {
+            FirebaseService.saveTimerToCloud();
+            window.TimerService.updateDisplay();
+        }
+    }
+
     // --- GLOBAL BUTTON & ACTION HANDLERS ---
 
     window.syncTimerStateFromCloud = function () {
         if (!AppState.activeTimerState) return;
+
+        // Initialize state store if missing
+        if (!AppState.activeTimerState.timerStates) {
+            AppState.activeTimerState.timerStates = {
+                stopwatch: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 0, selectedSubject: 'General Study' },
+                timer: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 25 * 60, selectedSubject: 'General Study' },
+                alarm: { isRunning: false, startTime: null, elapsedBeforeStart: 0, targetDuration: 0, selectedSubject: 'General Study', alarmStart: '', alarmEnd: '', alarmUseCurrent: true }
+            };
+            // Seed current mode values
+            const currentMode = AppState.activeTimerState.mode || 'stopwatch';
+            AppState.activeTimerState.timerStates[currentMode] = {
+                isRunning: AppState.activeTimerState.isRunning || false,
+                startTime: AppState.activeTimerState.startTime || null,
+                elapsedBeforeStart: AppState.activeTimerState.elapsedBeforeStart || 0,
+                targetDuration: AppState.activeTimerState.targetDuration || 0,
+                selectedSubject: AppState.activeTimerState.selectedSubject || 'General Study',
+                alarmStart: document.getElementById('timer-alarm-start')?.value || '',
+                alarmEnd: document.getElementById('timer-alarm-end')?.value || '',
+                alarmUseCurrent: document.getElementById('timer-alarm-use-current')?.checked !== false
+            };
+        }
+
+        // Restore alarm inputs if active mode is alarm
+        if (AppState.activeTimerState.mode === 'alarm') {
+            const store = AppState.activeTimerState.timerStates.alarm;
+            const startEl = document.getElementById('timer-alarm-start');
+            const endEl = document.getElementById('timer-alarm-end');
+            const useCurrentCb = document.getElementById('timer-alarm-use-current');
+            
+            if (startEl && store.alarmStart !== undefined) startEl.value = store.alarmStart;
+            if (endEl && store.alarmEnd !== undefined) endEl.value = store.alarmEnd;
+            if (useCurrentCb && store.alarmUseCurrent !== undefined) {
+                useCurrentCb.checked = store.alarmUseCurrent;
+                window.toggleAlarmUseCurrent();
+            }
+        }
 
         const subjectSelect = document.getElementById('timer-subject-select');
         if (subjectSelect && AppState.activeTimerState.selectedSubject) {
@@ -281,7 +456,7 @@
 
         tickTimer();
 
-        if (AppState.activeTimerState.isRunning) {
+        if (isAnyTimerRunning()) {
             AppState.timerInterval = setInterval(tickTimer, 200);
         }
     };
@@ -309,22 +484,38 @@
         }
     };
 
+    window.openTimerWarningModal = function (message) {
+        if (message) {
+            const msgEl = document.getElementById('tw-message');
+            if (msgEl) msgEl.textContent = message;
+        }
+        const modal = document.getElementById('timer-warning-modal');
+        const backdrop = document.getElementById('tw-backdrop');
+        const content = document.getElementById('tw-content');
+        if (!modal || !backdrop || !content) return;
+        modal.classList.remove('hidden'); void modal.offsetWidth;
+        backdrop.classList.remove('opacity-0'); backdrop.classList.add('opacity-100');
+        content.classList.remove('scale-95', 'opacity-0', 'translate-y-4'); content.classList.add('scale-100', 'opacity-100', 'translate-y-0');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    window.closeTimerWarningModal = function () {
+        const modal = document.getElementById('timer-warning-modal');
+        const backdrop = document.getElementById('tw-backdrop');
+        const content = document.getElementById('tw-content');
+        if (!modal || !backdrop || !content) return;
+        backdrop.classList.remove('opacity-100'); backdrop.classList.add('opacity-0');
+        content.classList.remove('scale-100', 'opacity-100', 'translate-y-0'); content.classList.add('scale-95', 'opacity-0', 'translate-y-4');
+        setTimeout(() => { modal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }, 300);
+    };
+
     window.setTimerMode = function (mode) {
         if (AppState.activeTimerState.mode === mode) return;
-        if (AppState.activeTimerState.isRunning) {
-            showToast("Please pause the timer before changing modes.", "error");
-            return;
-        }
-        AppState.activeTimerState.mode = mode;
-        AppState.activeTimerState.elapsedBeforeStart = 0;
-        AppState.activeTimerState.startTime = null;
-        if (mode === 'timer') {
-            AppState.activeTimerState.targetDuration = 25 * 60;
-        } else if (mode === 'alarm') {
-            AppState.activeTimerState.targetDuration = 0;
-        } else {
-            AppState.activeTimerState.targetDuration = 0;
-        }
+        
+        // Save the current active mode state (do NOT pause it automatically)
+        saveActiveStateToStore();
+        
+        loadActiveStateFromStore(mode);
         FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
     };
@@ -337,6 +528,7 @@
         AppState.activeTimerState.targetDuration = minutes * 60;
         AppState.activeTimerState.elapsedBeforeStart = 0;
         AppState.activeTimerState.startTime = null;
+        saveActiveStateToStore();
         FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
         showToast(`Timer set to ${minutes} minutes.`, "success");
@@ -365,6 +557,7 @@
         AppState.activeTimerState.targetDuration = minutes * 60;
         AppState.activeTimerState.elapsedBeforeStart = 0;
         AppState.activeTimerState.startTime = null;
+        saveActiveStateToStore();
         FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
         closeModal('custom-timer-modal');
@@ -476,6 +669,16 @@
         AppState.activeTimerState.startTime = null;
         AppState.activeTimerState.elapsedBeforeStart = 0;
 
+        // Also reset stored state for active mode since we just saved it!
+        const currentMode = AppState.activeTimerState.mode;
+        if (AppState.activeTimerState.timerStates && AppState.activeTimerState.timerStates[currentMode]) {
+            const store = AppState.activeTimerState.timerStates[currentMode];
+            store.isRunning = false;
+            store.startTime = null;
+            store.elapsedBeforeStart = 0;
+        }
+
+        saveActiveStateToStore();
         FirebaseService.saveToCloud(true);
         FirebaseService.saveTimerToCloud();
         window.TimerService.restore();
@@ -981,10 +1184,31 @@
             window.TimerService.restore();
         },
 
+        saveActiveStateToStore: function () {
+            saveActiveStateToStore();
+        },
+
+        loadActiveStateFromStore: function (mode) {
+            loadActiveStateFromStore(mode);
+        },
+
         start: function () {
             if (AppState.activeTimerState && !AppState.activeTimerState.isRunning) {
+                // Check if any other mode is running
+                if (AppState.activeTimerState.timerStates) {
+                    const runningMode = Object.keys(AppState.activeTimerState.timerStates).find(mode => {
+                        return mode !== AppState.activeTimerState.mode && AppState.activeTimerState.timerStates[mode].isRunning;
+                    });
+                    if (runningMode) {
+                        const friendlyName = runningMode === 'stopwatch' ? 'Stopwatch' : (runningMode === 'alarm' ? 'Alarm Range' : 'Timer');
+                        window.openTimerWarningModal(`Another session (${friendlyName}) is already active. Please pause it first.`);
+                        return;
+                    }
+                }
+                
                 AppState.activeTimerState.isRunning = true;
                 AppState.activeTimerState.startTime = window.getServerTime();
+                saveActiveStateToStore();
                 FirebaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
@@ -997,6 +1221,7 @@
                     AppState.activeTimerState.elapsedBeforeStart += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
                 }
                 AppState.activeTimerState.startTime = null;
+                saveActiveStateToStore();
                 FirebaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
@@ -1015,6 +1240,30 @@
                 AppState.activeTimerState.isRunning = false;
                 AppState.activeTimerState.startTime = null;
                 AppState.activeTimerState.elapsedBeforeStart = 0;
+                
+                // Also reset stored state for active mode
+                const currentMode = AppState.activeTimerState.mode;
+                if (AppState.activeTimerState.timerStates && AppState.activeTimerState.timerStates[currentMode]) {
+                    const store = AppState.activeTimerState.timerStates[currentMode];
+                    store.isRunning = false;
+                    store.startTime = null;
+                    store.elapsedBeforeStart = 0;
+                    if (currentMode === 'timer') {
+                        store.targetDuration = 25 * 60;
+                        AppState.activeTimerState.targetDuration = 25 * 60;
+                    } else if (currentMode === 'alarm') {
+                        store.targetDuration = 0;
+                        store.alarmStart = '';
+                        store.alarmEnd = '';
+                        store.alarmUseCurrent = true;
+                        AppState.activeTimerState.targetDuration = 0;
+                    } else {
+                        store.targetDuration = 0;
+                        AppState.activeTimerState.targetDuration = 0;
+                    }
+                }
+                
+                saveActiveStateToStore();
                 FirebaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }

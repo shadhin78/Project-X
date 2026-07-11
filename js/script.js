@@ -5139,9 +5139,9 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             if (chap.status === 'complete') {
                 colorClass = 'fill-emerald-500 hover:fill-emerald-400 text-emerald-500';
             } else if (chap.status === 'skip') {
-                colorClass = 'fill-slate-600 hover:fill-slate-500 text-slate-400';
+                colorClass = 'fill-slate-300 hover:fill-slate-400 dark:fill-slate-600 dark:hover:fill-slate-500 text-slate-400';
             } else {
-                colorClass = 'fill-rose-950/40 hover:fill-rose-900/50 text-rose-500';
+                colorClass = 'fill-rose-500 hover:fill-rose-400 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
             }
             
             const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
@@ -5155,15 +5155,20 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
         }
     } else {
         let numRings = 4;
-        if (totalChapters <= 50) numRings = 2;
-        else if (totalChapters <= 120) numRings = 3;
-        else if (totalChapters <= 250) numRings = 4;
+        if (totalChapters <= 45) numRings = 1;
+        else if (totalChapters <= 90) numRings = 2;
+        else if (totalChapters <= 180) numRings = 3;
+        else if (totalChapters <= 280) numRings = 4;
         else numRings = 5;
         
         let radii = [];
-        // Start innermost radius at 96, step 30 for BIG scale
-        for (let i = 0; i < numRings; i++) {
-            radii.push(96 + i * 30);
+        if (numRings === 1) {
+            radii.push(130);
+        } else {
+            // Start innermost radius at 96, step 30 for BIG scale
+            for (let i = 0; i < numRings; i++) {
+                radii.push(96 + i * 30);
+            }
         }
         
         let totalRadiusSum = radii.reduce((a, b) => a + b, 0);
@@ -5200,11 +5205,11 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             const numSegments = distribution[ringIdx];
             if (numSegments <= 0) continue;
             
-            const innerRadius = 96 + ringIdx * 30;
-            const outerRadius = innerRadius + 24; // block thickness is 24, gap is 6
+            const innerRadius = numRings === 1 ? 130 : (96 + ringIdx * 30);
+            const outerRadius = numRings === 1 ? 165 : (innerRadius + 24); // block thickness is 35 for 1 ring, 24 for multi
             
             const anglePerSegment = (2 * Math.PI) / numSegments;
-            const angularGap = 0.012;
+            const angularGap = Math.min(0.04, anglePerSegment * 0.15);
             
             for (let segIdx = 0; segIdx < numSegments; segIdx++) {
                 if (currentChapterIdx >= allChapters.length) break;
@@ -5236,40 +5241,46 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
                     : (isSubjectModal 
                         ? `window.hideSubjectChapterTooltip()`
                         : `window.hideChapterTooltip()`);
+                        
+                const onClickHandler = isSpectra 
+                    ? `window.showSpectraChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`
+                    : (isSubjectModal 
+                        ? `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`
+                        : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`);
                 
-                svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" />\n`;
+                svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" onclick="${onClickHandler}" />\n`;
                 currentChapterIdx++;
             }
         }
     }
     
     // Sizes
-    let containerSizeClass = "w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] md:w-[420px] md:h-[420px]";
-    let centerCircleSizeClass = "w-28 h-28 sm:w-36 sm:h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
+    let containerSizeClass = "w-[240px] h-[240px] min-[375px]:w-[280px] min-[375px]:h-[280px] sm:w-[360px] sm:h-[360px] md:w-[420px] md:h-[420px]";
+    let centerCircleSizeClass = "w-20 h-20 min-[375px]:w-28 min-[375px]:h-28 sm:w-36 sm:h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
     
     let progressLabelClass = "text-slate-400 dark:text-slate-500";
     let countsClass = "text-slate-800 dark:text-white";
     let pctClass = "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-indigo-900/50";
     let remainClass = "text-slate-500 dark:text-slate-400";
     
-    let progressTextSize = "text-[8px] md:text-[9px] leading-none";
-    let countsTextSize = "text-lg md:text-xl font-black leading-none mt-1.5";
-    let pctTextSize = "text-[10px] font-black px-2 py-0.5 rounded-lg border mt-1.5 shadow-sm leading-none";
-    let remainTextSize = "text-[8px] md:text-[9px] italic font-bold leading-none mt-1.5";
+    let progressTextSize = "text-[7px] min-[375px]:text-[8px] md:text-[9px] leading-none";
+    let countsTextSize = "text-base min-[375px]:text-lg md:text-xl font-black leading-none mt-1.5";
+    let pctTextSize = "text-[8px] min-[375px]:text-[10px] font-black px-1.5 min-[375px]:px-2 py-0.5 rounded-lg border mt-1.5 shadow-sm leading-none";
+    let remainTextSize = "text-[7px] min-[375px]:text-[8px] md:text-[9px] italic font-bold leading-none mt-1.5";
     let remainingLabel = `${remainingCount} remaining`;
     
     if (isSubjectModal) {
-        containerSizeClass = "w-[250px] h-[250px] sm:w-[280px] sm:h-[280px] md:w-[320px] md:h-[320px]";
-        centerCircleSizeClass = "w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
+        containerSizeClass = "w-[220px] h-[220px] min-[375px]:w-[250px] min-[375px]:h-[250px] sm:w-[280px] sm:h-[280px] md:w-[320px] md:h-[320px]";
+        centerCircleSizeClass = "w-20 h-20 min-[375px]:w-24 min-[375px]:h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
         progressLabelClass = "text-slate-400";
         countsClass = "text-white";
         pctClass = "text-emerald-400 bg-emerald-950/40 border-emerald-900/50";
         remainClass = "text-slate-400";
         
-        progressTextSize = "text-[7px] sm:text-[8px] md:text-[9px] leading-none";
-        countsTextSize = "text-sm sm:text-base md:text-lg font-black leading-none mt-1";
-        pctTextSize = "text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md border mt-1 shadow-sm leading-none";
-        remainTextSize = "text-[7px] sm:text-[8px] md:text-[9px] italic font-bold leading-none mt-1 whitespace-nowrap";
+        progressTextSize = "text-[6px] min-[375px]:text-[7px] sm:text-[8px] md:text-[9px] leading-none";
+        countsTextSize = "text-xs min-[375px]:text-sm sm:text-base md:text-lg font-black leading-none mt-1";
+        pctTextSize = "text-[7px] min-[375px]:text-[8px] sm:text-[9px] font-black px-1 min-[375px]:px-1.5 py-0.5 rounded-md border mt-1 shadow-sm leading-none";
+        remainTextSize = "text-[6px] min-[375px]:text-[7px] sm:text-[8px] md:text-[9px] italic font-bold leading-none mt-1 whitespace-nowrap";
         remainingLabel = `${remainingCount} left`;
     }
     
@@ -16145,6 +16156,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!document.getElementById('app-wrapper')) return;
     if (AppState.isAppInitialized) return;
     AppState.isAppInitialized = true;
+
+    // Dismiss tooltips on document click
+    document.addEventListener('click', () => {
+        if (window.hideChapterTooltip) window.hideChapterTooltip();
+        if (window.hideSubjectChapterTooltip) window.hideSubjectChapterTooltip();
+        if (window.hideSpectraChapterTooltip) window.hideSpectraChapterTooltip();
+    });
 
     // Initialize Focus Timer Service
     if (window.TimerService) {
