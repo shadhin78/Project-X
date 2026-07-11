@@ -1057,6 +1057,31 @@
                             </div>
                         </div>
 
+                        <!-- Subject Focus Target Section -->
+                        <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 p-5 rounded-3xl shadow-sm space-y-4">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">
+                                        Subject Target Tracker</h4>
+                                    <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                                        Set study target and track today's progress
+                                    </p>
+                                </div>
+                                <button onclick="window.openSubjectTargetModal('')" id="timer-btn-add-subject-target"
+                                    class="p-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl hover:scale-105 active:scale-95 transition-all shadow-sm border border-blue-100 dark:border-blue-900/30 font-black text-xs"
+                                    title="Add Subject Target">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- List of active subject targets -->
+                            <div class="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1" id="subject-targets-list">
+                                <!-- Dynamic subject targets list populated here -->
+                            </div>
+                        </div>
+
                         <!-- Time Allocation per Subject -->
                         <div
                             class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 p-5 rounded-3xl shadow-sm space-y-4">
@@ -3905,6 +3930,76 @@
             </div>
         </div>
 
+        <!-- Subject Target Modal -->
+        <div id="subject-target-modal"
+            class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
+            <div id="stm-target-backdrop"
+                class="absolute inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
+                onclick="window.closeSubjectTargetModal()"></div>
+            <div id="stm-target-content"
+                class="relative bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                <div
+                    class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 dark:text-slate-100" id="subject-target-modal-title">Set Subject Target</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Define study target for subject</p>
+                        </div>
+                    </div>
+                    <button onclick="window.closeSubjectTargetModal()"
+                        class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4 my-2">
+                    <!-- Subject Selector -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject:</label>
+                        <select id="modal-target-subject"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full cursor-pointer shadow-sm">
+                            <option value="General Study">General Study</option>
+                        </select>
+                    </div>
+
+                    <!-- Hours & Minutes Inputs -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Hours (HH):</label>
+                            <input type="number" id="modal-target-hours" min="0" max="99" value="1"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Minutes (MM):</label>
+                            <input type="number" id="modal-target-minutes" min="0" max="59" value="0"
+                                class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                    <button onclick="window.closeSubjectTargetModal()"
+                        class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">
+                        Cancel
+                    </button>
+                    <button onclick="window.submitSubjectTarget()"
+                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black uppercase tracking-wider text-white active:scale-95 transition-all shadow-md">
+                        Save Target
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Add Timer Session Modal (Manual Entry) -->
         <div id="add-timer-session-modal"
             class="fixed inset-0 z-[80] hidden flex items-center justify-center pt-10 pb-10 transition-all duration-300">
@@ -4092,24 +4187,52 @@
                 </div>
 
                 <div class="space-y-4 my-2 overflow-y-auto max-h-[70vh] pr-1">
+                    <!-- Timeframe Selector -->
+                    <div class="flex items-center justify-between px-1 shrink-0">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Range</span>
+                        <div class="flex bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/40 dark:border-slate-700/40">
+                            <button onclick="window.setTimerAnalyticsRange(7)" id="tar-btn-7" 
+                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">7 Days</button>
+                            <button onclick="window.setTimerAnalyticsRange(30)" id="tar-btn-30" 
+                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">30 Days</button>
+                            <button onclick="window.setTimerAnalyticsRange(180)" id="tar-btn-180" 
+                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30">6 Months</button>
+                        </div>
+                    </div>
+
                     <!-- Line Chart Container -->
                     <div class="relative w-full h-[320px] bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-850">
                         <canvas id="timerAnalyticsChart"></canvas>
                     </div>
 
-                    <!-- Daily Focus Target Config -->
-                    <div class="flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-150/50 dark:border-slate-750">
-                        <div class="flex-1">
-                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Daily Focus Target (Hours)</label>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Define your daily goal to plot on the chart</p>
+                    <!-- Config Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Daily Focus Target Config -->
+                        <div class="flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                            <div class="flex-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Daily Focus Target (Hours)</label>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Define goal to plot on chart</p>
+                            </div>
+                            <div class="shrink-0 w-24">
+                                <input type="number" id="timer-target-input" value="4" min="0.1" step="0.1"
+                                    onchange="window.updateDailyFocusHoursTarget(this.value)"
+                                    class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5 text-center text-sm font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-inner dark:text-white" />
+                            </div>
                         </div>
-                        <div class="shrink-0 w-24">
-                            <input type="number" id="timer-target-input" value="4" min="0.1" step="0.1"
-                                onchange="window.updateDailyFocusHoursTarget(this.value)"
-                                class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2.5 text-center text-sm font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-inner dark:text-white" />
+
+                        <!-- Average Focus Hours Display -->
+                        <div class="flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                            <div class="flex-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Daily Focus</label>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">For the selected range</p>
+                            </div>
+                            <div class="shrink-0 w-24 text-center">
+                                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl py-2.5 px-3 shadow-inner w-full flex justify-center">
+                                    <span id="timer-average-focus" class="text-sm font-black text-emerald-600 dark:text-emerald-400">0.00h</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
             </div>
         </div>
 

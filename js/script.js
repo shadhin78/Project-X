@@ -317,6 +317,9 @@ window.migrateLegacyData = function () {
     if (window.dailyFocusHoursTarget === undefined || window.dailyFocusHoursTarget === null) {
         window.dailyFocusHoursTarget = 4.0;
     }
+    if (!window.dailyFocusHoursTargetHistory) {
+        window.dailyFocusHoursTargetHistory = [];
+    }
     if (!window.activeTimerState || typeof window.activeTimerState !== 'object') {
         window.activeTimerState = {
             isRunning: false,
@@ -1320,6 +1323,7 @@ window.updateActiveScheduleSlot = function () {
 
     let timerElapsedMs = 0;
     let isTimerActive = false;
+    let isTimerRunning = false;
     let timerSeconds = 0;
     let timerProgressPercent = 0;
     let timerSubject = 'General Study';
@@ -1328,9 +1332,24 @@ window.updateActiveScheduleSlot = function () {
     let timerColor = '#2563eb';
 
     if (window.activeTimerState) {
-        let elapsedMs = window.activeTimerState.elapsedBeforeStart || 0;
-        if (window.activeTimerState.isRunning && window.activeTimerState.startTime) {
-            let startTimeMs = window.activeTimerState.startTime;
+        let displayState = window.activeTimerState;
+        let displayMode = window.activeTimerState.mode || 'stopwatch';
+
+        if (window.activeTimerState.timerStates) {
+            const runningMode = Object.keys(window.activeTimerState.timerStates).find(
+                m => window.activeTimerState.timerStates[m].isRunning
+            );
+            if (runningMode) {
+                displayMode = runningMode;
+                displayState = window.activeTimerState.timerStates[runningMode];
+            }
+        }
+
+        isTimerRunning = displayState.isRunning || false;
+
+        let elapsedMs = displayState.elapsedBeforeStart || 0;
+        if (displayState.isRunning && displayState.startTime) {
+            let startTimeMs = displayState.startTime;
             if (startTimeMs && typeof startTimeMs.toDate === 'function') {
                 startTimeMs = startTimeMs.toDate().getTime();
             } else if (startTimeMs instanceof Date) {
@@ -1344,21 +1363,21 @@ window.updateActiveScheduleSlot = function () {
             elapsedMs += (serverTime - startTimeMs);
         }
         timerElapsedMs = elapsedMs;
-        isTimerActive = window.activeTimerState.isRunning || elapsedMs > 0;
+        isTimerActive = displayState.isRunning || elapsedMs > 0;
 
-        timerSubject = window.activeTimerState.selectedSubject || 'General Study';
-        timerModeLabel = window.activeTimerState.mode.toUpperCase();
+        timerSubject = displayState.selectedSubject || 'General Study';
+        timerModeLabel = displayMode.toUpperCase();
         timerColor = window.getSubjectColor ? window.getSubjectColor(timerSubject) : '#2563eb';
-        timerStatusText = window.activeTimerState.isRunning ? 'FOCUSING' : (elapsedMs > 0 ? 'PAUSED' : 'READY');
+        timerStatusText = displayState.isRunning ? 'FOCUSING' : (elapsedMs > 0 ? 'PAUSED' : 'READY');
 
-        if (window.activeTimerState.mode === 'stopwatch') {
+        if (displayMode === 'stopwatch') {
             timerSeconds = Math.floor(elapsedMs / 1000);
             timerProgressPercent = Math.round(((timerSeconds % 60) / 60) * 100);
         } else {
-            const targetMs = (window.activeTimerState.targetDuration || 0) * 1000;
+            const targetMs = (displayState.targetDuration || 0) * 1000;
             const remainingMs = Math.max(0, targetMs - elapsedMs);
-            timerSeconds = window.activeTimerState.isRunning ? Math.ceil(remainingMs / 1000) : Math.floor(remainingMs / 1000);
-            const target = window.activeTimerState.targetDuration || 1;
+            timerSeconds = displayState.isRunning ? Math.ceil(remainingMs / 1000) : Math.floor(remainingMs / 1000);
+            const target = displayState.targetDuration || 1;
             const elapsedSec = Math.floor(elapsedMs / 1000);
             timerProgressPercent = Math.min(100, Math.round((elapsedSec / target) * 100));
         }
@@ -1558,7 +1577,7 @@ window.updateActiveScheduleSlot = function () {
         const secs = timerSeconds % 60;
         const clockText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-        const statusDot = window.activeTimerState.isRunning ? `
+        const statusDot = isTimerRunning ? `
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 ` : `
@@ -1576,31 +1595,31 @@ window.updateActiveScheduleSlot = function () {
                             </span>
                         </div>
                         
-                        <div class="flex-1 p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all active:scale-98 rounded-b-[22px] rounded-t-none"
+                        <div id="dash-timer-card-body" class="flex-1 p-4 relative overflow-hidden flex flex-col justify-between group cursor-pointer transition-all active:scale-98 rounded-b-[22px] rounded-t-none"
                              style="background-color: ${timerColor}cc;"
                              onclick="window.switchPage('timer')">
                             
                             <div class="flex flex-col gap-1.5 min-w-0">
                                 <div class="flex justify-between items-center gap-2">
-                                    <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded inline-block self-start leading-none max-w-full truncate"
+                                    <span id="dash-timer-mode-label" class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded inline-block self-start leading-none max-w-full truncate"
                                           style="border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.12);">${timerModeLabel}</span>
-                                    <span class="text-[9px] font-black uppercase text-white/95 tracking-wider bg-white/15 px-2 py-0.5 rounded flex items-center gap-0.5">${timerStatusText}</span>
+                                    <span id="dash-timer-status-text" class="text-[9px] font-black uppercase text-white/95 tracking-wider bg-white/15 px-2 py-0.5 rounded flex items-center gap-0.5">${timerStatusText}</span>
                                 </div>
-                                <h4 class="text-sm font-black text-white leading-snug tracking-tight truncate mt-1" title="${timerSubject}">${timerSubject}</h4>
+                                <h4 id="dash-timer-subject-text" class="text-sm font-black text-white leading-snug tracking-tight truncate mt-1" title="${timerSubject}">${timerSubject}</h4>
                             </div>
                             
                             <div class="mt-2 space-y-2">
                                 <div class="text-center">
-                                    <span class="text-2xl font-black font-mono tracking-widest text-white tabular-nums" style="text-shadow: 0 2px 8px rgba(0,0,0,0.35);">${clockText}</span>
+                                    <span id="dash-timer-clock-text" class="text-2xl font-black font-mono tracking-widest text-white tabular-nums" style="text-shadow: 0 2px 8px rgba(0,0,0,0.35);">${clockText}</span>
                                 </div>
                                 <div class="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
-                                    <div class="h-full rounded-full bg-white/70 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
+                                    <div id="dash-timer-progress-bar" class="h-full rounded-full bg-white/70 transition-all duration-500" style="width: ${timerProgressPercent}%;"></div>
                                 </div>
                                 <div class="flex items-center justify-between gap-2 shrink-0 mt-1">
                                     <div class="flex items-center gap-1.5">
-                                        <button onclick="event.stopPropagation(); window.toggleTimerClick();" 
+                                        <button id="dash-timer-btn-toggle" onclick="event.stopPropagation(); window.toggleTimerClick();" 
                                                 class="px-2.5 py-1 bg-white/20 hover:bg-white/35 text-white font-black text-[9px] uppercase tracking-widest rounded border border-white/25 active:scale-95 transition-all">
-                                            ${window.activeTimerState.isRunning ? 'PAUSE' : 'START'}
+                                            ${isTimerRunning ? 'PAUSE' : 'START'}
                                         </button>
                                         <button onclick="event.stopPropagation(); window.resetTimerClick();" 
                                                 class="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white/90 font-black text-[9px] uppercase tracking-widest rounded border border-white/10 active:scale-95 transition-all">
@@ -16149,6 +16168,12 @@ window.switchPage = function (pageId) {
         }, 50);
     } else if (pageId === 'schedule') {
         window.renderSchedulePage();
+    }
+
+    if (pageId === 'dashboard') {
+        if (typeof renderUI === 'function') {
+            renderUI();
+        }
     }
 };
 

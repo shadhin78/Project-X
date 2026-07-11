@@ -18,6 +18,7 @@ window.AppState = {
     timerLogs: [],
     dailyFocusHoursTarget: 4.0,
     dailyFocusHoursTargetDate: "",
+    dailyFocusHoursTargetHistory: [],
     activeTimerState: {
         isRunning: false,
         mode: 'stopwatch',
@@ -38,6 +39,7 @@ window.AppState = {
     isSaving: false,
     needsSave: false,
     activeRoutineSet: 1,
+    subjectFocusTargets: {},
 
     mainChartPrograms: null,
     monthlyChartActions: null,
@@ -107,7 +109,8 @@ window.AppState = {
 
 // Define transparent properties on window to alias AppState keys
 const stateKeys = [
-    'appState', 'tracks', 'timerLogs', 'dailyFocusHoursTarget', 'dailyFocusHoursTargetDate', 'activeTimerState', 'timerInterval', 'db',
+    'appState', 'tracks', 'timerLogs', 'dailyFocusHoursTarget', 'dailyFocusHoursTargetDate', 'dailyFocusHoursTargetHistory', 'activeTimerState', 'timerInterval', 'db',
+    'subjectFocusTargets',
     'isSyncing', 'isAppInitialized', 'tasks', 'progressChart', 'masterLineChart',
     'localDataJSON', 'saveTimeout', 'isSaving', 'needsSave', 'activeRoutineSet',
     'mainChartPrograms', 'monthlyChartActions', 'yearlyChartActions',

@@ -216,6 +216,8 @@ window.FirebaseService = {
                 timerLogs: window.timerLogs || [],
                 dailyFocusHoursTarget: window.dailyFocusHoursTarget || 4.0,
                 dailyFocusHoursTargetDate: window.dailyFocusHoursTargetDate || "",
+                dailyFocusHoursTargetHistory: window.dailyFocusHoursTargetHistory || [],
+                subjectFocusTargets: window.subjectFocusTargets || {},
                 dashboardConfig: window.dashboardConfig,
                 weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
                 dailyTargetsDatabase: window.dailyTargetsDatabase || {},
@@ -322,6 +324,8 @@ window.FirebaseService = {
                 if (data.timerLogs) window.timerLogs = data.timerLogs;
                 if (data.dailyFocusHoursTarget !== undefined) window.dailyFocusHoursTarget = data.dailyFocusHoursTarget;
                 if (data.dailyFocusHoursTargetDate !== undefined) window.dailyFocusHoursTargetDate = data.dailyFocusHoursTargetDate;
+                if (data.dailyFocusHoursTargetHistory !== undefined) window.dailyFocusHoursTargetHistory = data.dailyFocusHoursTargetHistory;
+                if (data.subjectFocusTargets) window.subjectFocusTargets = data.subjectFocusTargets;
                 if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
                 if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
                 if (data.weeklyTargetsDatabase) window.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
