@@ -283,46 +283,62 @@
                 doneSeconds += Math.floor(activeElapsedMs / 1000);
             }
 
-            // Format Done
+            // Format Done using compact 00h 00m form to prevent mobile squishing
             const doneHrs = Math.floor(doneSeconds / 3600);
             const doneMins = Math.floor((doneSeconds % 3600) / 60);
-            const doneText = `${String(doneHrs).padStart(2, '0')}hr : ${String(doneMins).padStart(2, '0')} min`;
+            const doneText = `${String(doneHrs).padStart(2, '0')}h ${String(doneMins).padStart(2, '0')}m`;
 
             // Calculate Remain
             const targetSeconds = (targetHours * 3600) + (targetMinutes * 60);
             const remainSeconds = Math.max(0, targetSeconds - doneSeconds);
             const remainHrs = Math.floor(remainSeconds / 3600);
             const remainMins = Math.floor((remainSeconds % 3600) / 60);
-            const remainText = `${String(remainHrs).padStart(2, '0')}hr : ${String(remainMins).padStart(2, '0')} min`;
+            const remainText = `${String(remainHrs).padStart(2, '0')}h ${String(remainMins).padStart(2, '0')}m`;
 
-            const remainColorClass = (targetSeconds > 0 && remainSeconds === 0) ? 'text-emerald-500' : 'text-indigo-500';
-            const targetText = `${String(targetHours).padStart(2, '0')}hr : ${String(targetMinutes).padStart(2, '0')} min`;
+            const remainColorClass = (targetSeconds > 0 && remainSeconds === 0) ? 'text-emerald-500' : 'text-indigo-500 dark:text-indigo-400';
+            const targetText = `${String(targetHours).padStart(2, '0')}h ${String(targetMinutes).padStart(2, '0')}m`;
+
+            // Calculate target completion percentage
+            const progressPercent = targetSeconds > 0 ? Math.min(100, Math.round((doneSeconds / targetSeconds) * 100)) : 0;
+
+            // Resolve subject theme color for left border and progress indicators
+            const subjColor = (typeof window.getSubjectColor === 'function') ? window.getSubjectColor(subject) : '#6366f1';
 
             html += `
-                <div class="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl flex flex-col gap-2.5">
-                    <div class="flex justify-between items-center">
-                        <span class="font-black text-xs text-slate-800 dark:text-white truncate max-w-[70%]" title="${subject}">${subject}</span>
-                        <div class="flex items-center justify-center">
+                <div class="p-3.5 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl flex flex-col gap-2.5 shadow-sm relative overflow-hidden" style="border-left: 4px solid ${subjColor};">
+                    <div class="flex justify-between items-center gap-2">
+                        <span class="font-black text-xs text-slate-800 dark:text-white truncate" title="${subject}">${subject}</span>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <!-- Progress Badge -->
+                            <span class="text-[9px] font-black font-mono px-1.5 py-0.5 rounded-full ${progressPercent >= 100 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${progressPercent}%</span>
+                            
                             <!-- Edit Button -->
-                            <button onclick="window.openSubjectTargetModal('${subject.replace(/'/g, "\\'")}')" class="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-95 transition-all" title="Edit Target">
+                            <button onclick="window.openSubjectTargetModal('${subject.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-850 active:scale-95 transition-all" title="Edit Target">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                 </svg>
                             </button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2 text-center">
-                        <div class="flex flex-col bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 rounded-xl p-1.5">
-                            <span class="text-[8px] font-bold uppercase tracking-widest text-slate-400">Done</span>
-                            <span class="text-[10px] font-black text-emerald-500 font-mono whitespace-nowrap">${doneText}</span>
+                    
+                    <!-- Premium Progress Bar -->
+                    <div class="w-full bg-slate-200/50 dark:bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500" style="width: ${progressPercent}%; background-color: ${progressPercent >= 100 ? '#10b981' : subjColor};"></div>
+                    </div>
+
+                    <!-- Details Grid -->
+                    <div class="grid grid-cols-3 gap-1.5 text-center mt-0.5">
+                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850/80 rounded-xl py-1 px-0.5">
+                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Done</span>
+                            <span class="text-[9.5px] font-black text-emerald-500 font-mono whitespace-nowrap">${doneText}</span>
                         </div>
-                        <div class="flex flex-col bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 rounded-xl p-1.5">
-                            <span class="text-[8px] font-bold uppercase tracking-widest text-slate-400">Remain</span>
-                            <span class="text-[10px] font-black ${remainColorClass} font-mono whitespace-nowrap">${remainText}</span>
+                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850/80 rounded-xl py-1 px-0.5">
+                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Remain</span>
+                            <span class="text-[9.5px] font-black ${remainColorClass} font-mono whitespace-nowrap">${remainText}</span>
                         </div>
-                        <div class="flex flex-col bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 rounded-xl p-1.5">
-                            <span class="text-[8px] font-bold uppercase tracking-widest text-slate-400">Target</span>
-                            <span class="text-[10px] font-black text-slate-700 dark:text-slate-350 font-mono whitespace-nowrap">${targetText}</span>
+                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850/80 rounded-xl py-1 px-0.5">
+                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Target</span>
+                            <span class="text-[9.5px] font-black text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">${targetText}</span>
                         </div>
                     </div>
                 </div>
@@ -1033,15 +1049,21 @@
 
         const sorted = [...window.dailyFocusHoursTargetHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
         
-        let activeTarget = window.dailyFocusHoursTarget || 4.0;
-        if (sorted.length > 0) {
-            activeTarget = sorted[0].target;
+        const queryDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+        const queryTime = queryDate.getTime();
+
+        const firstEntryDate = new Date(sorted[0].date);
+        const firstEntryStartOfDay = new Date(firstEntryDate.getFullYear(), firstEntryDate.getMonth(), firstEntryDate.getDate()).getTime();
+        
+        if (queryTime < firstEntryStartOfDay) {
+            return 0;
         }
 
-        const queryTime = dateObj.getTime();
+        let activeTarget = sorted[0].target;
         for (let i = 0; i < sorted.length; i++) {
-            const recordTime = new Date(sorted[i].date).getTime();
-            if (queryTime >= recordTime) {
+            const entryDate = new Date(sorted[i].date);
+            const entryStartOfDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate()).getTime();
+            if (queryTime >= entryStartOfDay) {
                 activeTarget = sorted[i].target;
             }
         }
@@ -1192,8 +1214,11 @@
                         borderDash: [6, 4],
                         fill: false,
                         tension: 0,
-                        pointRadius: 0,
-                        pointHoverRadius: 0
+                        pointRadius: range > 30 ? 0 : 3,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#f43f5e',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2
                     }
                 ]
             },
