@@ -302,17 +302,11 @@
                 <div class="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl flex flex-col gap-2.5">
                     <div class="flex justify-between items-center">
                         <span class="font-black text-xs text-slate-800 dark:text-white truncate max-w-[70%]" title="${subject}">${subject}</span>
-                        <div class="flex flex-col items-center justify-center gap-1">
+                        <div class="flex items-center justify-center">
                             <!-- Edit Button -->
                             <button onclick="window.openSubjectTargetModal('${subject.replace(/'/g, "\\'")}')" class="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-95 transition-all" title="Edit Target">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                            </button>
-                            <!-- Delete Button -->
-                            <button onclick="window.deleteSubjectTarget('${subject.replace(/'/g, "\\'")}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-95 transition-all" title="Delete Target">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </button>
                         </div>
@@ -380,6 +374,20 @@
         if (hrsInput) hrsInput.value = hours;
         if (minsInput) minsInput.value = minutes;
 
+        // Toggle Delete button based on Edit/Add mode
+        const deleteBtn = document.getElementById('modal-target-delete-btn');
+        if (deleteBtn) {
+            if (prefilledSubject) {
+                deleteBtn.classList.remove('hidden');
+                deleteBtn.onclick = function () {
+                    window.deleteSubjectTarget(prefilledSubject);
+                };
+            } else {
+                deleteBtn.classList.add('hidden');
+                deleteBtn.onclick = null;
+            }
+        }
+
         // Animate open
         modal.classList.remove('hidden'); void modal.offsetWidth;
         backdrop.classList.remove('opacity-0'); backdrop.classList.add('opacity-100');
@@ -440,6 +448,9 @@
                     }
                     updateSubjectTargetUI();
                     showToast(`Target for ${subject} deleted.`, "success");
+                    if (typeof window.closeSubjectTargetModal === 'function') {
+                        window.closeSubjectTargetModal();
+                    }
                 }
             }
         );
