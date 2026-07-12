@@ -21,11 +21,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <link rel="stylesheet" href="css/style.css?v=1.0.1">
-    <script src="js/utils.js"></script>
-    <script src="js/state.js"></script>
-    <script src="js/firebase.js"></script>
-    <script src="js/timer.js"></script>
-    <script src="js/script.js?v=1.0.1"></script>
+    <script src="js/utils.js?v=1.0.8"></script>
+    <script src="js/state.js?v=1.0.8"></script>
+    <script src="js/firebase.js?v=1.0.8"></script>
+    <script src="js/timer.js?v=1.0.8"></script>
+    <script src="js/script.js?v=1.0.8"></script>
 
 </head>
 
@@ -1272,7 +1272,7 @@
                                         class="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">
                                         Subject Target Tracker</h4>
                                     <p class="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                                        Set study target and track today's progress
+                                        Set study target and track progress
                                     </p>
                                 </div>
                                 <button onclick="window.openSubjectTargetModal('')" id="timer-btn-add-subject-target"
@@ -1344,7 +1344,7 @@
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr class="text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-3">
-                                    <th class="py-3 font-black uppercase tracking-widest">Date</th>
+                                    <th class="py-3 font-black uppercase tracking-widest">Date & Time</th>
                                     <th class="py-3 font-black uppercase tracking-widest">Subject</th>
                                     <th class="py-3 font-black uppercase tracking-widest">Duration</th>
                                     <th class="py-3 font-black uppercase tracking-widest text-center">Mode</th>
@@ -4242,6 +4242,13 @@
                         </select>
                     </div>
 
+                    <!-- Start Date -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Start Date:</label>
+                        <input type="date" id="modal-target-start-date"
+                            class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full cursor-pointer shadow-sm" />
+                    </div>
+
                     <!-- Hours & Minutes Inputs -->
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-2">
@@ -4546,7 +4553,6 @@
                         <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Focus Target</label>
-                                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Goal for chart</p>
                             </div>
                             <div class="shrink-0 w-20">
                                 <input type="number" id="timer-target-input" value="4" min="0.1" step="0.1"
@@ -4559,7 +4565,6 @@
                         <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Focus</label>
-                                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Selected range</p>
                             </div>
                             <div class="shrink-0 w-20 text-center">
                                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-1 shadow-inner w-full flex justify-center">
@@ -4571,40 +4576,51 @@
 
                         <!-- Peak Day Display (Highest) -->
                         <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
-                            <div class="flex-1">
+                            <div class="flex-1 flex flex-col">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Highest Focus</label>
-                                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Peak day in range</p>
+                                <span id="timer-peak-date"
+                                    class="text-[8px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400 mt-0.5 leading-none">No Data</span>
                             </div>
-                            <div class="shrink-0 w-24 text-right">
-                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-1.5 px-2 shadow-inner inline-flex flex-col items-center justify-center w-full">
+                            <div class="shrink-0 w-24 text-center">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
                                     <span id="timer-peak-value"
-                                        class="text-base md:text-lg font-black text-rose-600 dark:text-rose-400 leading-tight">0.00h</span>
-                                    <span id="timer-peak-date"
-                                        class="text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-0.5 leading-none">No Data</span>
+                                        class="text-base md:text-lg font-black text-rose-600 dark:text-rose-400">0.00h</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Total Focus Hours -->
-                        <div class="sm:col-span-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Focus</label>
-                                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Sum of focus hours</p>
                             </div>
                             <div class="shrink-0 w-24 text-center">
                                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
                                     <span id="timer-total-focus"
-                                        class="text-base md:text-lg font-black text-indigo-600 dark:text-indigo-400">0.00h</span>
+                                        class="text-base md:text-lg font-black text-indigo-600 dark:text-indigo-400">0 min</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Average Focus Target -->
+                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                            <div class="flex-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Target</label>
+                            </div>
+                            <div class="shrink-0 w-24 text-center">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                    <span id="timer-average-target"
+                                        class="text-base md:text-lg font-black text-rose-500 dark:text-rose-400">0 min</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Goal Met / Success Rate -->
-                        <div class="sm:col-span-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Success Rate</label>
-                                <p id="timer-success-rate-subtitle"
-                                    class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Days target met</p>
+                                <span id="timer-success-rate-subtitle"
+                                    class="text-[9px] font-bold text-slate-400 dark:text-slate-500 block mt-0.5">0 of 0 days</span>
                             </div>
                             <div class="shrink-0 w-24 text-center">
                                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">

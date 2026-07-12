@@ -6,6 +6,20 @@
 (function () {
     // --- PRIVATE UTILITIES & HELPERS ---
 
+    function formatHoursToHrMin(hoursDecimal) {
+        if (isNaN(hoursDecimal) || hoursDecimal <= 0) return "0 min";
+        const totalMinutes = Math.round(hoursDecimal * 60);
+        const hrs = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        if (hrs > 0) {
+            if (mins > 0) {
+                return `${hrs} hr ${mins} min`;
+            }
+            return `${hrs} hr`;
+        }
+        return `${mins} min`;
+    }
+
     function parseStartTime(startTime) {
         if (!startTime) return 0;
         if (typeof startTime.toDate === 'function') {
@@ -256,20 +270,24 @@
         }
 
         let html = '';
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
 
         Object.entries(window.subjectFocusTargets).forEach(([subject, target]) => {
             const targetHours = parseInt(target.hours, 10) || 0;
             const targetMinutes = parseInt(target.minutes, 10) || 0;
 
-            // Calculate Today's Done time for subject (in seconds)
+            // Calculate Done time for subject (in seconds) - only logs completed on or after target creation date
             let doneSeconds = 0;
+            const targetCreatedAt = target.createdAt ? new Date(target.createdAt) : null;
+            if (targetCreatedAt) {
+                targetCreatedAt.setHours(0, 0, 0, 0);
+            }
             if (AppState.timerLogs) {
                 AppState.timerLogs.forEach(log => {
-                    const logDate = new Date(log.date);
-                    if (logDate >= todayStart && (log.subject || 'General Study') === subject) {
-                        doneSeconds += parseInt(log.duration || 0, 10);
+                    if ((log.subject || 'General Study') === subject) {
+                        const logDate = new Date(log.date);
+                        if (!targetCreatedAt || logDate >= targetCreatedAt) {
+                            doneSeconds += parseInt(log.duration || 0, 10);
+                        }
                     }
                 });
             }
@@ -304,10 +322,21 @@
             // Resolve subject theme color for left border and progress indicators
             const subjColor = (typeof window.getSubjectColor === 'function') ? window.getSubjectColor(subject) : '#6366f1';
 
+            let startDateText = '';
+            if (target.createdAt) {
+                const sDate = new Date(target.createdAt);
+                startDateText = sDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            } else {
+                startDateText = 'All-time';
+            }
+
             html += `
                 <div class="p-3.5 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl flex flex-col gap-2.5 shadow-sm relative overflow-hidden" style="border-left: 4px solid ${subjColor};">
                     <div class="flex justify-between items-center gap-2">
-                        <span class="font-black text-xs text-slate-800 dark:text-white truncate" title="${subject}">${subject}</span>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-black text-xs text-slate-800 dark:text-white truncate" title="${subject}">${subject}</span>
+                            <span class="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-0.5">Start: ${startDateText}</span>
+                        </div>
                         <div class="flex items-center gap-1.5 shrink-0">
                             <!-- Progress Badge -->
                             <span class="text-[9px] font-black font-mono px-1.5 py-0.5 rounded-full ${progressPercent >= 100 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${progressPercent}%</span>
@@ -378,17 +407,29 @@
         // Set inputs
         let hours = 1;
         let minutes = 0;
+        let initialDate = new Date();
         const targetSubject = prefilledSubject || (select ? select.value : 'General Study');
         if (window.subjectFocusTargets && window.subjectFocusTargets[targetSubject]) {
             const tgt = window.subjectFocusTargets[targetSubject];
             hours = tgt.hours !== undefined ? tgt.hours : 1;
             minutes = tgt.minutes !== undefined ? tgt.minutes : 0;
+            if (tgt.createdAt) {
+                initialDate = new Date(tgt.createdAt);
+            }
         }
 
         const hrsInput = document.getElementById('modal-target-hours');
         const minsInput = document.getElementById('modal-target-minutes');
         if (hrsInput) hrsInput.value = hours;
         if (minsInput) minsInput.value = minutes;
+
+        const dateInput = document.getElementById('modal-target-start-date');
+        if (dateInput) {
+            const yyyy = initialDate.getFullYear();
+            const mm = String(initialDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(initialDate.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
 
         // Toggle Delete button based on Edit/Add mode
         const deleteBtn = document.getElementById('modal-target-delete-btn');
@@ -442,7 +483,18 @@
             window.subjectFocusTargets = {};
         }
 
-        window.subjectFocusTargets[subject] = { hours, minutes };
+        const dateInput = document.getElementById('modal-target-start-date');
+        let createdAt;
+        if (dateInput && dateInput.value) {
+            const parts = dateInput.value.split('-');
+            const selectedDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 0, 0, 0, 0);
+            createdAt = selectedDate.toISOString();
+        } else {
+            const existingTarget = window.subjectFocusTargets[subject];
+            createdAt = (existingTarget && existingTarget.createdAt) ? existingTarget.createdAt : new Date().toISOString();
+        }
+
+        window.subjectFocusTargets[subject] = { hours, minutes, createdAt };
 
         if (window.FirebaseService) {
             window.FirebaseService.saveToCloud(true);
@@ -1017,9 +1069,10 @@
         );
     };
 
-    window.timerAnalyticsRange = 180; // default to 6 Months
-    window.timerAnalyticsChartStyle = 'combo'; // default to combo
-    window.timerAnalyticsGrouping = 'daily'; // default to daily
+    const cachedRange = safeStorage.getItem('timerAnalyticsRange');
+    window.timerAnalyticsRange = cachedRange ? parseInt(cachedRange, 10) : 180;
+    window.timerAnalyticsChartStyle = safeStorage.getItem('timerAnalyticsChartStyle') || 'combo';
+    window.timerAnalyticsGrouping = safeStorage.getItem('timerAnalyticsGrouping') || 'daily';
 
     window.updateTimerAnalyticsControls = function () {
         const range = window.timerAnalyticsRange || 180;
@@ -1168,6 +1221,7 @@
 
     window.setTimerAnalyticsRange = function (days) {
         window.timerAnalyticsRange = days;
+        safeStorage.setItem('timerAnalyticsRange', days);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
     };
@@ -1178,12 +1232,14 @@
         if (range === 30 && grouping === 'monthly') return;
 
         window.timerAnalyticsGrouping = grouping;
+        safeStorage.setItem('timerAnalyticsGrouping', grouping);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
     };
 
     window.setTimerAnalyticsChartStyle = function (style) {
         window.timerAnalyticsChartStyle = style;
+        safeStorage.setItem('timerAnalyticsChartStyle', style);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
     };
@@ -1239,10 +1295,12 @@
         // 2. Compute Analytics Statistics (overall for the selected range)
         const sumActual = dailyPoints.reduce((acc, p) => acc + p.actual, 0);
         const avgActual = parseFloat((sumActual / range).toFixed(2));
+        const sumTarget = dailyPoints.reduce((acc, p) => acc + p.target, 0);
+        const avgTarget = parseFloat((sumTarget / range).toFixed(2));
 
-        // Target Met Success Rate
+        // Target Met Success Rate (Calculated from average actual focus vs average target, uncapped, defaulting to 0% if target is 0)
+        const successRate = avgTarget > 0 ? Math.round((avgActual / avgTarget) * 100) : 0;
         const successDays = dailyPoints.filter(p => p.actual >= p.target).length;
-        const successRate = range > 0 ? Math.round((successDays / range) * 100) : 0;
 
         // Peak Day
         let peakDay = { actual: 0, date: null };
@@ -1255,12 +1313,17 @@
         // Update Stats UI
         const avgDisplay = document.getElementById('timer-average-focus');
         if (avgDisplay) {
-            avgDisplay.innerText = `${avgActual.toFixed(2)}h`;
+            avgDisplay.innerText = formatHoursToHrMin(avgActual);
+        }
+
+        const avgTargetDisplay = document.getElementById('timer-average-target');
+        if (avgTargetDisplay) {
+            avgTargetDisplay.innerText = formatHoursToHrMin(avgTarget);
         }
 
         const totalDisplay = document.getElementById('timer-total-focus');
         if (totalDisplay) {
-            totalDisplay.innerText = `${sumActual.toFixed(2)}h`;
+            totalDisplay.innerText = formatHoursToHrMin(sumActual);
         }
 
         const successDisplay = document.getElementById('timer-success-rate');
@@ -1278,17 +1341,17 @@
 
         const successSubtitle = document.getElementById('timer-success-rate-subtitle');
         if (successSubtitle) {
-            successSubtitle.innerText = `${successDays} of ${range} days met target`;
+            successSubtitle.innerText = `${successDays} of ${range} days`;
         }
 
         const peakValueDisplay = document.getElementById('timer-peak-value');
         const peakDateDisplay = document.getElementById('timer-peak-date');
         if (peakValueDisplay && peakDateDisplay) {
             if (peakDay.actual > 0 && peakDay.date) {
-                peakValueDisplay.innerText = `${peakDay.actual.toFixed(2)}h`;
+                peakValueDisplay.innerText = formatHoursToHrMin(peakDay.actual);
                 peakDateDisplay.innerText = peakDay.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
             } else {
-                peakValueDisplay.innerText = "0.00h";
+                peakValueDisplay.innerText = "0 min";
                 peakDateDisplay.innerText = "No Data";
             }
         }
@@ -1299,34 +1362,42 @@
         let chartTargets = [];
 
         if (grouping === 'weekly') {
-            // Group by 7-day windows starting from the most recent day backwards
-            const weeks = [];
-            const revPoints = [...dailyPoints].reverse();
-            let currentWeek = [];
-
-            for (let i = 0; i < revPoints.length; i++) {
-                currentWeek.push(revPoints[i]);
-                if (currentWeek.length === 7 || i === revPoints.length - 1) {
-                    weeks.push(currentWeek);
-                    currentWeek = [];
+            // Group by calendar weeks starting on Saturdays
+            const weeklyGroups = {};
+            dailyPoints.forEach(p => {
+                const d = new Date(p.date);
+                const dayOfWeek = d.getDay(); // 0: Sun, ..., 6: Sat
+                const diffToSat = (dayOfWeek + 1) % 7;
+                
+                const satDate = new Date(d);
+                satDate.setDate(d.getDate() - diffToSat);
+                satDate.setHours(0, 0, 0, 0);
+                
+                const key = `${satDate.getFullYear()}-${String(satDate.getMonth() + 1).padStart(2, '0')}-${String(satDate.getDate()).padStart(2, '0')}`;
+                if (!weeklyGroups[key]) {
+                    weeklyGroups[key] = [];
                 }
-            }
+                weeklyGroups[key].push(p);
+            });
 
-            // Restore chronological order
-            weeks.reverse();
+            // Chronological sort of the weeks
+            const sortedKeys = Object.keys(weeklyGroups).sort();
 
-            weeks.forEach(week => {
-                const weekActualSum = week.reduce((acc, p) => acc + p.actual, 0);
-                const weekTargetSum = week.reduce((acc, p) => acc + p.target, 0);
-                const avgWeekActual = parseFloat((weekActualSum / week.length).toFixed(2));
-                const avgWeekTarget = parseFloat((weekTargetSum / week.length).toFixed(2));
+            sortedKeys.forEach(key => {
+                const group = weeklyGroups[key];
+                const weekActualSum = group.reduce((acc, p) => acc + p.actual, 0);
+                const weekTargetSum = group.reduce((acc, p) => acc + p.target, 0);
+                const weekActual = parseFloat((weekActualSum / group.length).toFixed(2));
+                const weekTarget = parseFloat((weekTargetSum / group.length).toFixed(2));
 
-                chartActuals.push(avgWeekActual);
-                chartTargets.push(avgWeekTarget);
+                chartActuals.push(weekActual);
+                chartTargets.push(weekTarget);
 
-                // Week Label (oldest in week to newest)
-                const startD = week[week.length - 1].date;
-                const endD = week[0].date;
+                // Week Label (Saturday to Friday of that week)
+                const startD = new Date(key);
+                const endD = new Date(startD);
+                endD.setDate(startD.getDate() + 6); // Saturday + 6 days = Friday
+                
                 const startStr = startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 const endStr = endD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 chartLabels.push(`${startStr} - ${endStr}`);
@@ -1349,11 +1420,11 @@
                 const group = monthlyGroups[key];
                 const groupActualSum = group.reduce((acc, p) => acc + p.actual, 0);
                 const groupTargetSum = group.reduce((acc, p) => acc + p.target, 0);
-                const avgGroupActual = parseFloat((groupActualSum / group.length).toFixed(2));
-                const avgGroupTarget = parseFloat((groupTargetSum / group.length).toFixed(2));
+                const groupActual = parseFloat((groupActualSum / group.length).toFixed(2));
+                const groupTarget = parseFloat((groupTargetSum / group.length).toFixed(2));
 
-                chartActuals.push(avgGroupActual);
-                chartTargets.push(avgGroupTarget);
+                chartActuals.push(groupActual);
+                chartTargets.push(groupTarget);
 
                 const firstD = group[0].date;
                 const labelStr = firstD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
@@ -1405,7 +1476,7 @@
             datasets = [
                 {
                     type: 'bar',
-                    label: grouping === 'daily' ? 'Actual Focus Hours' : 'Avg Daily Focus (Actual)',
+                    label: grouping === 'daily' ? 'Actual Focus Hours' : (grouping === 'weekly' ? 'Weekly Focus Hours (Avg/Day)' : 'Monthly Focus Hours (Avg/Day)'),
                     data: chartActuals,
                     backgroundColor: barColors,
                     hoverBackgroundColor: barHoverColors,
@@ -1415,7 +1486,7 @@
                 },
                 {
                     type: 'line',
-                    label: grouping === 'daily' ? 'Target Focus Hours' : 'Avg Daily Focus (Target)',
+                    label: grouping === 'daily' ? 'Target Focus Hours' : (grouping === 'weekly' ? 'Weekly Target Hours (Avg/Day)' : 'Monthly Target Hours (Avg/Day)'),
                     data: chartTargets,
                     borderColor: '#f43f5e',
                     borderWidth: 3.5,
@@ -1453,7 +1524,7 @@
             datasets = [
                 {
                     type: 'bar',
-                    label: grouping === 'daily' ? 'Actual Focus Hours' : 'Avg Daily Focus (Actual)',
+                    label: grouping === 'daily' ? 'Actual Focus Hours' : (grouping === 'weekly' ? 'Weekly Focus Hours (Avg/Day)' : 'Monthly Focus Hours (Avg/Day)'),
                     data: chartActuals,
                     backgroundColor: barActualGrad,
                     hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
@@ -1462,7 +1533,7 @@
                 },
                 {
                     type: 'bar',
-                    label: grouping === 'daily' ? 'Target Focus Hours' : 'Avg Daily Focus (Target)',
+                    label: grouping === 'daily' ? 'Target Focus Hours' : (grouping === 'weekly' ? 'Weekly Target Hours (Avg/Day)' : 'Monthly Target Hours (Avg/Day)'),
                     data: chartTargets,
                     backgroundColor: barTargetGrad,
                     hoverBackgroundColor: 'rgba(244, 63, 94, 1.0)',
@@ -1494,7 +1565,7 @@
             datasets = [
                 {
                     type: 'line',
-                    label: grouping === 'daily' ? 'Actual Focus Hours' : 'Avg Daily Focus (Actual)',
+                    label: grouping === 'daily' ? 'Actual Focus Hours' : (grouping === 'weekly' ? 'Weekly Focus Hours (Avg/Day)' : 'Monthly Focus Hours (Avg/Day)'),
                     data: chartActuals,
                     borderColor: actualLineGradient,
                     borderWidth: 4,
@@ -1512,7 +1583,7 @@
                 },
                 {
                     type: 'line',
-                    label: grouping === 'daily' ? 'Target Focus Hours' : 'Avg Daily Focus (Target)',
+                    label: grouping === 'daily' ? 'Target Focus Hours' : (grouping === 'weekly' ? 'Weekly Target Hours (Avg/Day)' : 'Monthly Target Hours (Avg/Day)'),
                     data: chartTargets,
                     borderColor: '#f43f5e',
                     borderWidth: 3.5,
@@ -1724,7 +1795,7 @@
                             drawingCtx.font = 'bold 9px Inter, sans-serif';
                             drawingCtx.textAlign = 'right';
                             drawingCtx.textBaseline = 'bottom';
-                            drawingCtx.fillText('CURRENT GOAL', right - 4, yPos - 4);
+                            drawingCtx.fillText('CURRENT GOAL', right - 4, yPos - 10);
                             drawingCtx.restore();
                         }
                     }
@@ -1743,9 +1814,9 @@
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const weekStart = new Date(now.setDate(diff));
+        const weekStart = new Date(now);
+        const daysSinceSat = (weekStart.getDay() + 1) % 7;
+        weekStart.setDate(weekStart.getDate() - daysSinceSat);
         weekStart.setHours(0, 0, 0, 0);
 
         const monthStart = new Date();
@@ -1791,14 +1862,14 @@
             } else {
                 sortedSubjects.forEach(([subj, sec]) => {
                     const pct = Math.max(5, Math.round((sec / maxSeconds) * 100));
-                    const hours = (sec / 3600).toFixed(1);
+                    const formattedDuration = formatHoursToHrMin(sec / 3600);
                     const color = getSubjectColor(subj);
 
                     breakdownHtml += `
                         <div class="space-y-1">
                             <div class="flex justify-between items-center text-xs">
                                 <span class="font-bold text-slate-700 dark:text-slate-300 truncate max-w-[70%]" title="${subj}">${subj}</span>
-                                <span class="font-black text-slate-900 dark:text-white">${hours}h</span>
+                                <span class="font-black text-slate-900 dark:text-white">${formattedDuration}</span>
                             </div>
                             <div class="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-2 overflow-hidden">
                                 <div class="h-full rounded-full transition-all duration-500" style="width: ${pct}%; background-color: ${color};"></div>
@@ -1825,15 +1896,14 @@
             } else {
                 AppState.timerLogs.forEach(log => {
                     const dateObj = new Date(log.date);
-                    const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    const dayStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                    const dateStr = `${dayStr}, ${timeStr}`;
 
-                    const durationMinutes = Math.floor(log.duration / 60);
-                    const durationSeconds = log.duration % 60;
-                    let durStr = '';
-                    if (durationMinutes > 0) {
-                        durStr += `${durationMinutes}m `;
-                    }
-                    durStr += `${durationSeconds}s`;
+                    const totalMins = Math.floor(log.duration / 60);
+                    const hrs = Math.floor(totalMins / 60);
+                    const mins = totalMins % 60;
+                    const durStr = `${String(hrs).padStart(2, '0')} hr : ${String(mins).padStart(2, '0')} min`;
 
                     const modeBadge = log.mode === 'timer' ?
                         `<span class="px-2 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-black text-[9px] uppercase tracking-wider rounded border border-blue-100 dark:border-blue-900/30">Timer</span>` :
@@ -1987,8 +2057,22 @@
             sessionTimeStr = startInput.value;
         }
 
-        const timeParts = sessionTimeStr.split(':').map(Number);
-        const sessionDate = new Date(dateInput.value + 'T' + String(timeParts[0] || 0).padStart(2, '0') + ':' + String(timeParts[1] || 0).padStart(2, '0') + ':00');
+        let sessionDate;
+        if (window._atsmActiveTab === 'hours') {
+            const now = new Date();
+            const dateParts = dateInput.value.split('-');
+            sessionDate = new Date(
+                parseInt(dateParts[0], 10),
+                parseInt(dateParts[1], 10) - 1,
+                parseInt(dateParts[2], 10),
+                now.getHours(),
+                now.getMinutes(),
+                now.getSeconds()
+            );
+        } else {
+            const timeParts = sessionTimeStr.split(':').map(Number);
+            sessionDate = new Date(dateInput.value + 'T' + String(timeParts[0] || 0).padStart(2, '0') + ':' + String(timeParts[1] || 0).padStart(2, '0') + ':00');
+        }
 
         if (isNaN(sessionDate.getTime())) {
             showToast("Invalid date entered.", "error");
