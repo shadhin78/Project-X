@@ -1268,11 +1268,11 @@
             successDisplay.innerText = `${successRate}%`;
             // Color code success rate
             if (successRate >= 75) {
-                successDisplay.className = "text-sm font-black text-emerald-600 dark:text-emerald-400";
+                successDisplay.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
             } else if (successRate >= 40) {
-                successDisplay.className = "text-sm font-black text-amber-600 dark:text-amber-400";
+                successDisplay.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
             } else {
-                successDisplay.className = "text-sm font-black text-rose-600 dark:text-rose-400";
+                successDisplay.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
             }
         }
 
@@ -1373,17 +1373,17 @@
 
         if (style === 'combo') {
             // Combo: Actual is Bar with rounded gradients, Target is Line with glow
-            let successBarGrad = 'rgba(16, 185, 129, 0.95)';
-            let failBarGrad = 'rgba(99, 102, 241, 0.9)';
+            let successBarGrad = 'rgba(16, 185, 129, 1.0)';
+            let failBarGrad = 'rgba(99, 102, 241, 1.0)';
             try {
                 const successGrad = canvasCtx.createLinearGradient(0, 300, 0, 0);
-                successGrad.addColorStop(0, 'rgba(16, 185, 129, 0.45)');
-                successGrad.addColorStop(1, 'rgba(16, 185, 129, 0.95)');
+                successGrad.addColorStop(0, 'rgba(16, 185, 129, 0.85)');
+                successGrad.addColorStop(1, 'rgba(16, 185, 129, 1.0)');
                 successBarGrad = successGrad;
 
                 const failGrad = canvasCtx.createLinearGradient(0, 300, 0, 0);
-                failGrad.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
-                failGrad.addColorStop(1, 'rgba(99, 102, 241, 0.95)');
+                failGrad.addColorStop(0, 'rgba(99, 102, 241, 0.85)');
+                failGrad.addColorStop(1, 'rgba(99, 102, 241, 1.0)');
                 failBarGrad = failGrad;
             } catch (e) {
                 console.error(e);
@@ -1434,17 +1434,17 @@
             ];
         } else if (style === 'bar') {
             // Bar: Grouped side-by-side actual vs target with premium gradients
-            let barActualGrad = 'rgba(99, 102, 241, 0.95)';
-            let barTargetGrad = 'rgba(244, 63, 94, 0.85)';
+            let barActualGrad = 'rgba(99, 102, 241, 1.0)';
+            let barTargetGrad = 'rgba(244, 63, 94, 1.0)';
             try {
                 const g1 = canvasCtx.createLinearGradient(0, 300, 0, 0);
-                g1.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
-                g1.addColorStop(1, 'rgba(99, 102, 241, 0.95)');
+                g1.addColorStop(0, 'rgba(99, 102, 241, 0.85)');
+                g1.addColorStop(1, 'rgba(99, 102, 241, 1.0)');
                 barActualGrad = g1;
 
                 const g2 = canvasCtx.createLinearGradient(0, 300, 0, 0);
-                g2.addColorStop(0, 'rgba(244, 63, 94, 0.4)');
-                g2.addColorStop(1, 'rgba(244, 63, 94, 0.9)');
+                g2.addColorStop(0, 'rgba(244, 63, 94, 0.85)');
+                g2.addColorStop(1, 'rgba(244, 63, 94, 1.0)');
                 barTargetGrad = g2;
             } catch (e) {
                 console.error(e);
@@ -1465,7 +1465,7 @@
                     label: grouping === 'daily' ? 'Target Focus Hours' : 'Avg Daily Focus (Target)',
                     data: chartTargets,
                     backgroundColor: barTargetGrad,
-                    hoverBackgroundColor: 'rgba(244, 63, 94, 0.8)',
+                    hoverBackgroundColor: 'rgba(244, 63, 94, 1.0)',
                     borderRadius: 6,
                     borderWidth: 0
                 }
@@ -1473,7 +1473,7 @@
         } else {
             // Line/Area: Line charts with futuristic linear gradients & smooth organic curves
             let actualLineGradient = '#6366f1';
-            let actualFillGradient = 'rgba(99, 102, 241, 0.25)';
+            let actualFillGradient = 'rgba(99, 102, 241, 0.65)';
             try {
                 const width = ctx.clientWidth || 500;
                 const gradLine = canvasCtx.createLinearGradient(0, 0, width, 0);
@@ -1483,8 +1483,8 @@
                 actualLineGradient = gradLine;
 
                 const gradFill = canvasCtx.createLinearGradient(0, 0, 0, 300);
-                gradFill.addColorStop(0, 'rgba(99, 102, 241, 0.55)'); // Indigo/Blue glow at top
-                gradFill.addColorStop(0.5, 'rgba(168, 85, 247, 0.25)'); // Violet fade
+                gradFill.addColorStop(0, 'rgba(99, 102, 241, 0.85)'); // Indigo/Blue glow at top
+                gradFill.addColorStop(0.5, 'rgba(168, 85, 247, 0.55)'); // Violet fade
                 gradFill.addColorStop(1, 'rgba(99, 102, 241, 0)'); // Transparent
                 actualFillGradient = gradFill;
             } catch (e) {
@@ -1548,8 +1548,8 @@
                 drawingCtx.save();
                 if (dataset.type === 'line') {
                     drawingCtx.shadowColor = (args.index === 0)
-                        ? (isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.25)')
-                        : (isDark ? 'rgba(244, 63, 94, 0.3)' : 'rgba(244, 63, 94, 0.2)');
+                        ? (isDark ? 'rgba(99, 102, 241, 0.65)' : 'rgba(99, 102, 241, 0.45)')
+                        : (isDark ? 'rgba(244, 63, 94, 0.55)' : 'rgba(244, 63, 94, 0.35)');
                     drawingCtx.shadowBlur = 10;
                     drawingCtx.shadowOffsetX = 0;
                     drawingCtx.shadowOffsetY = 4;
