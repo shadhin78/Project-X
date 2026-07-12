@@ -2226,6 +2226,20 @@
             if (typeof window.renderTimerPage === 'function') {
                 window.renderTimerPage();
             }
+            // Real-time synchronization for Focus Analytics Modal if open
+            const timerAnalyticsModal = document.getElementById('timer-analytics-modal');
+            if (timerAnalyticsModal && !timerAnalyticsModal.classList.contains('hidden')) {
+                if (typeof window.updateTimerAnalyticsControls === 'function') {
+                    window.updateTimerAnalyticsControls();
+                }
+                if (typeof window.renderTimerAnalyticsChart === 'function') {
+                    window.renderTimerAnalyticsChart();
+                }
+                const targetInput = document.getElementById('timer-target-input');
+                if (targetInput && document.activeElement !== targetInput) {
+                    targetInput.value = window.dailyFocusHoursTarget || 4.0;
+                }
+            }
         },
 
         destroy: function () {
