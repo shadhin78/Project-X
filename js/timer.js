@@ -313,7 +313,7 @@
                             <span class="text-[9px] font-black font-mono px-1.5 py-0.5 rounded-full ${progressPercent >= 100 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}">${progressPercent}%</span>
                             
                             <!-- Edit Button -->
-                            <button onclick="window.openSubjectTargetModal('${subject.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-850 active:scale-95 transition-all" title="Edit Target">
+                            <button onclick="window.openSubjectTargetModal('${subject.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all" title="Edit Target">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                 </svg>
@@ -328,15 +328,15 @@
 
                     <!-- Details Grid -->
                     <div class="grid grid-cols-3 gap-1.5 text-center mt-0.5">
-                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850/80 rounded-xl py-1 px-0.5">
+                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-800/80 rounded-xl py-1 px-0.5">
                             <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Done</span>
                             <span class="text-[9.5px] font-black text-emerald-500 font-mono whitespace-nowrap">${doneText}</span>
                         </div>
-                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850/80 rounded-xl py-1 px-0.5">
+                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-800/80 rounded-xl py-1 px-0.5">
                             <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Remain</span>
                             <span class="text-[9.5px] font-black ${remainColorClass} font-mono whitespace-nowrap">${remainText}</span>
                         </div>
-                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850/80 rounded-xl py-1 px-0.5">
+                        <div class="flex flex-col bg-white dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-800/80 rounded-xl py-1 px-0.5">
                             <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Target</span>
                             <span class="text-[9.5px] font-black text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">${targetText}</span>
                         </div>
@@ -1031,9 +1031,9 @@
             const btn = document.getElementById(`tar-btn-${d}`);
             if (btn) {
                 if (d === range) {
-                    btn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
+                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
                 } else {
-                    btn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
                 }
             }
         });
@@ -1047,12 +1047,12 @@
             window.timerAnalyticsGrouping = 'daily';
             if (weeklyBtn) weeklyBtn.setAttribute('disabled', 'true');
             if (monthlyBtn) monthlyBtn.setAttribute('disabled', 'true');
-            if (weeklyBtn) weeklyBtn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
-            if (monthlyBtn) monthlyBtn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
+            if (weeklyBtn) weeklyBtn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
+            if (monthlyBtn) monthlyBtn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
         } else if (range === 30) {
             if (weeklyBtn) weeklyBtn.removeAttribute('disabled');
             if (monthlyBtn) monthlyBtn.setAttribute('disabled', 'true');
-            if (monthlyBtn) monthlyBtn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
+            if (monthlyBtn) monthlyBtn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
             if (window.timerAnalyticsGrouping === 'monthly') {
                 window.timerAnalyticsGrouping = 'daily';
             }
@@ -1068,9 +1068,9 @@
             if (btn) {
                 if (btn.hasAttribute('disabled')) return; // already styled above
                 if (g === activeGrouping) {
-                    btn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
+                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
                 } else {
-                    btn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
                 }
             }
         });
@@ -1080,9 +1080,9 @@
             const btn = document.getElementById(`tas-btn-${s}`);
             if (btn) {
                 if (s === style) {
-                    btn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
+                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
                 } else {
-                    btn.className = "px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
                 }
             }
         });
@@ -1477,14 +1477,14 @@
             try {
                 const width = ctx.clientWidth || 500;
                 const gradLine = canvasCtx.createLinearGradient(0, 0, width, 0);
-                gradLine.addColorStop(0, '#3b82f6');    // Bright Blue
-                gradLine.addColorStop(0.5, '#6366f1');  // Indigo
-                gradLine.addColorStop(1, '#a855f7');    // Violet/Purple
+                gradLine.addColorStop(0, '#818cf8');    // Bright Light Indigo
+                gradLine.addColorStop(0.5, '#6366f1');  // Primary Indigo
+                gradLine.addColorStop(1, '#4f46e5');    // Dark Indigo
                 actualLineGradient = gradLine;
 
                 const gradFill = canvasCtx.createLinearGradient(0, 0, 0, 300);
-                gradFill.addColorStop(0, 'rgba(99, 102, 241, 0.85)'); // Indigo/Blue glow at top
-                gradFill.addColorStop(0.5, 'rgba(168, 85, 247, 0.55)'); // Violet fade
+                gradFill.addColorStop(0, 'rgba(99, 102, 241, 0.85)'); // Indigo glow at top
+                gradFill.addColorStop(0.5, 'rgba(129, 140, 248, 0.55)'); // Lighter indigo fade
                 gradFill.addColorStop(1, 'rgba(99, 102, 241, 0)'); // Transparent
                 actualFillGradient = gradFill;
             } catch (e) {
@@ -1506,7 +1506,7 @@
                     pointBackgroundColor: isDark ? '#0f172a' : '#ffffff',
                     pointBorderColor: '#6366f1',
                     pointBorderWidth: 2.5,
-                    pointHoverBackgroundColor: '#8b5cf6',
+                    pointHoverBackgroundColor: '#4f46e5',
                     pointHoverBorderColor: '#ffffff',
                     pointHoverBorderWidth: 3
                 },
@@ -1629,7 +1629,7 @@
                             weight: '600',
                             size: 11
                         },
-                        footerColor: isDark ? '#38bdf8' : '#0284c7',
+                        footerColor: isDark ? '#818cf8' : '#6366f1',
                         footerFont: {
                             family: 'Inter, sans-serif',
                             weight: '800',

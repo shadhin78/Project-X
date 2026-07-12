@@ -1321,7 +1321,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <button onclick="window.openTimerAnalyticsModal()"
-                                class="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-md active:scale-95 transition-all">
+                                class="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-md active:scale-95 transition-all">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
@@ -4487,45 +4487,63 @@
 
                 <div class="space-y-4 my-2 overflow-y-auto max-h-[70vh] pr-1">
                     <!-- Controls Selector Row -->
-                    <div class="flex flex-wrap items-center justify-between gap-3 px-1 pb-3 border-b border-slate-150 dark:border-slate-750 shrink-0">
+                    <div class="flex flex-nowrap items-center justify-between gap-1 sm:gap-2 overflow-x-auto scrollbar-hide px-1 pb-3 border-b border-slate-200 dark:border-slate-700 shrink-0 w-full max-w-full">
                         <!-- Timeframe Selector -->
-                        <div class="flex bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/40 dark:border-slate-700/40">
+                        <div class="flex shrink-0 bg-slate-100 dark:bg-slate-900/60 p-0.5 sm:p-1 rounded-xl border border-slate-200/40 dark:border-slate-800/40">
                             <button onclick="window.setTimerAnalyticsRange(7)" id="tar-btn-7"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">7 Days</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">7D</span><span class="hidden sm:inline">7 Days</span>
+                            </button>
                             <button onclick="window.setTimerAnalyticsRange(30)" id="tar-btn-30"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">30 Days</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">30D</span><span class="hidden sm:inline">30 Days</span>
+                            </button>
                             <button onclick="window.setTimerAnalyticsRange(180)" id="tar-btn-180"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">6 Months</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">6M</span><span class="hidden sm:inline">6 Months</span>
+                            </button>
                         </div>
                         <!-- Grouping Selector -->
-                        <div class="flex bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/40 dark:border-slate-700/40">
+                        <div class="flex shrink-0 bg-slate-100 dark:bg-slate-900/60 p-0.5 sm:p-1 rounded-xl border border-slate-200/40 dark:border-slate-800/40">
                             <button onclick="window.setTimerAnalyticsGrouping('daily')" id="tag-btn-daily"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">Daily</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">Day</span><span class="hidden sm:inline">Daily</span>
+                            </button>
                             <button onclick="window.setTimerAnalyticsGrouping('weekly')" id="tag-btn-weekly"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">Weekly</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">Week</span><span class="hidden sm:inline">Weekly</span>
+                            </button>
                             <button onclick="window.setTimerAnalyticsGrouping('monthly')" id="tag-btn-monthly"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">Monthly</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">Month</span><span class="hidden sm:inline">Monthly</span>
+                            </button>
                         </div>
                         <!-- Chart Style Selector -->
-                        <div class="flex bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/40 dark:border-slate-700/40">
+                        <div class="flex shrink-0 bg-slate-100 dark:bg-slate-900/60 p-0.5 sm:p-1 rounded-xl border border-slate-200/40 dark:border-slate-800/40">
                             <button onclick="window.setTimerAnalyticsChartStyle('combo')" id="tas-btn-combo"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">Combo</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">Combo</span><span class="hidden sm:inline">Combo</span>
+                            </button>
                             <button onclick="window.setTimerAnalyticsChartStyle('bar')" id="tas-btn-bar"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">Bar</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">Bar</span><span class="hidden sm:inline">Bar</span>
+                            </button>
                             <button onclick="window.setTimerAnalyticsChartStyle('line')" id="tas-btn-line"
-                                class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">Line/Area</button>
+                                class="shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                <span class="inline sm:hidden">Line</span><span class="hidden sm:inline">Line/Area</span>
+                            </button>
                         </div>
                     </div>
 
                     <!-- Line Chart Container -->
-                    <div class="relative w-full h-[330px] bg-slate-55/40 dark:bg-slate-950/20 p-4 rounded-2xl border border-slate-150/80 dark:border-slate-800/80 shadow-inner backdrop-blur-sm">
+                    <div class="relative w-full h-[330px] bg-slate-50 dark:bg-slate-900/20 p-4 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-inner backdrop-blur-sm">
                         <canvas id="timerAnalyticsChart"></canvas>
                     </div>
 
                     <!-- Config/Stats Grid -->
                     <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
                         <!-- Daily Focus Target Config -->
-                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Focus Target</label>
                                 <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Goal for chart</p>
@@ -4533,18 +4551,18 @@
                             <div class="shrink-0 w-20">
                                 <input type="number" id="timer-target-input" value="4" min="0.1" step="0.1"
                                     onchange="window.updateDailyFocusHoursTarget(this.value)"
-                                    class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-2 text-center text-base md:text-lg font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-inner dark:text-white" />
+                                    class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 text-center text-base md:text-lg font-black focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner dark:text-white" />
                             </div>
                         </div>
 
                         <!-- Average Focus Hours Display -->
-                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Focus</label>
                                 <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Selected range</p>
                             </div>
                             <div class="shrink-0 w-20 text-center">
-                                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl py-2 px-1 shadow-inner w-full flex justify-center">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-1 shadow-inner w-full flex justify-center">
                                     <span id="timer-average-focus"
                                         class="text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400">0.00h</span>
                                 </div>
@@ -4552,13 +4570,13 @@
                         </div>
 
                         <!-- Peak Day Display (Highest) -->
-                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                        <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Highest Focus</label>
                                 <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Peak day in range</p>
                             </div>
                             <div class="shrink-0 w-24 text-right">
-                                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl py-1.5 px-2 shadow-inner inline-flex flex-col items-center justify-center w-full">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-1.5 px-2 shadow-inner inline-flex flex-col items-center justify-center w-full">
                                     <span id="timer-peak-value"
                                         class="text-base md:text-lg font-black text-rose-600 dark:text-rose-400 leading-tight">0.00h</span>
                                     <span id="timer-peak-date"
@@ -4568,13 +4586,13 @@
                         </div>
 
                         <!-- Total Focus Hours -->
-                        <div class="sm:col-span-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                        <div class="sm:col-span-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Focus</label>
                                 <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Sum of focus hours</p>
                             </div>
                             <div class="shrink-0 w-24 text-center">
-                                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
                                     <span id="timer-total-focus"
                                         class="text-base md:text-lg font-black text-indigo-600 dark:text-indigo-400">0.00h</span>
                                 </div>
@@ -4582,14 +4600,14 @@
                         </div>
 
                         <!-- Goal Met / Success Rate -->
-                        <div class="sm:col-span-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-150/50 dark:border-slate-750">
+                        <div class="sm:col-span-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
                             <div class="flex-1">
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Success Rate</label>
                                 <p id="timer-success-rate-subtitle"
                                     class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Days target met</p>
                             </div>
                             <div class="shrink-0 w-24 text-center">
-                                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
                                     <span id="timer-success-rate"
                                         class="text-base md:text-lg font-black text-amber-600 dark:text-amber-400">0%</span>
                                 </div>
@@ -4952,7 +4970,7 @@
                         <div
                             class="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/60 mt-4">
                             <button onclick="closeModal('add-daily-target-modal')"
-                                class="px-4 py-2.5 bg-slate-150 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">Cancel</button>
+                                class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">Cancel</button>
                             <button onclick="window.addCustomTodoTarget()"
                                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-md">Add
                                 Task</button>
@@ -5010,7 +5028,7 @@
                         <div
                             class="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/60 mt-4">
                             <button onclick="closeModal('add-daily-target-modal')"
-                                class="px-4 py-2.5 bg-slate-150 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">Cancel</button>
+                                class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">Cancel</button>
                             <button onclick="window.addDailyTarget()"
                                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-md">Add
                                 Study Target</button>
@@ -5103,7 +5121,7 @@
                         <div
                             class="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/60 mt-4">
                             <button onclick="closeModal('add-weekly-target-modal')"
-                                class="px-4 py-2.5 bg-slate-150 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-650 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">Cancel</button>
+                                class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-650 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 active:scale-95 transition-all">Cancel</button>
                             <button onclick="window.addWeeklyTarget()"
                                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider active:scale-95 transition-all shadow-md">Add
                                 Target</button>

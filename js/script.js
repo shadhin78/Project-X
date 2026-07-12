@@ -1651,7 +1651,7 @@ window.updateActiveScheduleSlot = function () {
                                 <span class="text-2xl">⏱️</span>
                                 <h4 class="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h4>
                             </div>
-                            <p class="text-xs font-bold text-slate-400 dark:text-slate-555 mt-2.5">No active timer session.<br>Tap to start focusing &rarr;</p>
+                            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mt-2.5">No active timer session.<br>Tap to start focusing &rarr;</p>
                         </div>
                     </div>
                 `;
@@ -3304,7 +3304,7 @@ function renderTaskList() {
 
         if (!isProgramVisible) {
             blockHtml = `
-                        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-850 p-3 rounded-xl shadow-sm mb-3 opacity-60">
+                        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-sm mb-3 opacity-60">
                             <div class="flex items-center space-x-2.5 min-w-0">
                                 <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${window.getProgramColor(group.program)}"></div>
                                 <h4 class="text-xs font-black text-slate-650 dark:text-slate-400 truncate">${displaySubName} <span class="text-[9px] font-bold text-slate-400 uppercase">- ${group.program} (Compressed)</span></h4>
@@ -8016,7 +8016,7 @@ window.renderResults = function () {
                     ? (currentOverall.grade || '—')
                     : (Utils.formatCgpaMin2Dec(currentOverall.value) || '—');
                 html += `
-                        <div class="bg-slate-50 dark:bg-slate-900/30 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-850 shadow-sm relative group hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between opacity-60">
+                        <div class="bg-slate-50 dark:bg-slate-900/30 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between opacity-60">
                             <div class="flex items-center space-x-2.5 min-w-0">
                                 <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${window.getProgramColor(progName)}"></div>
                                 <h4 class="text-xs font-black text-slate-650 dark:text-slate-400 truncate">${progName} <span class="text-[9px] font-bold text-slate-400 uppercase">- Program Card (Compressed)</span>${goalMetLabel}</h4>
@@ -13784,7 +13784,7 @@ window.renderDashboardDailyChecklist = function () {
                         class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 h-full ${buttonClass}"
                         style="${isCompleted ? activeStyle : ''}">
                     <div class="flex items-center space-x-1.5 min-w-0 flex-1">
-                        <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
+                        <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                             </svg>
@@ -13929,7 +13929,7 @@ window.renderDashboardWeeklyChecklist = function () {
                         class="flex items-center justify-between p-2 md:p-2.5 rounded-xl border font-black transition-all duration-300 active:scale-95 text-left w-full gap-1.5 h-full ${buttonClass}"
                         style="${isCompleted ? activeStyle : bgStyle}">
                     <div class="flex items-center space-x-1.5 min-w-0 flex-1">
-                        <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
+                        <div class="p-1 rounded-lg ${isCompleted ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60'} shrink-0">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                             </svg>
