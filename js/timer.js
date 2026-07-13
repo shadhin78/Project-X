@@ -1918,11 +1918,18 @@
                             <td class="py-3 font-mono font-bold text-slate-700 dark:text-slate-300">${durStr}</td>
                             <td class="py-3 text-center">${modeBadge}</td>
                             <td class="py-3 text-right">
-                                <button onclick="window.deleteTimerLog('${log.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-95 transition-all">
-                                    <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
+                                <div class="flex items-center justify-end gap-1">
+                                    <button onclick="window.openEditTimerSessionModal('${log.id}')" class="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-950/30 active:scale-95 transition-all" title="Edit session">
+                                        <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button onclick="window.deleteTimerLog('${log.id}')" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-95 transition-all" title="Delete session">
+                                        <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -2102,6 +2109,131 @@
         const mins = Math.floor((totalSeconds % 3600) / 60);
         const durationStr = (hrs > 0 ? `${hrs}h ` : '') + `${mins}m`;
         showToast(`Session added: ${durationStr} for ${subject}.`, "success");
+    };
+
+    // ── Edit Timer Session Modal ──
+    window._editingTimerLogId = null;
+
+    window.openEditTimerSessionModal = function (logId) {
+        const log = (AppState.timerLogs || []).find(l => l.id === logId);
+        if (!log) {
+            showToast('Session not found.', 'error');
+            return;
+        }
+
+        window._editingTimerLogId = logId;
+
+        const dateInput = document.getElementById('etsm-date');
+        if (dateInput) {
+            const d = new Date(log.date);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        const timeInput = document.getElementById('etsm-time');
+        if (timeInput) {
+            const d = new Date(log.date);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            timeInput.value = `${hh}:${mi}`;
+        }
+
+        const totalMins = Math.floor((log.duration || 0) / 60);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+
+        const hoursInput = document.getElementById('etsm-hours');
+        const minutesInput = document.getElementById('etsm-minutes');
+        if (hoursInput) hoursInput.value = String(hrs);
+        if (minutesInput) minutesInput.value = String(mins);
+
+        const subjectSelect = document.getElementById('etsm-subject');
+        if (subjectSelect) {
+            let optionsHtml = `<option value="General Study">General Study</option>`;
+            const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
+            const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
+            uniqueSubjects.forEach(sub => {
+                optionsHtml += `<option value="${sub}">${sub}</option>`;
+            });
+            subjectSelect.innerHTML = optionsHtml;
+            subjectSelect.value = log.subject || 'General Study';
+        }
+
+        openModal('edit-timer-session-modal');
+    };
+
+    window.submitEditTimerSession = function () {
+        const logId = window._editingTimerLogId;
+        if (!logId) {
+            showToast('No session selected for editing.', 'error');
+            return;
+        }
+
+        const logIndex = (AppState.timerLogs || []).findIndex(l => l.id === logId);
+        if (logIndex === -1) {
+            showToast('Session not found.', 'error');
+            return;
+        }
+
+        const dateInput = document.getElementById('etsm-date');
+        const timeInput = document.getElementById('etsm-time');
+        const hoursInput = document.getElementById('etsm-hours');
+        const minutesInput = document.getElementById('etsm-minutes');
+        const subjectSelect = document.getElementById('etsm-subject');
+
+        if (!dateInput || !dateInput.value) {
+            showToast('Please select a date.', 'error');
+            return;
+        }
+
+        const hours = parseInt(hoursInput?.value || '0', 10);
+        const minutes = parseInt(minutesInput?.value || '0', 10);
+
+        if (isNaN(hours) || isNaN(minutes)) {
+            showToast('Please enter valid duration numbers.', 'error');
+            return;
+        }
+
+        const totalSeconds = (hours * 3600) + (minutes * 60);
+        if (totalSeconds <= 0) {
+            showToast('Duration must be greater than zero.', 'error');
+            return;
+        }
+
+        const timeValue = timeInput?.value || '12:00';
+        const timeParts = timeValue.split(':').map(Number);
+        const dateParts = dateInput.value.split('-');
+        const sessionDate = new Date(
+            parseInt(dateParts[0], 10),
+            parseInt(dateParts[1], 10) - 1,
+            parseInt(dateParts[2], 10),
+            timeParts[0] || 0,
+            timeParts[1] || 0,
+            0
+        );
+
+        if (isNaN(sessionDate.getTime())) {
+            showToast('Invalid date entered.', 'error');
+            return;
+        }
+
+        const subject = subjectSelect?.value || 'General Study';
+
+        AppState.timerLogs[logIndex].subject = subject;
+        AppState.timerLogs[logIndex].duration = totalSeconds;
+        AppState.timerLogs[logIndex].date = sessionDate.toISOString();
+
+        AppState.timerLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        FirebaseService.saveToCloud(true);
+        window.TimerService.updateDisplay();
+        closeModal('edit-timer-session-modal');
+
+        const durationStr = (hours > 0 ? `${hours}h ` : '') + `${minutes}m`;
+        showToast(`Session updated: ${durationStr} for ${subject}.`, 'success');
+        window._editingTimerLogId = null;
     };
 
     window._timerFsOriginalParent = null;
