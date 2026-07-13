@@ -957,7 +957,8 @@ window.toggleRevisionChapter = function (sub, chNum, isChecked) {
     // Update local progress bar
     const safeSubId = sub.replace(/[^a-zA-Z0-9]/g, '-');
     const sObj = window.getAllSubjects().find(s => s.subject === sub);
-    const totalChapters = sObj ? sObj.chapters : 1;
+    const skippedCount = window.getSubjectSkippedCount(sub);
+    const totalChapters = sObj ? Math.max(0, sObj.chapters - skippedCount) : 1;
     const completedCount = Object.values(window.revisionData.progress[sub]).filter(Boolean).length;
     const progressPct = totalChapters > 0 ? Math.round((completedCount / totalChapters) * 100) : 100;
 
@@ -3694,7 +3695,8 @@ function handleTaskToggle(e) {
     const completedCount = groupTasks.filter(x => x.completed).length;
 
     const sObj = syllabusStructure[type] ? syllabusStructure[type].find(s => s.subject === subName) : null;
-    const totalChapters = sObj ? sObj.chapters : 1;
+    const skippedCount = window.getSubjectSkippedCount(subName, type);
+    const totalChapters = sObj ? Math.max(0, sObj.chapters - skippedCount) : 1;
     const progressPct = totalChapters > 0 ? Math.round((completedCount / totalChapters) * 100) : 100;
 
     const textEl = document.getElementById(`group-text-${safeSubId}`);
@@ -4910,11 +4912,11 @@ window.openProgramCompletionsModal = function (track, programName) {
     openModal('program-completions-modal');
 };
 
-window.getChapterStatus = function(subName, chNum, trackId = null) {
+window.getChapterStatus = function (subName, chNum, trackId = null) {
     // 1. Check if frozen
     const sObj = window.getAllSubjects().find(s => s.subject === subName);
     const isFrozen = window.passedItems && (
-        (window.passedItems.subjects && window.passedItems.subjects.includes(subName)) || 
+        (window.passedItems.subjects && window.passedItems.subjects.includes(subName)) ||
         (window.passedItems.programs && sObj && window.passedItems.programs.includes(sObj.program))
     );
     if (isFrozen) return 'complete';
@@ -4922,7 +4924,7 @@ window.getChapterStatus = function(subName, chNum, trackId = null) {
     // 2. Search in tasks
     let foundTaskObj = null;
     let taskType = trackId;
-    
+
     // Find trackId from syllabusStructure if not provided
     if (!taskType && sObj) {
         for (const tid in syllabusStructure) {
@@ -4932,7 +4934,7 @@ window.getChapterStatus = function(subName, chNum, trackId = null) {
             }
         }
     }
-    
+
     if (taskType) {
         const key = taskType + 'Tasks';
         for (const task of AppState.tasks) {
@@ -4966,7 +4968,7 @@ window.getChapterStatus = function(subName, chNum, trackId = null) {
 
     if (foundTaskObj) {
         if (foundTaskObj.skipped) return 'skip';
-        
+
         // Check size-based weekly targets
         let isSizeBased = false;
         let progressPercent = 0;
@@ -4981,19 +4983,42 @@ window.getChapterStatus = function(subName, chNum, trackId = null) {
                 progressPercent = progress.percent;
             }
         }
-        
+
         if (foundTaskObj.completed || (isSizeBased && progressPercent >= 100)) {
             return 'complete';
         }
     }
-    
+
     return 'incomplete';
 };
 
-window.showChapterTooltip = function(event, subject, chapterNum, status) {
+window.getSubjectSkippedCount = function (subName, trackId = null) {
+    const sObj = window.getAllSubjects().find(s => s.subject === subName);
+    if (!sObj) return 0;
+
+    let taskType = trackId;
+    if (!taskType) {
+        for (const tid in syllabusStructure) {
+            if (Array.isArray(syllabusStructure[tid]) && syllabusStructure[tid].some(s => s.subject === subName)) {
+                taskType = tid;
+                break;
+            }
+        }
+    }
+
+    let skipped = 0;
+    for (let i = 1; i <= sObj.chapters; i++) {
+        if (window.getChapterStatus(subName, i, taskType) === 'skip') {
+            skipped++;
+        }
+    }
+    return skipped;
+};
+
+window.showChapterTooltip = function (event, subject, chapterNum, status) {
     const tooltip = document.getElementById('gcm-tooltip');
     if (!tooltip) return;
-    
+
     let statusText = '';
     let statusColor = '';
     if (status === 'complete') {
@@ -5006,35 +5031,35 @@ window.showChapterTooltip = function(event, subject, chapterNum, status) {
         statusText = 'Incomplete';
         statusColor = 'text-rose-400';
     }
-    
+
     tooltip.innerHTML = `
         <div class="font-extrabold text-white text-[11px]">${subject}</div>
         <div class="text-[10px] text-slate-400 mt-0.5 font-bold">Chapter ${chapterNum}</div>
         <div class="text-[10px] font-black uppercase mt-1 ${statusColor}">${statusText}</div>
     `;
-    
+
     tooltip.classList.remove('hidden');
-    
+
     const modalContent = document.getElementById('gcm-content');
     if (modalContent) {
         const rect = modalContent.getBoundingClientRect();
         const x = event.clientX - rect.left + 15;
         const y = event.clientY - rect.top + 15;
-        
+
         tooltip.style.left = `${x}px`;
         tooltip.style.top = `${y}px`;
     }
 };
 
-window.hideChapterTooltip = function() {
+window.hideChapterTooltip = function () {
     const tooltip = document.getElementById('gcm-tooltip');
     if (tooltip) tooltip.classList.add('hidden');
 };
 
-window.showSpectraChapterTooltip = function(event, subject, chapterNum, status) {
+window.showSpectraChapterTooltip = function (event, subject, chapterNum, status) {
     const tooltip = document.getElementById('spectra-gcm-tooltip');
     if (!tooltip) return;
-    
+
     let statusText = '';
     let statusColor = '';
     if (status === 'complete') {
@@ -5047,49 +5072,48 @@ window.showSpectraChapterTooltip = function(event, subject, chapterNum, status) 
         statusText = 'Incomplete';
         statusColor = 'text-rose-400';
     }
-    
+
     tooltip.innerHTML = `
         <div class="font-extrabold text-white text-[11px]">${subject}</div>
         <div class="text-[10px] text-slate-400 mt-0.5 font-bold">Chapter ${chapterNum}</div>
         <div class="text-[10px] font-black uppercase mt-1 ${statusColor}">${statusText}</div>
     `;
-    
+
     tooltip.classList.remove('hidden');
-    
+
     const pageContainer = document.getElementById('page-spectra-analytics');
     if (pageContainer) {
         const rect = pageContainer.getBoundingClientRect();
         const x = event.clientX - rect.left + 15;
         const y = event.clientY - rect.top + 15;
-        
+
         tooltip.style.left = `${x}px`;
         tooltip.style.top = `${y}px`;
     }
 };
 
-window.hideSpectraChapterTooltip = function() {
+window.hideSpectraChapterTooltip = function () {
     const tooltip = document.getElementById('spectra-gcm-tooltip');
     if (tooltip) tooltip.classList.add('hidden');
 };
 
-window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = 'global', isSubjectModal = false) {
+window.generateGlobalChaptersSVG = function (isSpectra = false, spectraFilter = 'global', isSubjectModal = false) {
     let allChapters = [];
     let completedCount = 0;
     let skippedCount = 0;
     let incompleteCount = 0;
-    
-    let filterType = 'global';
-    let filterTarget = '';
-    if (isSpectra && spectraFilter) {
-        const parts = spectraFilter.split(':');
-        filterType = parts[0];
-        filterTarget = parts.slice(1).join(':');
-    } else if (isSubjectModal && spectraFilter) {
-        const parts = spectraFilter.split(':');
-        filterType = parts[0];
-        filterTarget = parts.slice(1).join(':');
+
+    let filters = [];
+    if (isSpectra) {
+        if (Array.isArray(spectraFilter)) {
+            filters = spectraFilter;
+        } else if (typeof spectraFilter === 'string') {
+            filters = [spectraFilter];
+        }
+    } else if (spectraFilter) {
+        filters = [spectraFilter];
     }
-    
+
     const sortedSubjects = window.getAllSubjects();
     sortedSubjects.forEach(sub => {
         let trackId = null;
@@ -5099,18 +5123,28 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
                 break;
             }
         }
-        
+
         // Filter out based on selection
-        if (filterType === 'track' && trackId !== filterTarget) return;
-        if (filterType === 'program' && sub.program !== filterTarget) return;
-        if (filterType === 'subject' && sub.subject !== filterTarget) return;
-        
+        if (filters.length > 0 && !filters.includes('global')) {
+            const matches = filters.some(f => {
+                const parts = f.split(':');
+                const type = parts[0];
+                const target = parts.slice(1).join(':');
+
+                if (type === 'track') return trackId === target;
+                if (type === 'program') return sub.program === target;
+                if (type === 'subject') return sub.subject === target;
+                return false;
+            });
+            if (!matches) return;
+        }
+
         for (let i = 1; i <= sub.chapters; i++) {
             const status = window.getChapterStatus(sub.subject, i, trackId);
             if (status === 'complete') completedCount++;
             else if (status === 'skip') skippedCount++;
             else incompleteCount++;
-            
+
             allChapters.push({
                 subject: sub.subject,
                 chapterNum: i,
@@ -5118,42 +5152,43 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             });
         }
     });
-    
+
     const totalChapters = allChapters.length;
-    const completionPercent = totalChapters > 0 ? ((completedCount / totalChapters) * 100).toFixed(1) : "0.0";
-    const remainingCount = totalChapters - completedCount;
-    
+    const effectiveTotalChapters = Math.max(0, totalChapters - skippedCount);
+    const completionPercent = effectiveTotalChapters > 0 ? ((completedCount / effectiveTotalChapters) * 100).toFixed(1) : "0.0";
+    const remainingCount = Math.max(0, effectiveTotalChapters - completedCount);
+
     let svgPathsHtml = '';
-    
+
     if (isSubjectModal) {
         // Simple segmented circular progress ring: 1 box = 1 chapter in a single ring
         const innerRadius = 130;
         const outerRadius = 165;
-        
+
         const getArcPath = (cx, cy, r1, r2, theta1, theta2) => {
             const x1_inner = cx + r1 * Math.cos(theta1);
             const y1_inner = cy + r1 * Math.sin(theta1);
             const x2_inner = cx + r1 * Math.cos(theta2);
             const y2_inner = cy + r1 * Math.sin(theta2);
-            
+
             const x1_outer = cx + r2 * Math.cos(theta1);
             const y1_outer = cy + r2 * Math.sin(theta1);
             const x2_outer = cx + r2 * Math.cos(theta2);
             const y2_outer = cy + r2 * Math.sin(theta2);
-            
+
             const largeArc = (theta2 - theta1) > Math.PI ? 1 : 0;
-            
+
             return `M ${x1_outer} ${y1_outer} A ${r2} ${r2} 0 ${largeArc} 1 ${x2_outer} ${y2_outer} L ${x2_inner} ${y2_inner} A ${r1} ${r1} 0 ${largeArc} 0 ${x1_inner} ${y1_inner} Z`;
         };
-        
+
         const anglePerSegment = totalChapters > 0 ? (2 * Math.PI) / totalChapters : 0;
         const angularGap = totalChapters > 0 ? Math.min(0.04, anglePerSegment * 0.15) : 0;
-        
+
         for (let i = 0; i < totalChapters; i++) {
             const chap = allChapters[i];
             const thetaStart = -Math.PI / 2 + i * anglePerSegment + angularGap;
             const thetaEnd = -Math.PI / 2 + (i + 1) * anglePerSegment - angularGap;
-            
+
             let colorClass = '';
             if (chap.status === 'complete') {
                 colorClass = 'fill-emerald-500 hover:fill-emerald-400 text-emerald-500';
@@ -5162,14 +5197,14 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             } else {
                 colorClass = 'fill-rose-500 hover:fill-rose-400 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
             }
-            
+
             const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
             const safeSubject = chap.subject.replace(/'/g, "\\'");
-            
+
             const mouseOverHandler = `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`;
             const mouseOutHandler = `window.hideSubjectChapterTooltip()`;
             const onClickHandler = `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`;
-            
+
             svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" onclick="${onClickHandler}" />\n`;
         }
     } else {
@@ -5179,7 +5214,7 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
         else if (totalChapters <= 180) numRings = 3;
         else if (totalChapters <= 280) numRings = 4;
         else numRings = 5;
-        
+
         let radii = [];
         if (numRings === 1) {
             radii.push(130);
@@ -5189,7 +5224,7 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
                 radii.push(96 + i * 30);
             }
         }
-        
+
         let totalRadiusSum = radii.reduce((a, b) => a + b, 0);
         let distribution = [];
         let allocated = 0;
@@ -5201,42 +5236,42 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             distribution.push(count);
             allocated += count;
         }
-        
+
         const getArcPath = (cx, cy, r1, r2, theta1, theta2) => {
             const x1_inner = cx + r1 * Math.cos(theta1);
             const y1_inner = cy + r1 * Math.sin(theta1);
             const x2_inner = cx + r1 * Math.cos(theta2);
             const y2_inner = cy + r1 * Math.sin(theta2);
-            
+
             const x1_outer = cx + r2 * Math.cos(theta1);
             const y1_outer = cy + r2 * Math.sin(theta1);
             const x2_outer = cx + r2 * Math.cos(theta2);
             const y2_outer = cy + r2 * Math.sin(theta2);
-            
+
             const largeArc = (theta2 - theta1) > Math.PI ? 1 : 0;
-            
+
             return `M ${x1_outer} ${y1_outer} A ${r2} ${r2} 0 ${largeArc} 1 ${x2_outer} ${y2_outer} L ${x2_inner} ${y2_inner} A ${r1} ${r1} 0 ${largeArc} 0 ${x1_inner} ${y1_inner} Z`;
         };
-        
+
         let currentChapterIdx = 0;
-        
+
         for (let ringIdx = 0; ringIdx < numRings; ringIdx++) {
             const numSegments = distribution[ringIdx];
             if (numSegments <= 0) continue;
-            
+
             const innerRadius = numRings === 1 ? 130 : (96 + ringIdx * 30);
             const outerRadius = numRings === 1 ? 165 : (innerRadius + 24); // block thickness is 35 for 1 ring, 24 for multi
-            
+
             const anglePerSegment = (2 * Math.PI) / numSegments;
             const angularGap = Math.min(0.04, anglePerSegment * 0.15);
-            
+
             for (let segIdx = 0; segIdx < numSegments; segIdx++) {
                 if (currentChapterIdx >= allChapters.length) break;
                 const chap = allChapters[currentChapterIdx];
-                
+
                 const thetaStart = -Math.PI / 2 + segIdx * anglePerSegment + angularGap;
                 const thetaEnd = -Math.PI / 2 + (segIdx + 1) * anglePerSegment - angularGap;
-                
+
                 let colorClass = '';
                 if (chap.status === 'complete') {
                     colorClass = 'fill-emerald-500 hover:fill-emerald-400 dark:fill-emerald-500 dark:hover:fill-emerald-400 text-emerald-500';
@@ -5245,49 +5280,49 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
                 } else {
                     colorClass = 'fill-rose-500 hover:fill-rose-400 dark:fill-rose-500 dark:hover:fill-rose-400 text-rose-500';
                 }
-                
+
                 const pathData = getArcPath(0, 0, innerRadius, outerRadius, thetaStart, thetaEnd);
                 const safeSubject = chap.subject.replace(/'/g, "\\'");
-                
-                const mouseOverHandler = isSpectra 
+
+                const mouseOverHandler = isSpectra
                     ? `window.showSpectraChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
-                    : (isSubjectModal 
+                    : (isSubjectModal
                         ? `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`
                         : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}')`);
-                    
-                const mouseOutHandler = isSpectra 
+
+                const mouseOutHandler = isSpectra
                     ? `window.hideSpectraChapterTooltip()`
-                    : (isSubjectModal 
+                    : (isSubjectModal
                         ? `window.hideSubjectChapterTooltip()`
                         : `window.hideChapterTooltip()`);
-                        
-                const onClickHandler = isSpectra 
+
+                const onClickHandler = isSpectra
                     ? `window.showSpectraChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`
-                    : (isSubjectModal 
+                    : (isSubjectModal
                         ? `window.showSubjectChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`
                         : `window.showChapterTooltip(event, '${safeSubject}', ${chap.chapterNum}, '${chap.status}'); event.stopPropagation();`);
-                
+
                 svgPathsHtml += `<path d="${pathData}" class="gcm-chapter-block ${colorClass}" onmouseover="${mouseOverHandler}" onmouseout="${mouseOutHandler}" onclick="${onClickHandler}" />\n`;
                 currentChapterIdx++;
             }
         }
     }
-    
+
     // Sizes
     let containerSizeClass = "w-[240px] h-[240px] min-[375px]:w-[280px] min-[375px]:h-[280px] sm:w-[360px] sm:h-[360px] md:w-[420px] md:h-[420px]";
     let centerCircleSizeClass = "w-20 h-20 min-[375px]:w-28 min-[375px]:h-28 sm:w-36 sm:h-36 bg-white dark:bg-slate-800 rounded-full shadow-inner border border-slate-100 dark:border-slate-700/80";
-    
+
     let progressLabelClass = "text-slate-400 dark:text-slate-500";
     let countsClass = "text-slate-800 dark:text-white";
     let pctClass = "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-indigo-900/50";
     let remainClass = "text-slate-500 dark:text-slate-400";
-    
+
     let progressTextSize = "text-[7px] min-[375px]:text-[8px] md:text-[9px] leading-none";
     let countsTextSize = "text-base min-[375px]:text-lg md:text-xl font-black leading-none mt-1.5";
     let pctTextSize = "text-[8px] min-[375px]:text-[10px] font-black px-1.5 min-[375px]:px-2 py-0.5 rounded-lg border mt-1.5 shadow-sm leading-none";
     let remainTextSize = "text-[7px] min-[375px]:text-[8px] md:text-[9px] italic font-bold leading-none mt-1.5";
     let remainingLabel = `${remainingCount} remaining`;
-    
+
     if (isSubjectModal) {
         containerSizeClass = "w-[220px] h-[220px] min-[375px]:w-[250px] min-[375px]:h-[250px] sm:w-[280px] sm:h-[280px] md:w-[320px] md:h-[320px]";
         centerCircleSizeClass = "w-20 h-20 min-[375px]:w-24 min-[375px]:h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-[#0f172a] rounded-full shadow-inner border border-slate-700/80";
@@ -5295,14 +5330,14 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
         countsClass = "text-white";
         pctClass = "text-emerald-400 bg-emerald-950/40 border-emerald-900/50";
         remainClass = "text-slate-400";
-        
+
         progressTextSize = "text-[6px] min-[375px]:text-[7px] sm:text-[8px] md:text-[9px] leading-none";
         countsTextSize = "text-xs min-[375px]:text-sm sm:text-base md:text-lg font-black leading-none mt-1";
         pctTextSize = "text-[7px] min-[375px]:text-[8px] sm:text-[9px] font-black px-1 min-[375px]:px-1.5 py-0.5 rounded-md border mt-1 shadow-sm leading-none";
         remainTextSize = "text-[6px] min-[375px]:text-[7px] sm:text-[8px] md:text-[9px] italic font-bold leading-none mt-1 whitespace-nowrap";
         remainingLabel = `${remainingCount} left`;
     }
-    
+
     const svgHtml = `
         <div class="relative ${containerSizeClass} flex items-center justify-center shrink-0">
             <svg class="w-full h-full transform" viewBox="-250 -250 500 500">
@@ -5311,30 +5346,31 @@ window.generateGlobalChaptersSVG = function(isSpectra = false, spectraFilter = '
             
             <div class="absolute flex flex-col items-center justify-center text-center pointer-events-none ${centerCircleSizeClass}">
                 <span class="${progressTextSize} uppercase tracking-widest ${progressLabelClass}">Progress</span>
-                <span class="${countsTextSize} ${countsClass}">${completedCount}/${totalChapters}</span>
+                <span class="${countsTextSize} ${countsClass}">${completedCount}/${effectiveTotalChapters}</span>
                 <span class="${pctTextSize} ${pctClass}">${completionPercent}%</span>
                 <span class="${remainTextSize} ${remainClass}">${remainingLabel}</span>
             </div>
         </div>
     `;
-    
+
     return {
         html: svgHtml,
         completedCount,
         skippedCount,
         incompleteCount,
         totalChapters,
+        effectiveTotalChapters,
         completionPercent,
         allChapters
     };
 };
 
-window.openGlobalChaptersModal = function() {
+window.openGlobalChaptersModal = function () {
     const container = document.getElementById('gcm-chart-container');
     if (!container) return;
-    
+
     const data = window.generateGlobalChaptersSVG(false);
-    
+
     const html = `
         ${data.html}
         
@@ -5369,49 +5405,267 @@ window.openGlobalChaptersModal = function() {
             </div>
         </div>
     `;
-    
+
     container.innerHTML = html;
     openModal('global-chapters-modal');
 };
 
-window.populateSpectraFilterSelect = function() {
-    const select = document.getElementById('spectra-filter-select');
-    if (!select) return;
-    
-    const currentVal = select.value || 'global';
-    
-    let html = '<option value="global" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🌍 Global View</option>';
-    
-    // Tracks
-    html += '<optgroup label="Tracks" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">';
+window.selectedSpectraFilters = window.selectedSpectraFilters || ['global'];
+
+window.populateSpectraFilterDropdown = function () {
+    const menu = document.getElementById('spectra-filter-dropdown-menu');
+    const btn = document.getElementById('spectra-filter-dropdown-btn');
+    if (!menu || !btn) return;
+
+    let html = '';
+
+    // Global option
+    const isGlobalChecked = window.selectedSpectraFilters.includes('global');
+    html += `
+        <label class="flex items-center gap-2.5 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-slate-700 dark:text-slate-200 select-none shrink-0">
+            <input type="checkbox" value="global" class="spectra-filter-checkbox rounded text-indigo-500 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 h-3.5 w-3.5 transition-all" ${isGlobalChecked ? 'checked' : ''}>
+            <span class="font-extrabold uppercase text-[10px] tracking-widest">🌍 Global View</span>
+        </label>
+        <div class="h-px bg-slate-100 dark:bg-slate-800/60 my-1.5 shrink-0"></div>
+    `;
+
+    // Tracks Group
+    html += '<div class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 py-1 shrink-0">Tracks</div>';
     window.tracks.forEach(track => {
-        html += `<option value="track:${track.id}" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🏁 ${track.name || track.id.toUpperCase()}</option>`;
+        const value = `track:${track.id}`;
+        const isChecked = window.selectedSpectraFilters.includes(value);
+        html += `
+            <label class="flex items-center gap-2.5 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-slate-700 dark:text-slate-200 select-none shrink-0">
+                <input type="checkbox" value="${value}" class="spectra-filter-checkbox rounded text-indigo-500 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 h-3.5 w-3.5 transition-all" ${isChecked ? 'checked' : ''}>
+                <span class="font-bold uppercase text-[9px] tracking-wider">🏁 ${track.name || track.id.toUpperCase()}</span>
+            </label>
+        `;
     });
-    html += '</optgroup>';
-    
-    // Programs
-    html += '<optgroup label="Programs" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">';
+
+    // Programs Group
+    html += '<div class="h-px bg-slate-100 dark:bg-slate-800/60 my-1 shrink-0"></div>';
+    html += '<div class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 py-1 shrink-0">Programs</div>';
     const uniquePrograms = Array.from(new Set(window.getAllSubjects().map(s => s.program).filter(Boolean)));
     uniquePrograms.forEach(prog => {
-        html += `<option value="program:${prog}" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🎓 ${prog}</option>`;
+        const value = `program:${prog}`;
+        const isChecked = window.selectedSpectraFilters.includes(value);
+        html += `
+            <label class="flex items-center gap-2.5 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-slate-700 dark:text-slate-200 select-none shrink-0">
+                <input type="checkbox" value="${value}" class="spectra-filter-checkbox rounded text-indigo-500 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 h-3.5 w-3.5 transition-all" ${isChecked ? 'checked' : ''}>
+                <span class="font-bold uppercase text-[9px] tracking-wider">🎓 ${prog}</span>
+            </label>
+        `;
     });
-    html += '</optgroup>';
-    
-    // Subjects
-    html += '<optgroup label="Subjects" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">';
+
+    // Subjects Group
+    html += '<div class="h-px bg-slate-100 dark:bg-slate-800/60 my-1 shrink-0"></div>';
+    html += '<div class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 py-1 shrink-0">Subjects</div>';
     window.getAllSubjects().forEach(sub => {
-        html += `<option value="subject:${sub.subject}" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">📚 ${sub.subject}</option>`;
+        const value = `subject:${sub.subject}`;
+        const isChecked = window.selectedSpectraFilters.includes(value);
+        html += `
+            <label class="flex items-center gap-2.5 px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-slate-700 dark:text-slate-200 select-none shrink-0">
+                <input type="checkbox" value="${value}" class="spectra-filter-checkbox rounded text-indigo-500 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 h-3.5 w-3.5 transition-all" ${isChecked ? 'checked' : ''}>
+                <span class="font-bold uppercase text-[9px] tracking-wider">📚 ${sub.subject}</span>
+            </label>
+        `;
     });
-    html += '</optgroup>';
-    
-    select.innerHTML = html;
-    select.value = currentVal;
+
+    menu.innerHTML = html;
+
+    // Toggle dropdown visibility
+    btn.onclick = function (e) {
+        e.stopPropagation();
+        const isHidden = menu.classList.contains('hidden');
+        if (isHidden) {
+            menu.classList.remove('hidden');
+            btn.querySelector('svg').style.transform = 'rotate(180deg)';
+        } else {
+            menu.classList.add('hidden');
+            btn.querySelector('svg').style.transform = '';
+        }
+    };
+
+    // Close dropdown on click outside
+    document.addEventListener('click', function (e) {
+        if (!menu.contains(e.target) && !btn.contains(e.target)) {
+            menu.classList.add('hidden');
+            btn.querySelector('svg').style.transform = '';
+        }
+    });
+
+    // Checkbox change handlers
+    const checkboxes = menu.querySelectorAll('.spectra-filter-checkbox');
+    checkboxes.forEach(cb => {
+        cb.onchange = function () {
+            const val = cb.value;
+            const isChecked = cb.checked;
+
+            if (val === 'global') {
+                if (isChecked) {
+                    checkboxes.forEach(other => { if (other !== cb) other.checked = false; });
+                } else {
+                    cb.checked = true; // Always keep global checked if it was checked and unchecked
+                }
+            } else {
+                if (isChecked) {
+                    const globalCb = menu.querySelector('input[value="global"]');
+                    if (globalCb) globalCb.checked = false;
+                }
+
+                // Cascade Down:
+                if (val.startsWith('track:')) {
+                    const trackId = val.replace('track:', '');
+                    const trackSubjects = syllabusStructure[trackId] || [];
+                    const trackSubjectNames = trackSubjects.map(s => s.subject);
+                    const trackPrograms = Array.from(new Set(trackSubjects.map(s => s.program).filter(Boolean)));
+
+                    checkboxes.forEach(other => {
+                        const otherVal = other.value;
+                        if (otherVal.startsWith('subject:')) {
+                            const subName = otherVal.replace('subject:', '');
+                            if (trackSubjectNames.includes(subName)) {
+                                other.checked = isChecked;
+                            }
+                        } else if (otherVal.startsWith('program:')) {
+                            const progName = otherVal.replace('program:', '');
+                            if (trackPrograms.includes(progName)) {
+                                other.checked = isChecked;
+                            }
+                        }
+                    });
+                } else if (val.startsWith('program:')) {
+                    const progName = val.replace('program:', '');
+                    checkboxes.forEach(other => {
+                        const otherVal = other.value;
+                        if (otherVal.startsWith('subject:')) {
+                            const subName = otherVal.replace('subject:', '');
+                            const sObj = window.getAllSubjects().find(s => s.subject === subName);
+                            if (sObj && sObj.program === progName) {
+                                other.checked = isChecked;
+                            }
+                        }
+                    });
+                }
+
+                // Cascade Up / Uncheck Parent:
+                if (!isChecked) {
+                    if (val.startsWith('subject:')) {
+                        const subName = val.replace('subject:', '');
+                        const sObj = window.getAllSubjects().find(s => s.subject === subName);
+                        if (sObj) {
+                            let trackId = null;
+                            for (const tid in syllabusStructure) {
+                                if (Array.isArray(syllabusStructure[tid]) && syllabusStructure[tid].some(s => s.subject === subName)) {
+                                    trackId = tid;
+                                    break;
+                                }
+                            }
+                            checkboxes.forEach(other => {
+                                if (other.value === `program:${sObj.program}` || other.value === `track:${trackId}`) {
+                                    other.checked = false;
+                                }
+                            });
+                        }
+                    } else if (val.startsWith('program:')) {
+                        const progName = val.replace('program:', '');
+                        const tracksWithProg = [];
+                        for (const tid in syllabusStructure) {
+                            if (Array.isArray(syllabusStructure[tid]) && syllabusStructure[tid].some(s => s.program === progName)) {
+                                tracksWithProg.push(tid);
+                            }
+                        }
+                        checkboxes.forEach(other => {
+                            if (other.value.startsWith('track:') && tracksWithProg.includes(other.value.replace('track:', ''))) {
+                                other.checked = false;
+                            }
+                        });
+                    }
+                } else {
+                    // Check if parent should be auto-checked:
+                    const uniqueProgs = Array.from(new Set(window.getAllSubjects().map(s => s.program).filter(Boolean)));
+                    uniqueProgs.forEach(prog => {
+                        const progSubjects = window.getAllSubjects().filter(s => s.program === prog).map(s => s.subject);
+                        const allChecked = progSubjects.every(subName => {
+                            const subCb = menu.querySelector(`input[value="subject:${subName}"]`);
+                            return subCb ? subCb.checked : true;
+                        });
+                        const progCb = menu.querySelector(`input[value="program:${prog}"]`);
+                        if (progCb) progCb.checked = allChecked;
+                    });
+
+                    window.tracks.forEach(track => {
+                        const trackSubjects = (syllabusStructure[track.id] || []).map(s => s.subject);
+                        const allChecked = trackSubjects.every(subName => {
+                            const subCb = menu.querySelector(`input[value="subject:${subName}"]`);
+                            return subCb ? subCb.checked : true;
+                        });
+                        const trackCb = menu.querySelector(`input[value="track:${track.id}"]`);
+                        if (trackCb) trackCb.checked = allChecked;
+                    });
+                }
+
+                // Fallback to global
+                const anyChecked = Array.from(checkboxes).some(other => other.value !== 'global' && other.checked);
+                if (!anyChecked) {
+                    const globalCb = menu.querySelector('input[value="global"]');
+                    if (globalCb) globalCb.checked = true;
+                }
+            }
+
+            // Re-calculate window.selectedSpectraFilters
+            window.selectedSpectraFilters = Array.from(checkboxes)
+                .filter(c => c.checked)
+                .map(c => c.value);
+
+            // Update button label
+            window.updateSpectraFilterDropdownLabel();
+
+            // Trigger chart update
+            window.renderSpectraCircleChart();
+        };
+    });
+
+    window.updateSpectraFilterDropdownLabel();
 };
 
-window.showSubjectChapterTooltip = function(event, subject, chapterNum, status) {
+window.updateSpectraFilterDropdownLabel = function () {
+    const labelEl = document.getElementById('spectra-filter-dropdown-label');
+    if (!labelEl) return;
+
+    if (window.selectedSpectraFilters.includes('global')) {
+        labelEl.textContent = '🌍 Global View';
+        return;
+    }
+
+    // Collect display names for selected items
+    const selectedLabels = window.selectedSpectraFilters.map(f => {
+        const parts = f.split(':');
+        const type = parts[0];
+        const target = parts.slice(1).join(':');
+        if (type === 'track') {
+            const trackObj = window.tracks.find(t => t.id === target);
+            return '🏁 ' + (trackObj ? trackObj.name : target.toUpperCase());
+        } else if (type === 'program') {
+            return '🎓 ' + target;
+        } else if (type === 'subject') {
+            return '📚 ' + target;
+        }
+        return target;
+    });
+
+    const combinedText = selectedLabels.join(', ');
+    if (combinedText.length > 28) {
+        labelEl.textContent = `${window.selectedSpectraFilters.length} Items Selected`;
+    } else {
+        labelEl.textContent = combinedText;
+    }
+};
+
+window.showSubjectChapterTooltip = function (event, subject, chapterNum, status) {
     const tooltip = document.getElementById('stm-tooltip');
     if (!tooltip) return;
-    
+
     let statusText = '';
     let statusColor = '';
     if (status === 'complete') {
@@ -5424,78 +5678,78 @@ window.showSubjectChapterTooltip = function(event, subject, chapterNum, status) 
         statusText = 'Incomplete';
         statusColor = 'text-rose-400';
     }
-    
+
     tooltip.innerHTML = `
         <div class="font-extrabold text-white text-[11px]">${subject}</div>
         <div class="text-[10px] text-slate-400 mt-0.5 font-bold">Chapter ${chapterNum}</div>
         <div class="text-[10px] font-black uppercase mt-1 ${statusColor}">${statusText}</div>
     `;
-    
+
     tooltip.classList.remove('hidden');
-    
+
     const modalContent = document.getElementById('stm-content');
     if (modalContent) {
         const rect = modalContent.getBoundingClientRect();
         const x = event.clientX - rect.left + 15;
         const y = event.clientY - rect.top + 15;
-        
+
         tooltip.style.left = `${x}px`;
         tooltip.style.top = `${y}px`;
     }
 };
 
-window.hideSubjectChapterTooltip = function() {
+window.hideSubjectChapterTooltip = function () {
     const tooltip = document.getElementById('stm-tooltip');
     if (tooltip) tooltip.classList.add('hidden');
 };
 
-window.onSpectraFilterChange = function(val) {
+window.onSpectraFilterChange = function (val) {
     window.renderSpectraCircleChart();
 };
 
-window.renderSpectraCircleChart = function() {
-    const select = document.getElementById('spectra-filter-select');
-    if (select && select.children.length === 0) {
-        window.populateSpectraFilterSelect();
+window.renderSpectraCircleChart = function () {
+    const dropdownMenu = document.getElementById('spectra-filter-dropdown-menu');
+    if (dropdownMenu) {
+        const hasTrackOrSubjectElements = dropdownMenu.querySelector('input[value^="track:"], input[value^="subject:"]');
+        const hasDataToPopulate = (window.tracks && window.tracks.length > 0) || (window.getAllSubjects && window.getAllSubjects().length > 0);
+        if (dropdownMenu.children.length === 0 || (hasDataToPopulate && !hasTrackOrSubjectElements)) {
+            window.populateSpectraFilterDropdown();
+        }
     }
-    
-    const filterVal = select ? select.value : 'global';
+
     const wrapper = document.getElementById('spectra-circle-chart-wrapper');
     if (!wrapper) return;
-    
-    const data = window.generateGlobalChaptersSVG(true, filterVal);
+
+    const filters = window.selectedSpectraFilters || ['global'];
+    const data = window.generateGlobalChaptersSVG(true, filters);
     wrapper.innerHTML = data.html;
-    
+
     // Dynamic text detail updates
     let title = 'Syllabus Chapters Analysis';
     let desc = 'A visual distribution of all chapters in your study goals. Hover over segments to view subject names, chapter index, and completion statuses.';
-    
-    if (filterVal !== 'global') {
-        const parts = filterVal.split(':');
-        const type = parts[0];
-        const target = parts.slice(1).join(':');
-        
-        if (type === 'track') {
-            const trackObj = window.tracks.find(t => t.id === target);
-            const trackName = trackObj ? trackObj.name : target.toUpperCase();
-            title = `${trackName} Chapters Analysis`;
-            desc = `A visual distribution of all chapters in the ${trackName} track. Hover over segments to view details.`;
-        } else if (type === 'program') {
-            title = `${target} Chapters Analysis`;
-            desc = `A visual distribution of all chapters in the ${target} program. Hover over segments to view details.`;
-        } else if (type === 'subject') {
-            title = `${target} Chapters Analysis`;
-            desc = `A visual distribution of all chapters in the ${target} subject. Hover over segments to view details.`;
-        }
+
+    if (filters.length > 0 && !filters.includes('global')) {
+        const labels = filters.map(f => {
+            const parts = f.split(':');
+            const type = parts[0];
+            const target = parts.slice(1).join(':');
+            if (type === 'track') {
+                const trackObj = window.tracks.find(t => t.id === target);
+                return trackObj ? trackObj.name : target.toUpperCase();
+            }
+            return target;
+        });
+        title = `Selected Chapters Analysis`;
+        desc = `A visual distribution of all chapters matching the selected filters: ${labels.join(', ')}. Hover over segments to view details.`;
     }
-    
+
     safeSetText('spectra-analysis-title', title);
     safeSetText('spectra-analysis-desc', desc);
-    
+
     const legendComplete = document.getElementById('spectra-legend-complete');
     const legendIncomplete = document.getElementById('spectra-legend-incomplete');
     const legendSkipped = document.getElementById('spectra-legend-skipped');
-    
+
     if (legendComplete) legendComplete.textContent = data.completedCount;
     if (legendIncomplete) legendIncomplete.textContent = data.incompleteCount;
     if (legendSkipped) legendSkipped.textContent = data.skippedCount;
@@ -5505,7 +5759,7 @@ window.renderSpectraCircleChart = function() {
  * Renders a subject-specific donut/ring circle chart in the subject trend modal.
  * Shows each chapter as an arc segment with color based on completion status.
  */
-window.renderSubjectTrendCircle = function() {
+window.renderSubjectTrendCircle = function () {
     const container = document.getElementById('subject-trend-circle-container');
     if (!container) return;
 
@@ -5547,11 +5801,12 @@ window.renderSubjectTrendCircle = function() {
     }
 
     const data = window.generateGlobalChaptersSVG(false, 'subject:' + subjectName, true);
-    
+
     const completedCount = data.completedCount;
     const skippedCount = data.skippedCount;
     const incompleteCount = data.incompleteCount;
     const totalChapters = data.totalChapters;
+    const effectiveTotal = data.effectiveTotalChapters || totalChapters;
     const completionPct = parseFloat(data.completionPercent);
 
     // Frozen / Passed check
@@ -5601,12 +5856,12 @@ window.renderSubjectTrendCircle = function() {
                     <div class="flex flex-col items-center p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                         <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-emerald-400/80 mb-0.5">Complete</span>
                         <span class="text-sm md:text-base font-black text-emerald-400">${completedCount}</span>
-                        <span class="text-[8px] font-bold text-emerald-500/60 mt-0.5">${totalChapters > 0 ? Math.round((completedCount / totalChapters) * 100) : 0}%</span>
+                        <span class="text-[8px] font-bold text-emerald-500/60 mt-0.5">${effectiveTotal > 0 ? Math.round((completedCount / effectiveTotal) * 100) : 0}%</span>
                     </div>
                     <div class="flex flex-col items-center p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
                         <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-rose-400/80 mb-0.5">Remaining</span>
                         <span class="text-sm md:text-base font-black text-rose-400">${incompleteCount}</span>
-                        <span class="text-[8px] font-bold text-rose-500/60 mt-0.5">${totalChapters > 0 ? Math.round((incompleteCount / totalChapters) * 100) : 0}%</span>
+                        <span class="text-[8px] font-bold text-rose-500/60 mt-0.5">${effectiveTotal > 0 ? Math.round((incompleteCount / effectiveTotal) * 100) : 0}%</span>
                     </div>
                     <div class="flex flex-col items-center p-2.5 rounded-xl bg-slate-500/10 border border-slate-600/30">
                         <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400/80 mb-0.5">Skipped</span>
@@ -5636,19 +5891,19 @@ window.renderSubjectTrendCircle = function() {
                     <h3 class="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 text-left">Chapter Breakdown</h3>
                     <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 md:gap-2">
                         ${data.allChapters.map(ch => {
-                            let bgClass = '', textClass = '', icon = '';
-                            if (ch.status === 'complete') {
-                                bgClass = 'bg-emerald-500/20 border-emerald-500/30'; textClass = 'text-emerald-400'; icon = '✓';
-                            } else if (ch.status === 'skip') {
-                                bgClass = 'bg-slate-600/20 border-slate-600/30'; textClass = 'text-slate-500'; icon = '—';
-                            } else {
-                                bgClass = 'bg-rose-500/10 border-rose-500/20'; textClass = 'text-rose-400'; icon = '';
-                            }
-                            return `<div class="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl border ${bgClass} transition-all hover:scale-105">
+        let bgClass = '', textClass = '', icon = '';
+        if (ch.status === 'complete') {
+            bgClass = 'bg-emerald-500/20 border-emerald-500/30'; textClass = 'text-emerald-400'; icon = '✓';
+        } else if (ch.status === 'skip') {
+            bgClass = 'bg-slate-600/20 border-slate-600/30'; textClass = 'text-slate-500'; icon = '—';
+        } else {
+            bgClass = 'bg-rose-500/10 border-rose-500/20'; textClass = 'text-rose-400'; icon = '';
+        }
+        return `<div class="flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl border ${bgClass} transition-all hover:scale-105">
                                 <span class="text-[10px] md:text-xs font-black ${textClass}">${ch.chapterNum}</span>
                                 ${icon ? `<span class="text-[9px] ${textClass} mt-0.5">${icon}</span>` : ''}
                             </div>`;
-                        }).join('')}
+    }).join('')}
                     </div>
                 </div>
             </div>
