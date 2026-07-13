@@ -5826,16 +5826,40 @@ window.renderSubjectTrendCircle = function () {
     else if (effectivePct > 0) { statusColor = 'text-orange-400'; statusText = 'Getting Started'; statusEmoji = '🚀'; }
     else { statusColor = 'text-slate-400'; statusText = 'Not Started'; statusEmoji = '📋'; }
 
-    // Generate subject selection dropdown choices
-    let subjectDropdownOptionsHtml = '';
+    // Initialize selectedSubjectsTrend with current subject if not set
+    if (!window.selectedSubjectsTrend) {
+        window.selectedSubjectsTrend = subjectName ? [subjectName] : [];
+    }
+    // Ensure the active subject is always selected
+    if (subjectName && !window.selectedSubjectsTrend.includes(subjectName)) {
+        window.selectedSubjectsTrend.push(subjectName);
+    }
+
+    // Generate subject checkbox items for custom dropdown
+    let subjectCheckboxItemsHtml = '';
     for (const track of window.tracks) {
         if (syllabusStructure[track.id]) {
             syllabusStructure[track.id].forEach(s => {
-                const selectedAttr = s.subject === subjectName ? 'selected' : '';
-                subjectDropdownOptionsHtml += `<option value="${s.subject.replace(/"/g, '&quot;')}" ${selectedAttr}>${s.subject}</option>`;
+                const isChecked = window.selectedSubjectsTrend.includes(s.subject);
+                const isActive = s.subject === subjectName;
+                const checkedAttr = isChecked ? 'checked' : '';
+                const activeBg = isActive ? 'bg-indigo-500/15 border-indigo-500/30' : 'bg-transparent border-transparent hover:bg-slate-800';
+                const activeIndicator = isActive ? '<div class="w-1 h-4 rounded-full bg-indigo-500 shrink-0"></div>' : '';
+                subjectCheckboxItemsHtml += `
+                    <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border ${activeBg} transition-all cursor-pointer group"
+                         onclick="window.stmSelectSubject('${s.subject.replace(/'/g, "\\'")}')">
+                        ${activeIndicator}
+                        <input type="checkbox" ${checkedAttr}
+                            class="w-3.5 h-3.5 rounded accent-indigo-500 cursor-pointer shrink-0"
+                            onclick="event.stopPropagation(); window.stmToggleSubjectCheck('${s.subject.replace(/'/g, "\\'")}')" />
+                        <span class="text-[10px] font-bold text-slate-200 uppercase tracking-wider truncate group-hover:text-white transition-colors">${s.subject}</span>
+                    </div>`;
             });
         }
     }
+
+    const selectedCount = window.selectedSubjectsTrend.length;
+    const totalSubjects = window.getAllSubjects().length;
 
     const html = `
         <div class="flex flex-col-reverse lg:flex-row gap-6 md:gap-8 items-center lg:items-start w-full max-w-5xl">
@@ -5843,12 +5867,28 @@ window.renderSubjectTrendCircle = function () {
             <!-- Left Side: Controls, Legend, Stats, and Chapter Breakdown Grid -->
             <div class="flex flex-col flex-1 w-full lg:max-w-[60%]">
                 
-                <!-- Subject Selector Dropdown -->
+                <!-- Subject Selector Multi-Select Dropdown -->
                 <div class="w-full mb-4 flex flex-col gap-1.5 shrink-0">
-                    <label class="text-[9px] font-black uppercase tracking-widest text-slate-500">Select Subject</label>
-                    <select onchange="window.activeSingleSubjectTrend = this.value; window.renderSubjectTrendCircle();" class="w-full bg-slate-900 border border-slate-700 text-white text-xs font-black uppercase tracking-wider px-3 py-2 rounded-xl outline-none focus:border-indigo-500 transition-colors cursor-pointer">
-                        ${subjectDropdownOptionsHtml}
-                    </select>
+                    <div class="flex items-center justify-between">
+                        <label class="text-[9px] font-black uppercase tracking-widest text-slate-500">Select Subject</label>
+                        <span class="text-[8px] font-bold text-slate-500">${selectedCount}/${totalSubjects} selected</span>
+                    </div>
+                    <div class="relative" id="stm-subject-dropdown-wrapper">
+                        <button onclick="window.stmToggleDropdown()" id="stm-dropdown-btn"
+                            class="w-full bg-slate-900 border border-slate-700 text-white text-xs font-black uppercase tracking-wider px-3 py-2 rounded-xl outline-none focus:border-indigo-500 transition-colors cursor-pointer flex items-center justify-between">
+                            <span class="truncate">${subjectName || 'Select...'}</span>
+                            <svg class="w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform" id="stm-dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="stm-dropdown-panel" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-[200px] overflow-y-auto custom-scrollbar p-1.5 flex flex-col gap-0.5">
+                            <div class="flex items-center justify-between px-2 py-1 mb-0.5 border-b border-slate-800">
+                                <button onclick="event.stopPropagation(); window.stmSelectAll()" class="text-[8px] font-black text-indigo-400 uppercase tracking-wider hover:text-indigo-300 transition-colors">Select All</button>
+                                <button onclick="event.stopPropagation(); window.stmDeselectAll()" class="text-[8px] font-black text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">Deselect All</button>
+                            </div>
+                            ${subjectCheckboxItemsHtml}
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Stats Cards -->
@@ -5917,6 +5957,90 @@ window.renderSubjectTrendCircle = function () {
     `;
 
     container.innerHTML = html;
+
+    // Render subject completion trend line chart
+    const lineCanvas = document.getElementById('subjectTrendLineChart');
+    if (lineCanvas && window.lastSubjectTrendData && window.lastTrendMonths) {
+        const subData = window.lastSubjectTrendData;
+        const months = window.lastTrendMonths;
+
+        // Initialize global mode (default ON)
+        if (window.subjectTrendGlobalMode === undefined) window.subjectTrendGlobalMode = true;
+
+        // Build datasets — Global mode shows all, otherwise show only selected subjects
+        const allSubjects = window.getAllSubjects().sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+        const filteredSubs = window.subjectTrendGlobalMode
+            ? allSubjects
+            : allSubjects.filter(s => window.selectedSubjectsTrend && window.selectedSubjectsTrend.includes(s.subject));
+
+        let datasets = filteredSubs.map(s => {
+            const k = s.subject;
+            const color = getSubjectColor(k);
+            const isVisible = window.subjectTrendGlobalMode ? (window.chartVisibility.subjects[k] !== false) : true;
+            return {
+                label: getDynamicChartLabel(k),
+                data: subData[k] || [],
+                borderColor: color,
+                backgroundColor: color + '20',
+                tension: 0.4,
+                borderWidth: 3,
+                pointBackgroundColor: color,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: '#fff',
+                fill: true,
+                hidden: !isVisible,
+                subjectKey: k
+            };
+        });
+
+        const stlChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    usePointStyle: true,
+                    boxPadding: 6,
+                    callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y + '%' }
+                }
+            },
+            scales: {
+                y: {
+                    min: 0, max: 100,
+                    ticks: { font: { size: 9, weight: 'bold' }, callback: v => v + '%' },
+                    grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }
+                },
+                x: {
+                    ticks: { font: { size: 9, weight: 'bold' } },
+                    grid: { display: false, drawBorder: false }
+                }
+            }
+        };
+
+        // Destroy old instance since the canvas element persists in the modal
+        if (window.subjectTrendLineChartInstance) {
+            window.subjectTrendLineChartInstance.destroy();
+            window.subjectTrendLineChartInstance = null;
+        }
+
+        window.subjectTrendLineChartInstance = new Chart(lineCanvas, {
+            type: 'line',
+            data: { labels: months, datasets: datasets },
+            options: stlChartOptions
+        });
+    }
+
+    // Update subject trend legend
+    window.updateLegends();
 };
 
 function renderChart() {
@@ -6491,6 +6615,10 @@ window.toggleDataset = function (chartKey, dsKey) {
 
 window.toggleSubDataset = function (k) {
     window.chartVisibility.subjects[k] = !window.chartVisibility.subjects[k];
+    if (window.subjectTrendLineChartInstance) {
+        const ds = window.subjectTrendLineChartInstance.data.datasets.find(d => d.subjectKey === k);
+        if (ds) { ds.hidden = !window.chartVisibility.subjects[k]; window.subjectTrendLineChartInstance.update(); }
+    }
     window.updateLegends();
 };
 
@@ -6546,17 +6674,18 @@ window.updateLegends = function () {
     const sLeg = document.getElementById('subject-trend-legend');
     if (sLeg) {
         const sortedSubs = window.getAllSubjects().sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
-        const filteredSubs = window.activeSingleSubjectTrend
-            ? sortedSubs.filter(s => s.subject === window.activeSingleSubjectTrend)
-            : sortedSubs;
+        const isGlobal = window.subjectTrendGlobalMode !== false;
+        const filteredSubs = isGlobal
+            ? sortedSubs
+            : sortedSubs.filter(s => window.selectedSubjectsTrend && window.selectedSubjectsTrend.includes(s.subject));
         sLeg.innerHTML = filteredSubs.map(s => {
             const k = s.subject; const val = window.latestChartStats.subjects ? window.latestChartStats.subjects[k] : 0; const active = window.chartVisibility.subjects[k]; const color = getSubjectColor(k);
             const label = getDynamicCleanLabel(k, 12);
             const isProgVisible = !window.programVisibility || window.programVisibility[s.program] !== false;
-            const isSubjectActive = (window.activeSingleSubjectTrend || (active && isProgVisible));
+            const isSubjectActive = isGlobal ? (active && isProgVisible) : true;
             const activeStyle = isSubjectActive ? `border-color: ${color}40; background-color: rgba(15,23,42,0.8); box-shadow: 0 0 10px ${color}20; opacity: 1;` : `border-color: rgba(255,255,255,0.1); background-color: transparent; opacity: 0.4; filter: grayscale(100%); line-through;`;
-            const onClickStr = (window.activeSingleSubjectTrend || !isProgVisible) ? '' : `toggleSubDataset('${k}')`;
-            const cursorClass = (window.activeSingleSubjectTrend || !isProgVisible) ? '' : 'cursor-pointer';
+            const onClickStr = isGlobal && isProgVisible ? `toggleSubDataset('${k}')` : '';
+            const cursorClass = isGlobal && isProgVisible ? 'cursor-pointer' : '';
             return `<div onclick="${onClickStr}" class="${cursorClass} flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border active:scale-95 transition-all duration-300 hover:scale-105 backdrop-blur-sm" style="${activeStyle}"><div class="w-2 h-2 rounded-full shrink-0 shadow-md" style="background-color: ${color}; box-shadow: 0 0 8px ${color}"></div><span class="text-[8px] md:text-[9px] font-black text-slate-200 uppercase whitespace-nowrap">${label}: ${val}%</span></div>`;
         }).join('');
     }
@@ -9847,14 +9976,136 @@ window.fireConfetti = function () {
 
 window.openSubjectTrendModal = function () {
     window.activeSingleSubjectTrend = null;
+    window.subjectTrendChartStyle = window.subjectTrendChartStyle || 'circle';
     openModal('subject-trend-modal');
     window.renderSubjectTrendCircle();
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle);
 };
 window.openSingleSubjectTrendModal = function (subjectName) {
     window.activeSingleSubjectTrend = subjectName;
+    window.subjectTrendChartStyle = window.subjectTrendChartStyle || 'circle';
     openModal('subject-trend-modal');
     window.renderSubjectTrendCircle();
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle);
 };
+window.setSubjectTrendChartStyle = function (style) {
+    window.subjectTrendChartStyle = style;
+    const circleContainer = document.getElementById('subject-trend-circle-container');
+    const lineContainer = document.getElementById('subject-trend-line-container');
+    const circleBtn = document.getElementById('stm-circle-btn');
+    const lineBtn = document.getElementById('stm-line-btn');
+
+    const activeClass = 'flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all bg-indigo-600 text-white shadow';
+    const inactiveClass = 'flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all text-slate-400 hover:text-white hover:bg-slate-700';
+
+    if (style === 'line') {
+        if (circleContainer) circleContainer.classList.add('hidden');
+        if (lineContainer) lineContainer.classList.remove('hidden');
+        if (circleBtn) circleBtn.className = inactiveClass;
+        if (lineBtn) lineBtn.className = activeClass;
+        // Re-render the line chart since the container was hidden and may need a resize
+        if (window.subjectTrendLineChartInstance) {
+            window.subjectTrendLineChartInstance.resize();
+        }
+        // Sync global button state
+        if (window.updateGlobalBtnStyle) window.updateGlobalBtnStyle();
+    } else {
+        if (circleContainer) circleContainer.classList.remove('hidden');
+        if (lineContainer) lineContainer.classList.add('hidden');
+        if (circleBtn) circleBtn.className = activeClass;
+        if (lineBtn) lineBtn.className = inactiveClass;
+    }
+};
+
+// --- Multi-select dropdown helpers for Subject Trend modal ---
+
+// Toggle dropdown open/close
+window.stmToggleDropdown = function () {
+    const panel = document.getElementById('stm-dropdown-panel');
+    const arrow = document.getElementById('stm-dropdown-arrow');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    if (isHidden) {
+        panel.classList.remove('hidden');
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+    } else {
+        panel.classList.add('hidden');
+        if (arrow) arrow.style.transform = '';
+    }
+};
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function (e) {
+    const wrapper = document.getElementById('stm-subject-dropdown-wrapper');
+    const panel = document.getElementById('stm-dropdown-panel');
+    if (wrapper && panel && !wrapper.contains(e.target)) {
+        panel.classList.add('hidden');
+        const arrow = document.getElementById('stm-dropdown-arrow');
+        if (arrow) arrow.style.transform = '';
+    }
+});
+
+// Click a subject row → set as active circle subject AND check it
+window.stmSelectSubject = function (subjectName) {
+    window.activeSingleSubjectTrend = subjectName;
+    if (!window.selectedSubjectsTrend) window.selectedSubjectsTrend = [];
+    if (!window.selectedSubjectsTrend.includes(subjectName)) {
+        window.selectedSubjectsTrend.push(subjectName);
+    }
+    window.renderSubjectTrendCircle();
+    // Restore view mode after re-render
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle || 'circle');
+};
+
+// Toggle checkbox only (doesn't change active circle subject)
+window.stmToggleSubjectCheck = function (subjectName) {
+    if (!window.selectedSubjectsTrend) window.selectedSubjectsTrend = [];
+    const idx = window.selectedSubjectsTrend.indexOf(subjectName);
+    if (idx !== -1) {
+        // Don't allow unchecking the active circle subject
+        if (subjectName === window.activeSingleSubjectTrend && window.selectedSubjectsTrend.length <= 1) return;
+        window.selectedSubjectsTrend.splice(idx, 1);
+    } else {
+        window.selectedSubjectsTrend.push(subjectName);
+    }
+    window.renderSubjectTrendCircle();
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle || 'circle');
+};
+
+// Select all subjects
+window.stmSelectAll = function () {
+    window.selectedSubjectsTrend = window.getAllSubjects().map(s => s.subject);
+    window.renderSubjectTrendCircle();
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle || 'circle');
+};
+
+// Deselect all (keep only the active circle subject)
+window.stmDeselectAll = function () {
+    window.selectedSubjectsTrend = window.activeSingleSubjectTrend ? [window.activeSingleSubjectTrend] : [];
+    window.renderSubjectTrendCircle();
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle || 'circle');
+};
+
+// Toggle Global mode for the line chart
+window.toggleSubjectTrendGlobal = function () {
+    window.subjectTrendGlobalMode = !window.subjectTrendGlobalMode;
+    window.updateGlobalBtnStyle();
+    // Re-render the line chart with new filtering
+    window.renderSubjectTrendCircle();
+    window.setSubjectTrendChartStyle(window.subjectTrendChartStyle || 'circle');
+};
+
+// Update global button visual state
+window.updateGlobalBtnStyle = function () {
+    const btn = document.getElementById('stm-global-btn');
+    if (!btn) return;
+    if (window.subjectTrendGlobalMode) {
+        btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all bg-indigo-600 text-white shadow border border-indigo-500/50 hover:bg-indigo-700 active:scale-95';
+    } else {
+        btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-white active:scale-95';
+    }
+};
+
 window.openRevisionTrendModal = function () { openModal('revision-trend-modal'); };
 window.openYearlyActionsModal = function () { openModal('yearly-actions-modal'); };
 
