@@ -83,6 +83,12 @@ window.AppState = {
     revisionData: { active: [], progress: {} },
     currentGhmTab: 'timeline',
 
+    fiscalLedger: {
+        transactions: [],
+        budgets: [],
+        vaults: []
+    },
+
     subjectColors: {},
     twColors: {
         indigo: { hex: '#6366f1', border: 'border-indigo-500', btn: 'bg-indigo-500', bgLt: 'bg-indigo-50 dark:bg-indigo-900/20', borderLt: 'border-indigo-100 dark:border-indigo-800/50', text: 'text-indigo-600 dark:text-indigo-400', iconBg: 'bg-indigo-100 dark:bg-indigo-500/10', iconColor: 'text-indigo-500' },
@@ -120,7 +126,7 @@ const stateKeys = [
     'activeSingleSubjectTrend', 'chartVisibility', 'latestChartStats', 'editingTask',
     'editingPaceId', 'trendTimeFilter', 'subjectTimeLinks', 'subjectDetailsState',
     'currentDadbTab', 'hasShownCongrats', 'successResults', 'editingResultId',
-    'trendDatasetVisibility', 'dashboardConfig', 'passedItems', 'revisionData',
+    'trendDatasetVisibility', 'dashboardConfig', 'passedItems', 'revisionData', 'fiscalLedger',
     'currentGhmTab', 'subjectColors', 'twColors', 'customActions', 'paceGoals',
     'globalStartDate', 'globalEndDate', 'dynamicLineColors', 'isInitialLoad',
     'currentFilter', 'PLAN_START_DATE', 'PLAN_END_DATE', 'showSync', 'serverTimeOffset'

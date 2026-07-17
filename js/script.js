@@ -9682,9 +9682,11 @@ window.switchDadbTab = function (tab) {
 
 window.openModal = function (modalId, typeKey = null) {
     if (modalId === 'analytics-modal' && typeKey) populateAnalyticsModal(typeKey);
-    const backdrops = { 'global-chapters-modal': 'gcm-backdrop', 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'edit-timer-session-modal': 'etsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
-    const contents = { 'global-chapters-modal': 'gcm-content', 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'edit-timer-session-modal': 'etsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
-    const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
+    const backdrops = { 'global-chapters-modal': 'gcm-backdrop', 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'edit-timer-session-modal': 'etsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop', 'fiscal-tx-modal': 'fiscal-tx-backdrop', 'fiscal-budget-modal': 'fiscal-budget-backdrop', 'fiscal-vault-modal': 'fiscal-vault-backdrop', 'fiscal-deposit-modal': 'fiscal-deposit-backdrop', 'fiscal-delete-modal': 'fiscal-delete-backdrop' };
+    const contents = { 'global-chapters-modal': 'gcm-content', 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'edit-timer-session-modal': 'etsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content', 'fiscal-tx-modal': 'fiscal-tx-content', 'fiscal-budget-modal': 'fiscal-budget-content', 'fiscal-vault-modal': 'fiscal-vault-content', 'fiscal-deposit-modal': 'fiscal-deposit-content', 'fiscal-delete-modal': 'fiscal-delete-content' };
+    const modal = document.getElementById(modalId);
+    const backdrop = (backdrops[modalId] && document.getElementById(backdrops[modalId])) || (modal ? modal.children[0] : null);
+    const content = (contents[modalId] && document.getElementById(contents[modalId])) || (modal ? modal.children[1] : null);
     if (!modal || !backdrop || !content) return;
 
     modal.classList.remove('hidden'); void modal.offsetWidth;
@@ -9728,9 +9730,11 @@ window.openModal = function (modalId, typeKey = null) {
 };
 
 window.closeModal = function (modalId) {
-    const backdrops = { 'global-chapters-modal': 'gcm-backdrop', 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'edit-timer-session-modal': 'etsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop' };
-    const contents = { 'global-chapters-modal': 'gcm-content', 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'edit-timer-session-modal': 'etsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content' };
-    const modal = document.getElementById(modalId); const backdrop = document.getElementById(backdrops[modalId]); const content = document.getElementById(contents[modalId]);
+    const backdrops = { 'global-chapters-modal': 'gcm-backdrop', 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'edit-timer-session-modal': 'etsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop', 'fiscal-tx-modal': 'fiscal-tx-backdrop', 'fiscal-budget-modal': 'fiscal-budget-backdrop', 'fiscal-vault-modal': 'fiscal-vault-backdrop', 'fiscal-deposit-modal': 'fiscal-deposit-backdrop', 'fiscal-delete-modal': 'fiscal-delete-backdrop' };
+    const contents = { 'global-chapters-modal': 'gcm-content', 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'edit-timer-session-modal': 'etsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content', 'fiscal-tx-modal': 'fiscal-tx-content', 'fiscal-budget-modal': 'fiscal-budget-content', 'fiscal-vault-modal': 'fiscal-vault-content', 'fiscal-deposit-modal': 'fiscal-deposit-content', 'fiscal-delete-modal': 'fiscal-delete-content' };
+    const modal = document.getElementById(modalId);
+    const backdrop = (backdrops[modalId] && document.getElementById(backdrops[modalId])) || (modal ? modal.children[0] : null);
+    const content = (contents[modalId] && document.getElementById(contents[modalId])) || (modal ? modal.children[1] : null);
     if (!modal || !backdrop || !content) return;
 
     backdrop.classList.remove('opacity-100'); backdrop.classList.add('opacity-0');
@@ -16580,7 +16584,7 @@ window.closeMobileSidebar = function () {
 };
 
 window.switchPage = function (pageId) {
-    const pages = ['dashboard', 'spectra-analytics', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome'];
+    const pages = ['dashboard', 'spectra-analytics', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome', 'fiscal-ledger'];
     pages.forEach(p => {
         const el = document.getElementById(`page-${p}`);
         if (el) {
@@ -16602,6 +16606,7 @@ window.switchPage = function (pageId) {
         'paces-management': { active: 'bg-red-600 text-white border-red-600 shadow-lg', hover: 'hover:border-red-400' },
         'master-config': { active: 'bg-indigo-600 text-white border-indigo-600 shadow-lg', hover: 'hover:border-indigo-400' },
         'outcome': { active: 'bg-yellow-500 text-white border-yellow-500 shadow-lg', hover: 'hover:border-yellow-400' },
+        'fiscal-ledger': { active: 'bg-teal-600 text-white border-teal-600 shadow-lg', hover: 'hover:border-teal-400' },
         'timer': { active: 'bg-emerald-600 text-white border-emerald-600 shadow-lg', hover: 'hover:border-emerald-400' },
         'schedule': { active: 'bg-cyan-600 text-white border-cyan-600 shadow-lg', hover: 'hover:border-cyan-400' }
     };
@@ -16672,6 +16677,8 @@ window.switchPage = function (pageId) {
         setTimeout(() => {
             if (window.resultsTrendChartInstance) window.resultsTrendChartInstance.resize();
         }, 50);
+    } else if (pageId === 'fiscal-ledger') {
+        window.renderFiscalLedgerPage();
     } else if (pageId === 'schedule') {
         window.renderSchedulePage();
     }
@@ -16908,3 +16915,1214 @@ if ('serviceWorker' in navigator) {
         names.forEach(name => caches.delete(name));
     });
 }
+
+// =========================================================================
+// --- Fiscal Ledger & Financial Management System ---
+// =========================================================================
+
+window.currentFiscalTab = 'ledger';
+window.currentFiscalView = 'table';
+
+window.switchFiscalTab = function (tabName) {
+    window.currentFiscalTab = tabName;
+    const tabs = ['ledger', 'budget', 'vaults', 'analytics'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`fiscal-tab-btn-${t}`);
+        const pane = document.getElementById(`fiscal-pane-${t}`);
+        if (t === tabName) {
+            if (btn) {
+                btn.className = 'px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 border-teal-600 text-teal-600 dark:text-teal-400 whitespace-nowrap transition-all flex items-center gap-2';
+            }
+            if (pane) pane.classList.remove('hidden');
+        } else {
+            if (btn) {
+                btn.className = 'px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-2';
+            }
+            if (pane) pane.classList.add('hidden');
+        }
+    });
+
+    if (tabName === 'analytics') {
+        setTimeout(() => { window.renderFiscalCharts(); }, 100);
+    }
+};
+
+window.setFiscalLedgerView = function (viewType) {
+    window.currentFiscalView = viewType;
+    const tableContainer = document.getElementById('fiscal-table-container');
+    const taccContainer = document.getElementById('fiscal-taccount-container');
+    const tableBtn = document.getElementById('fiscal-view-table-btn');
+    const taccBtn = document.getElementById('fiscal-view-taccount-btn');
+
+    if (viewType === 'table') {
+        if (tableContainer) tableContainer.classList.remove('hidden');
+        if (taccContainer) taccContainer.classList.add('hidden');
+        if (tableBtn) tableBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
+        if (taccBtn) taccBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
+    } else {
+        if (tableContainer) tableContainer.classList.add('hidden');
+        if (taccContainer) taccContainer.classList.remove('hidden');
+        if (tableBtn) tableBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
+        if (taccBtn) taccBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
+    }
+    window.renderFiscalLedgerPage();
+};
+
+window.ensureFiscalStateDefaults = function () {
+    if (!AppState.fiscalLedger) AppState.fiscalLedger = {};
+    if (!Array.isArray(AppState.fiscalLedger.transactions)) {
+        AppState.fiscalLedger.transactions = [];
+    }
+    if (!Array.isArray(AppState.fiscalLedger.budgets)) {
+        AppState.fiscalLedger.budgets = [];
+    }
+    if (!Array.isArray(AppState.fiscalLedger.vaults)) {
+        AppState.fiscalLedger.vaults = [];
+    }
+};
+
+window.renderFiscalLedgerPage = function () {
+    window.ensureFiscalStateDefaults();
+
+    const transactions = AppState.fiscalLedger.transactions || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+    const vaults = AppState.fiscalLedger.vaults || [];
+
+    // Calculate Totals:
+    // DR = Expense (Outflow)
+    // CR = Income (Inflow)
+    let totalInflow = 0;
+    let totalOutflow = 0;
+    transactions.forEach(tx => {
+        const amt = parseFloat(tx.amount) || 0;
+        if (tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income') {
+            totalInflow += amt;
+        } else {
+            totalOutflow += amt;
+        }
+    });
+
+    let totalVaultHold = 0;
+    let lockedVaultHold = 0;
+    vaults.forEach(v => {
+        const amt = parseFloat(v.currentAmount) || 0;
+        totalVaultHold += amt;
+        if (v.isLiquidSource === false) {
+            lockedVaultHold += amt;
+        }
+    });
+
+    const netCapital = (totalInflow - totalOutflow) - lockedVaultHold;
+
+    // Update Executive KPI Cards
+    const kpiNetEl = document.getElementById('fiscal-kpi-net');
+    const kpiNetBadgeEl = document.getElementById('fiscal-kpi-net-badge');
+    const kpiInflowEl = document.getElementById('fiscal-kpi-inflow');
+    const kpiOutflowEl = document.getElementById('fiscal-kpi-outflow');
+    const kpiVaultsEl = document.getElementById('fiscal-kpi-vaults');
+
+    if (kpiNetEl) kpiNetEl.textContent = `৳${netCapital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (kpiInflowEl) kpiInflowEl.textContent = `৳${totalInflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (kpiOutflowEl) kpiOutflowEl.textContent = `৳${totalOutflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (kpiVaultsEl) kpiVaultsEl.textContent = `৳${totalVaultHold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    if (kpiNetBadgeEl) {
+        if (netCapital >= 0) {
+            kpiNetBadgeEl.textContent = 'Surplus';
+            kpiNetBadgeEl.className = 'px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-md bg-teal-200 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200';
+        } else {
+            kpiNetBadgeEl.textContent = 'Deficit';
+            kpiNetBadgeEl.className = 'px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-md bg-rose-200 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200';
+        }
+    }
+
+    // Filters for Ledger Table
+    const searchVal = (document.getElementById('fiscal-search-input')?.value || '').toLowerCase();
+    const filterType = document.getElementById('fiscal-filter-type')?.value || 'ALL';
+
+    const filteredTxs = transactions.filter(tx => {
+        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        const isDr = !isCr;
+
+        if (filterType === 'dr' && !isDr) return false;
+        if (filterType === 'cr' && !isCr) return false;
+
+        if (searchVal) {
+            const matchCategory = (tx.category || '').toLowerCase().includes(searchVal);
+            const matchHead = (tx.head || '').toLowerCase().includes(searchVal);
+            return matchCategory || matchHead;
+        }
+        return true;
+    });
+
+    // Helper to get printable category label
+    const getCategoryLabel = (cat) => {
+        if (!cat) return 'General';
+        if (cat.startsWith('Vault: ')) {
+            const vId = cat.replace('Vault: ', '').trim();
+            const vlt = vaults.find(v => v.id === vId || v.name === vId);
+            return vlt ? `Vault: ${vlt.name}` : cat;
+        }
+        return cat;
+    };
+
+    // Render Transactions Table Body
+    const tbody = document.getElementById('fiscal-tx-table-body');
+    if (tbody) {
+        if (filteredTxs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 font-bold">No cash flow transactions found. Click "+ Log Cash Flow" to record entries.</td></tr>`;
+        } else {
+            tbody.innerHTML = filteredTxs.map(tx => {
+                const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+                const amtFormatted = `৳${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const typeBadge = isCr
+                    ? `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">+ CR (Income)</span>`
+                    : `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">- DR (Expense)</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
+                        <td class="py-3 px-4 font-bold text-slate-600 dark:text-slate-300">${tx.date}</td>
+                        <td class="py-3 px-4">
+                            <div class="font-black text-slate-900 dark:text-white">${tx.head || getCategoryLabel(tx.category)}</div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">${getCategoryLabel(tx.category)}</div>
+                        </td>
+                        <td class="py-3 px-4">${typeBadge}</td>
+                        <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${isCr ? '+' : '-'}${amtFormatted}</td>
+                        <td class="py-3 px-4 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="window.openFiscalTxModal('${tx.id}')" class="p-1.5 text-slate-400 hover:text-teal-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" title="Edit Entry">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                                <button onclick="window.deleteFiscalTransaction('${tx.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" title="Delete Entry">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    // Render T-Account Lists (Dr = Expenses / Cr = Income)
+    const drListEl = document.getElementById('fiscal-tacc-dr-list');
+    const crListEl = document.getElementById('fiscal-tacc-cr-list');
+    const drTotalEl = document.getElementById('fiscal-tacc-dr-total');
+    const crTotalEl = document.getElementById('fiscal-tacc-cr-total');
+
+    const drEntries = transactions.filter(t => t.type !== 'cr' && t.type !== 'inflow' && t.type !== 'income');
+    const crEntries = transactions.filter(t => t.type === 'cr' || t.type === 'inflow' || t.type === 'income');
+
+    if (drTotalEl) drTotalEl.textContent = `৳${totalOutflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (crTotalEl) crTotalEl.textContent = `৳${totalInflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    if (drListEl) {
+        if (drEntries.length === 0) {
+            drListEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">No debit (expense) entries recorded.</div>`;
+        } else {
+            drListEl.innerHTML = drEntries.map(tx => `
+                <div class="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-rose-200 dark:border-rose-900/40 shadow-2xs">
+                    <div>
+                        <div class="font-black text-xs text-slate-900 dark:text-white">${tx.head || getCategoryLabel(tx.category)}</div>
+                        <div class="text-[10px] text-slate-400 font-semibold">${tx.date} • ${getCategoryLabel(tx.category)}</div>
+                    </div>
+                    <span class="font-black text-xs text-rose-600 dark:text-rose-400">-৳${parseFloat(tx.amount || 0).toFixed(2)}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    if (crListEl) {
+        if (crEntries.length === 0) {
+            crListEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">No credit (income) entries recorded.</div>`;
+        } else {
+            crListEl.innerHTML = crEntries.map(tx => `
+                <div class="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-emerald-200 dark:border-emerald-900/40 shadow-2xs">
+                    <div>
+                        <div class="font-black text-xs text-slate-900 dark:text-white">${tx.head || getCategoryLabel(tx.category)}</div>
+                        <div class="text-[10px] text-slate-400 font-semibold">${tx.date} • ${getCategoryLabel(tx.category)}</div>
+                    </div>
+                    <span class="font-black text-xs text-emerald-600 dark:text-emerald-400">+৳${parseFloat(tx.amount || 0).toFixed(2)}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Render Budget Variance Grid (Expenses directly cut from Budget)
+    const budgetGridEl = document.getElementById('fiscal-budget-grid');
+    if (budgetGridEl) {
+        if (budgets.length === 0) {
+            budgetGridEl.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold">No category budgets created yet. Click "Add Category Budget" to start.</div>`;
+        } else {
+            budgetGridEl.innerHTML = budgets.map(b => {
+                // Calculate actual expenses cut against this budget category
+                const actualSpent = transactions
+                    .filter(t => (t.type === 'dr' || t.type === 'outflow' || t.type === 'expense') && t.category === b.category)
+                    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+                const targetLimit = parseFloat(b.targetBudget) || 0;
+                const remaining = targetLimit - actualSpent;
+                const pct = targetLimit > 0 ? Math.min(Math.round((actualSpent / targetLimit) * 100), 100) : 100;
+                const isOver = actualSpent > targetLimit;
+
+                const badge = isOver
+                    ? `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300">Over Budget (-৳${Math.abs(remaining).toFixed(2)})</span>`
+                    : `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Remaining: ৳${remaining.toFixed(2)}</span>`;
+
+                const barColor = isOver ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-teal-500';
+
+                return `
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h5 class="font-black text-sm dark:text-white">${b.category}</h5>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${b.sourceVaultName ? `Funded from Vault: ${b.sourceVaultName}` : `${b.period || 'Monthly'} Budget`}</p>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                ${badge}
+                                <button onclick="window.openVaultToBudgetTransferModal('${b.id}')" class="p-1 text-slate-500 hover:text-indigo-600 rounded flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 border border-indigo-200 dark:border-indigo-800/50 transition-all active:scale-95" title="Fund budget from vault">
+                                    <svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                    <span>Fund</span>
+                                </button>
+                                <button onclick="window.openFiscalBudgetModal('${b.id}')" class="p-1 text-slate-400 hover:text-teal-600 rounded" title="Edit Budget">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                                <button onclick="window.deleteFiscalBudget('${b.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="Delete Budget">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-baseline justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-500">Expenses Cut: <strong class="${isOver ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}">৳${actualSpent.toFixed(2)}</strong></span>
+                            <span class="text-xs font-bold text-slate-400">Target Limit: <strong>৳${targetLimit.toFixed(2)}</strong></span>
+                        </div>
+
+                        <div class="w-full bg-slate-100 dark:bg-slate-700/60 rounded-full h-2.5 overflow-hidden">
+                            <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // Render Savings & Hold Vaults Grid ("Where & Where Saved")
+    const vaultsGridEl = document.getElementById('fiscal-vaults-grid');
+    if (vaultsGridEl) {
+        if (vaults.length === 0) {
+            vaultsGridEl.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold">No savings vaults created. Click "+ Create Vault" to set up hold reserves.</div>`;
+        } else {
+            vaultsGridEl.innerHTML = vaults.map(v => {
+                const currentAmt = parseFloat(v.currentAmount) || 0;
+                const targetAmt = parseFloat(v.targetAmount) || 0;
+                const hasGoal = targetAmt > 0;
+                const pct = hasGoal ? Math.min(Math.round((currentAmt / targetAmt) * 100), 100) : 100;
+                const isLiquid = v.isLiquidSource !== false;
+
+                const liquidBadge = isLiquid
+                    ? `<button onclick="window.toggleVaultLiquidStatus('${v.id}')" class="px-2.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 transition-all flex items-center gap-1 active:scale-95" title="Source of Liquid Calculation (Included in Net Liquid Capital). Click to toggle.">⚡ Liquid Source</button>`
+                    : `<button onclick="window.toggleVaultLiquidStatus('${v.id}')" class="px-2.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 transition-all flex items-center gap-1 active:scale-95" title="Hold Reserve (Excluded from Net Liquid Capital). Click to toggle.">🔒 Hold Reserve</button>`;
+
+                return `
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between relative group hover:shadow-md transition-all">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                ${liquidBadge}
+                                <div class="flex items-center gap-1">
+                                    <button onclick="window.openFiscalVaultModal('${v.id}')" class="p-1 text-slate-400 hover:text-indigo-600 rounded" title="Edit Vault">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    </button>
+                                    <button onclick="window.deleteFiscalVault('${v.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="Delete Vault">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <h5 class="font-black text-base dark:text-white tracking-tight mb-1">${v.name}</h5>
+                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-4">
+                                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                <span>Held at: <strong class="text-slate-700 dark:text-slate-300 font-bold">${v.location || 'Reserve Vault'}</strong></span>
+                            </div>
+
+                            <div class="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 mb-4">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <span class="text-[10px] font-black uppercase text-slate-400">Vault Balance</span>
+                                    <span class="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">${hasGoal ? `${pct}% of Goal` : 'Active Reserve'}</span>
+                                </div>
+                                <div class="text-xl font-black text-slate-900 dark:text-white">৳${currentAmt.toFixed(2)} ${hasGoal ? `<span class="text-xs font-semibold text-slate-400">/ ৳${targetAmt.toFixed(2)}</span>` : ''}</div>
+                                ${hasGoal ? `
+                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-2 overflow-hidden">
+                                    <div class="bg-indigo-600 h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                                </div>` : ''}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3">
+                            <span class="text-[10px] text-slate-400 font-bold">${hasGoal ? `Goal: ৳${targetAmt.toLocaleString()}` : 'Flexible Fund'}</span>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="window.openVaultTransferModal('${v.id}')" class="bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-600 hover:text-white text-teal-600 dark:text-teal-400 font-black text-[10px] uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-teal-200 dark:border-teal-800/50 transition-all active:scale-95 flex items-center gap-1" title="Transfer cash to another vault">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                    <span>Transfer</span>
+                                </button>
+                                <button onclick="window.openFiscalDepositModal('${v.id}')" class="bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-400 font-black text-[10px] uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/50 transition-all active:scale-95 flex items-center gap-1">
+                                    <span>Deposit / Withdraw</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    if (window.currentFiscalTab === 'analytics') {
+        window.renderFiscalCharts();
+    }
+};
+
+window.toggleVaultLiquidStatus = function (vltId) {
+    window.ensureFiscalStateDefaults();
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const targetVault = vaults.find(v => v.id === vltId);
+    if (!targetVault) return;
+
+    const willBeLiquid = !(targetVault.isLiquidSource === true);
+
+    if (willBeLiquid) {
+        // 1st unset all existing liquid sources, then set the new one
+        vaults.forEach(v => { v.isLiquidSource = false; });
+        targetVault.isLiquidSource = true;
+        showToast(`Vault [${targetVault.name}] is now the primary Liquid Source (previous liquid source unset)`, "success");
+    } else {
+        targetVault.isLiquidSource = false;
+        showToast(`Vault [${targetVault.name}] unset as Liquid Source`, "info");
+    }
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+};
+
+// Vault CRUD Handlers
+window.openFiscalVaultModal = function (vltId = null) {
+    document.getElementById('fiscal-vlt-id').value = vltId || '';
+    const titleEl = document.getElementById('fiscal-vlt-modal-title');
+    const liquidCheckbox = document.getElementById('fiscal-vlt-liquid');
+
+    if (vltId) {
+        const vlt = (AppState.fiscalLedger.vaults || []).find(v => v.id === vltId);
+        if (vlt) {
+            if (titleEl) titleEl.textContent = 'Edit Savings Vault';
+            document.getElementById('fiscal-vlt-name').value = vlt.name || '';
+            document.getElementById('fiscal-vlt-location').value = vlt.location || '';
+            document.getElementById('fiscal-vlt-current').value = vlt.currentAmount !== undefined ? vlt.currentAmount : 0;
+            document.getElementById('fiscal-vlt-target').value = vlt.targetAmount || '';
+            if (liquidCheckbox) liquidCheckbox.checked = vlt.isLiquidSource === true;
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'Create Savings / Hold Vault';
+        document.getElementById('fiscal-vlt-name').value = '';
+        document.getElementById('fiscal-vlt-location').value = '';
+        document.getElementById('fiscal-vlt-current').value = '0';
+        document.getElementById('fiscal-vlt-target').value = '';
+        if (liquidCheckbox) {
+            // Check if any vault is currently a liquid source
+            const hasLiquid = (AppState.fiscalLedger.vaults || []).some(v => v.isLiquidSource === true);
+            liquidCheckbox.checked = !hasLiquid;
+        }
+    }
+    openModal('fiscal-vault-modal');
+};
+
+window.saveFiscalVault = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const id = document.getElementById('fiscal-vlt-id').value || `vlt-${Date.now()}`;
+    const name = document.getElementById('fiscal-vlt-name').value.trim();
+    if (!name) {
+        showToast("Vault Name is mandatory!", "warning");
+        return;
+    }
+
+    const locationInput = document.getElementById('fiscal-vlt-location').value.trim();
+    const location = locationInput || 'General Reserve';
+    const currentAmount = parseFloat(document.getElementById('fiscal-vlt-current').value) || 0;
+    const targetAmount = parseFloat(document.getElementById('fiscal-vlt-target').value) || 0;
+    const isLiquidSource = document.getElementById('fiscal-vlt-liquid')?.checked === true;
+
+    if (isLiquidSource) {
+        // Unset all existing liquid sources first
+        (AppState.fiscalLedger.vaults || []).forEach(v => {
+            if (v.id !== id) v.isLiquidSource = false;
+        });
+    }
+
+    const vltObj = { id, name, location, currentAmount, targetAmount, isLiquidSource };
+    const idx = AppState.fiscalLedger.vaults.findIndex(v => v.id === id);
+    if (idx >= 0) {
+        AppState.fiscalLedger.vaults[idx] = vltObj;
+    } else {
+        AppState.fiscalLedger.vaults.push(vltObj);
+    }
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-vault-modal');
+    showToast("Capital vault saved!", "success");
+};
+
+// DR and CR Toggle Button Handler
+// DR = Expense (outflow)
+// CR = Income (inflow)
+window.setFiscalTxType = function (type) {
+    const hiddenInput = document.getElementById('fiscal-tx-type');
+    if (hiddenInput) hiddenInput.value = type;
+
+    const btnDr = document.getElementById('fiscal-tx-btn-dr');
+    const btnCr = document.getElementById('fiscal-tx-btn-cr');
+    const labelEl = document.getElementById('fiscal-tx-category-label');
+    const categorySelect = document.getElementById('fiscal-tx-category');
+
+    const isDr = (type === 'dr' || type === 'outflow' || type === 'expense');
+
+    if (btnDr && btnCr) {
+        if (isDr) {
+            btnDr.className = "flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all bg-rose-600 text-white shadow active:scale-95";
+            btnCr.className = "flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+        } else {
+            btnDr.className = "flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+            btnCr.className = "flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all bg-emerald-600 text-white shadow active:scale-95";
+        }
+    }
+
+    window.ensureFiscalStateDefaults();
+    const budgets = AppState.fiscalLedger.budgets || [];
+    const vaults = AppState.fiscalLedger.vaults || [];
+
+    if (isDr) {
+        if (labelEl) labelEl.textContent = 'Budget Category (from Budget Tab)';
+        if (categorySelect) {
+            const curVal = categorySelect.value;
+            let html = '';
+            if (budgets.length === 0) {
+                html = `<option value="">No budgets found (Create in Budget Tab first)</option>`;
+            } else {
+                budgets.forEach(b => {
+                    const spent = (AppState.fiscalLedger.transactions || [])
+                        .filter(t => (t.type === 'dr' || t.type === 'outflow' || t.type === 'expense') && t.category === b.category)
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    const limit = parseFloat(b.targetBudget) || 0;
+                    const rem = limit - spent;
+                    html += `<option value="${b.category}">${b.category} (Limit: ৳${limit.toLocaleString()}, Rem: ৳${rem.toLocaleString()})</option>`;
+                });
+            }
+            categorySelect.innerHTML = html;
+            if (curVal && Array.from(categorySelect.options).some(o => o.value === curVal)) {
+                categorySelect.value = curVal;
+            }
+        }
+    } else {
+        if (labelEl) labelEl.textContent = 'Select Vault to Deposit (from Vaults Tab)';
+        if (categorySelect) {
+            const curVal = categorySelect.value;
+            let html = '';
+            if (vaults.length === 0) {
+                html = `<option value="">No vaults found (Create in Vaults Tab first)</option>`;
+            } else {
+                vaults.forEach(v => {
+                    const curAmt = parseFloat(v.currentAmount) || 0;
+                    html += `<option value="Vault: ${v.id}">${v.name} (Current Balance: ৳${curAmt.toLocaleString()})</option>`;
+                });
+            }
+            categorySelect.innerHTML = html;
+            if (curVal && Array.from(categorySelect.options).some(o => o.value === curVal)) {
+                categorySelect.value = curVal;
+            }
+        }
+    }
+};
+
+// Transaction CRUD Handlers
+window.openFiscalTxModal = function (txId = null) {
+    window.ensureFiscalStateDefaults();
+
+    document.getElementById('fiscal-tx-id').value = txId || '';
+    const titleEl = document.getElementById('fiscal-tx-modal-title');
+
+    let currentType = 'dr';
+    if (txId) {
+        const tx = (AppState.fiscalLedger.transactions || []).find(t => t.id === txId);
+        if (tx) {
+            if (titleEl) titleEl.textContent = 'Edit Cash Flow Entry';
+            document.getElementById('fiscal-tx-date').value = tx.date || '';
+            currentType = (tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income') ? 'cr' : 'dr';
+            document.getElementById('fiscal-tx-head').value = tx.head || '';
+            document.getElementById('fiscal-tx-amount').value = tx.amount || '';
+
+            window.setFiscalTxType(currentType);
+
+            const categorySelect = document.getElementById('fiscal-tx-category');
+            if (categorySelect && tx.category) {
+                categorySelect.value = tx.category;
+            }
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'Log Cash Flow Entry';
+        document.getElementById('fiscal-tx-date').value = new Date().toISOString().split('T')[0];
+        currentType = 'dr';
+        document.getElementById('fiscal-tx-head').value = '';
+        document.getElementById('fiscal-tx-amount').value = '';
+
+        window.setFiscalTxType(currentType);
+    }
+
+    openModal('fiscal-tx-modal');
+};
+
+window.saveFiscalTransaction = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const id = document.getElementById('fiscal-tx-id').value || `tx-${Date.now()}`;
+    const date = document.getElementById('fiscal-tx-date').value || new Date().toISOString().split('T')[0];
+    const type = document.getElementById('fiscal-tx-type').value; // 'dr' (Expense) or 'cr' (Income)
+    const headInput = document.getElementById('fiscal-tx-head').value.trim();
+    const categoryVal = document.getElementById('fiscal-tx-category').value;
+    const amount = parseFloat(document.getElementById('fiscal-tx-amount').value) || 0;
+
+    const category = categoryVal || 'General';
+    const head = headInput || (type === 'cr' ? 'Income Entry' : 'Expense Entry');
+
+    const existingIdx = AppState.fiscalLedger.transactions.findIndex(t => t.id === id);
+    const oldTx = existingIdx >= 0 ? AppState.fiscalLedger.transactions[existingIdx] : null;
+
+    // Reverse old vault deposit if previous tx was CR on a vault
+    if (oldTx && (oldTx.type === 'cr' || oldTx.type === 'inflow') && oldTx.category && oldTx.category.startsWith('Vault: ')) {
+        const oldVaultId = oldTx.category.replace('Vault: ', '').trim();
+        const oldVault = AppState.fiscalLedger.vaults.find(v => v.id === oldVaultId || v.name === oldVaultId);
+        if (oldVault) {
+            oldVault.currentAmount = Math.max(0, (parseFloat(oldVault.currentAmount) || 0) - (parseFloat(oldTx.amount) || 0));
+        }
+    }
+
+    const txObj = { id, date, type, head, category, amount, status: 'cleared' };
+    if (existingIdx >= 0) {
+        AppState.fiscalLedger.transactions[existingIdx] = txObj;
+    } else {
+        AppState.fiscalLedger.transactions.unshift(txObj);
+    }
+
+    // Apply vault deposit if CR (Income)
+    if ((type === 'cr' || type === 'inflow') && category.startsWith('Vault: ')) {
+        const vaultId = category.replace('Vault: ', '').trim();
+        const vault = AppState.fiscalLedger.vaults.find(v => v.id === vaultId || v.name === vaultId);
+        if (vault) {
+            vault.currentAmount = (parseFloat(vault.currentAmount) || 0) + amount;
+            showToast(`CR Income ৳${amount.toFixed(2)} added into Vault [${vault.name}]`, "success");
+        } else {
+            showToast("Cash flow income entry logged!", "success");
+        }
+    } else if (type === 'dr' || type === 'outflow' || type === 'expense') {
+        const bgt = AppState.fiscalLedger.budgets.find(b => b.category === category);
+        if (bgt) {
+            showToast(`DR Expense ৳${amount.toFixed(2)} cut from budget [${category}]`, "success");
+        } else {
+            showToast("Cash flow expense entry logged!", "success");
+        }
+    } else {
+        showToast("Cash flow entry saved!", "success");
+    }
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-tx-modal');
+};
+
+window.pendingFiscalDelete = null;
+
+window.confirmDeleteFiscalItem = function (type, id) {
+    window.ensureFiscalStateDefaults();
+    window.pendingFiscalDelete = { type, id };
+
+    const msgEl = document.getElementById('fiscal-del-modal-msg');
+    const previewEl = document.getElementById('fiscal-del-item-preview');
+
+    if (type === 'transaction') {
+        const tx = (AppState.fiscalLedger.transactions || []).find(t => t.id === id);
+        if (msgEl) msgEl.textContent = 'Are you sure you want to delete this cash flow ledger entry? This will permanently remove the record from your ledger.';
+        if (previewEl) previewEl.textContent = tx ? `Entry: ${tx.head || tx.category} (৳${parseFloat(tx.amount || 0).toLocaleString()})` : '';
+    } else if (type === 'budget') {
+        const bgt = (AppState.fiscalLedger.budgets || []).find(b => b.id === id);
+        if (msgEl) msgEl.textContent = 'Are you sure you want to delete this category budget limit?';
+        if (previewEl) previewEl.textContent = bgt ? `Budget: ${bgt.category} (Limit: ৳${parseFloat(bgt.targetBudget || 0).toLocaleString()})` : '';
+    } else if (type === 'vault') {
+        const vlt = (AppState.fiscalLedger.vaults || []).find(v => v.id === id);
+        if (msgEl) msgEl.textContent = 'Are you sure you want to delete this savings vault?';
+        if (previewEl) previewEl.textContent = vlt ? `Vault: ${vlt.name} (Balance: ৳${parseFloat(vlt.currentAmount || 0).toLocaleString()})` : '';
+    }
+
+    openModal('fiscal-delete-modal');
+};
+
+window.executeFiscalDelete = function () {
+    if (!window.pendingFiscalDelete) return;
+    const { type, id } = window.pendingFiscalDelete;
+    window.ensureFiscalStateDefaults();
+
+    if (type === 'transaction') {
+        const tx = (AppState.fiscalLedger.transactions || []).find(t => t.id === id);
+        if (tx && (tx.type === 'cr' || tx.type === 'inflow') && tx.category && tx.category.startsWith('Vault: ')) {
+            const vaultId = tx.category.replace('Vault: ', '').trim();
+            const vault = AppState.fiscalLedger.vaults.find(v => v.id === vaultId || v.name === vaultId);
+            if (vault) {
+                vault.currentAmount = Math.max(0, (parseFloat(vault.currentAmount) || 0) - (parseFloat(tx.amount) || 0));
+            }
+        }
+        AppState.fiscalLedger.transactions = (AppState.fiscalLedger.transactions || []).filter(t => t.id !== id);
+        showToast("Cash flow entry deleted.", "info");
+    } else if (type === 'budget') {
+        AppState.fiscalLedger.budgets = (AppState.fiscalLedger.budgets || []).filter(b => b.id !== id);
+        showToast("Category budget removed.", "info");
+    } else if (type === 'vault') {
+        AppState.fiscalLedger.vaults = (AppState.fiscalLedger.vaults || []).filter(v => v.id !== id);
+        showToast("Hold vault deleted.", "info");
+    }
+
+    window.pendingFiscalDelete = null;
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-delete-modal');
+};
+
+window.deleteFiscalTransaction = function (txId) {
+    window.confirmDeleteFiscalItem('transaction', txId);
+};
+
+// Budget CRUD Handlers
+window.openFiscalBudgetModal = function (bgtId = null) {
+    window.ensureFiscalStateDefaults();
+
+    const vaultSelect = document.getElementById('fiscal-bgt-vault');
+    if (vaultSelect) {
+        const vaults = AppState.fiscalLedger.vaults || [];
+        let html = `<option value="">None / General Operating Cash</option>`;
+        vaults.forEach(v => {
+            const curAmt = parseFloat(v.currentAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            html += `<option value="${v.id}">${v.name} (Available: ৳${curAmt})</option>`;
+        });
+        vaultSelect.innerHTML = html;
+    }
+
+    document.getElementById('fiscal-bgt-id').value = bgtId || '';
+    const titleEl = document.getElementById('fiscal-bgt-modal-title');
+    if (bgtId) {
+        const bgt = (AppState.fiscalLedger.budgets || []).find(b => b.id === bgtId);
+        if (bgt) {
+            if (titleEl) titleEl.textContent = 'Edit Category Budget';
+            document.getElementById('fiscal-bgt-category').value = bgt.category || '';
+            document.getElementById('fiscal-bgt-amount').value = bgt.targetBudget || '';
+            if (vaultSelect) vaultSelect.value = bgt.sourceVaultId || '';
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'Set Category Budget';
+        document.getElementById('fiscal-bgt-category').value = '';
+        document.getElementById('fiscal-bgt-amount').value = '';
+        if (vaultSelect) vaultSelect.value = '';
+    }
+    openModal('fiscal-budget-modal');
+};
+
+window.saveFiscalBudget = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const id = document.getElementById('fiscal-bgt-id').value || `bgt-${Date.now()}`;
+    const category = document.getElementById('fiscal-bgt-category').value.trim();
+    const targetBudget = parseFloat(document.getElementById('fiscal-bgt-amount').value) || 0;
+    const sourceVaultId = document.getElementById('fiscal-bgt-vault')?.value || '';
+
+    let sourceVaultName = '';
+    if (sourceVaultId) {
+        const vlt = AppState.fiscalLedger.vaults.find(v => v.id === sourceVaultId);
+        if (vlt) {
+            sourceVaultName = vlt.name;
+            const oldAmt = parseFloat(vlt.currentAmount) || 0;
+            vlt.currentAmount = Math.max(0, oldAmt - targetBudget);
+        }
+    }
+
+    const bgtObj = { id, category, targetBudget, sourceVaultId, sourceVaultName, period: 'Monthly' };
+    const idx = AppState.fiscalLedger.budgets.findIndex(b => b.id === id);
+    if (idx >= 0) {
+        AppState.fiscalLedger.budgets[idx] = bgtObj;
+    } else {
+        AppState.fiscalLedger.budgets.push(bgtObj);
+    }
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-budget-modal');
+
+    if (sourceVaultName) {
+        showToast(`Budget set! ৳${targetBudget.toFixed(2)} Dr. from Vault [${sourceVaultName}] & Cr. into [${category}] budget`, "success");
+    } else {
+        showToast("Category budget updated!", "success");
+    }
+};
+
+window.deleteFiscalBudget = function (bgtId) {
+    window.confirmDeleteFiscalItem('budget', bgtId);
+};
+
+// Vault CRUD Handlers
+window.openFiscalVaultModal = function (vltId = null) {
+    document.getElementById('fiscal-vlt-id').value = vltId || '';
+    const titleEl = document.getElementById('fiscal-vlt-modal-title');
+    if (vltId) {
+        const vlt = (AppState.fiscalLedger.vaults || []).find(v => v.id === vltId);
+        if (vlt) {
+            if (titleEl) titleEl.textContent = 'Edit Savings Vault';
+            document.getElementById('fiscal-vlt-name').value = vlt.name || '';
+            document.getElementById('fiscal-vlt-location').value = vlt.location || '';
+            document.getElementById('fiscal-vlt-current').value = vlt.currentAmount !== undefined ? vlt.currentAmount : 0;
+            document.getElementById('fiscal-vlt-target').value = vlt.targetAmount || '';
+        }
+    } else {
+        if (titleEl) titleEl.textContent = 'Create Savings / Hold Vault';
+        document.getElementById('fiscal-vlt-name').value = '';
+        document.getElementById('fiscal-vlt-location').value = '';
+        document.getElementById('fiscal-vlt-current').value = '0';
+        document.getElementById('fiscal-vlt-target').value = '';
+    }
+    openModal('fiscal-vault-modal');
+};
+
+window.saveFiscalVault = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const id = document.getElementById('fiscal-vlt-id').value || `vlt-${Date.now()}`;
+    const name = document.getElementById('fiscal-vlt-name').value.trim();
+    const location = document.getElementById('fiscal-vlt-location').value.trim();
+    const currentAmount = parseFloat(document.getElementById('fiscal-vlt-current').value) || 0;
+    const targetAmount = parseFloat(document.getElementById('fiscal-vlt-target').value) || 0;
+
+    const vltObj = { id, name, location, currentAmount, targetAmount };
+    const idx = AppState.fiscalLedger.vaults.findIndex(v => v.id === id);
+    if (idx >= 0) {
+        AppState.fiscalLedger.vaults[idx] = vltObj;
+    } else {
+        AppState.fiscalLedger.vaults.push(vltObj);
+    }
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-vault-modal');
+    showToast("Capital vault saved!", "success");
+};
+
+window.deleteFiscalVault = function (vltId) {
+    window.confirmDeleteFiscalItem('vault', vltId);
+};
+
+window.openFiscalDepositModal = function (vltId) {
+    document.getElementById('fiscal-dep-vlt-id').value = vltId;
+    document.getElementById('fiscal-dep-amount').value = '';
+    openModal('fiscal-deposit-modal');
+};
+
+window.processFiscalTransfer = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const vltId = document.getElementById('fiscal-dep-vlt-id').value;
+    const type = document.getElementById('fiscal-dep-type').value;
+    const amount = parseFloat(document.getElementById('fiscal-dep-amount').value) || 0;
+
+    const vlt = AppState.fiscalLedger.vaults.find(v => v.id === vltId);
+    if (!vlt) return;
+
+    if (type === 'deposit') {
+        vlt.currentAmount = (parseFloat(vlt.currentAmount) || 0) + amount;
+        showToast(`Deposited ৳${amount.toFixed(2)} into ${vlt.name}`, "success");
+    } else {
+        const cur = parseFloat(vlt.currentAmount) || 0;
+        vlt.currentAmount = Math.max(0, cur - amount);
+        showToast(`Withdrew ৳${amount.toFixed(2)} from ${vlt.name}`, "info");
+    }
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-deposit-modal');
+};
+
+// Vault-to-Vault Transfer Handlers
+window.openVaultTransferModal = function (senderVaultId = null) {
+    window.ensureFiscalStateDefaults();
+    const vaults = AppState.fiscalLedger.vaults || [];
+
+    if (vaults.length < 2) {
+        showToast("You need at least 2 vaults to transfer money between vaults.", "warning");
+        return;
+    }
+
+    const senderSelect = document.getElementById('fiscal-xfer-sender-vlt');
+    const receiverSelect = document.getElementById('fiscal-xfer-receiver-vlt');
+    const amountInput = document.getElementById('fiscal-xfer-amount');
+
+    if (!senderSelect || !receiverSelect) return;
+
+    let html = '';
+    vaults.forEach(v => {
+        const amt = parseFloat(v.currentAmount) || 0;
+        html += `<option value="${v.id}">${v.name} (Balance: ৳${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })})</option>`;
+    });
+
+    senderSelect.innerHTML = html;
+    receiverSelect.innerHTML = html;
+
+    if (senderVaultId && vaults.some(v => v.id === senderVaultId)) {
+        senderSelect.value = senderVaultId;
+        const otherVlt = vaults.find(v => v.id !== senderVaultId);
+        if (otherVlt) receiverSelect.value = otherVlt.id;
+    } else {
+        senderSelect.value = vaults[0].id;
+        if (vaults[1]) receiverSelect.value = vaults[1].id;
+    }
+
+    if (amountInput) amountInput.value = '';
+    window.updateVaultTransferPreview();
+    openModal('fiscal-vault-transfer-modal');
+};
+
+window.updateVaultTransferPreview = function () {
+    const senderSelect = document.getElementById('fiscal-xfer-sender-vlt');
+    const receiverSelect = document.getElementById('fiscal-xfer-receiver-vlt');
+    const amountInput = document.getElementById('fiscal-xfer-amount');
+
+    if (!senderSelect || !receiverSelect) return;
+
+    const senderId = senderSelect.value;
+    const receiverId = receiverSelect.value;
+    const amount = parseFloat(amountInput?.value) || 0;
+
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const senderVlt = vaults.find(v => v.id === senderId);
+    const receiverVlt = vaults.find(v => v.id === receiverId);
+
+    const senderCurrEl = document.getElementById('fiscal-xfer-sender-curr');
+    const senderAfterEl = document.getElementById('fiscal-xfer-sender-after');
+    const receiverCurrEl = document.getElementById('fiscal-xfer-receiver-curr');
+    const receiverAfterEl = document.getElementById('fiscal-xfer-receiver-after');
+
+    if (senderVlt) {
+        const sAmt = parseFloat(senderVlt.currentAmount) || 0;
+        if (senderCurrEl) senderCurrEl.textContent = `৳${sAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const afterAmt = sAmt - amount;
+        if (senderAfterEl) {
+            if (afterAmt < 0) {
+                senderAfterEl.textContent = `Insufficient Balance! (-৳${Math.abs(afterAmt).toFixed(2)})`;
+                senderAfterEl.className = "text-[10px] font-black text-rose-600 dark:text-rose-400";
+            } else {
+                senderAfterEl.textContent = `After Transfer: ৳${afterAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                senderAfterEl.className = "text-[10px] font-bold text-slate-500";
+            }
+        }
+    }
+
+    if (receiverVlt) {
+        const rAmt = parseFloat(receiverVlt.currentAmount) || 0;
+        if (receiverCurrEl) receiverCurrEl.textContent = `৳${rAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const afterAmt = rAmt + amount;
+        if (receiverAfterEl) {
+            receiverAfterEl.textContent = `After Transfer: ৳${afterAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            receiverAfterEl.className = "text-[10px] font-bold text-slate-500";
+        }
+    }
+};
+
+window.executeVaultToVaultTransfer = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const senderId = document.getElementById('fiscal-xfer-sender-vlt').value;
+    const receiverId = document.getElementById('fiscal-xfer-receiver-vlt').value;
+    const amount = parseFloat(document.getElementById('fiscal-xfer-amount').value) || 0;
+
+    if (senderId === receiverId) {
+        showToast("Sender and Receiver vaults must be different!", "warning");
+        return;
+    }
+
+    if (amount <= 0) {
+        showToast("Please enter a valid transfer amount greater than 0.", "warning");
+        return;
+    }
+
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const senderVlt = vaults.find(v => v.id === senderId);
+    const receiverVlt = vaults.find(v => v.id === receiverId);
+
+    if (!senderVlt || !receiverVlt) {
+        showToast("Selected vaults could not be found.", "error");
+        return;
+    }
+
+    const senderAmt = parseFloat(senderVlt.currentAmount) || 0;
+    if (senderAmt < amount) {
+        showToast(`Insufficient balance in [${senderVlt.name}]! (Available: ৳${senderAmt.toFixed(2)})`, "warning");
+        return;
+    }
+
+    // Perform transfer
+    senderVlt.currentAmount = Math.max(0, senderAmt - amount);
+    receiverVlt.currentAmount = (parseFloat(receiverVlt.currentAmount) || 0) + amount;
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-vault-transfer-modal');
+    showToast(`Transferred ৳${amount.toFixed(2)} from [${senderVlt.name}] to [${receiverVlt.name}]!`, "success");
+};
+
+// Vault-to-Budget Transfer Handlers
+window.openVaultToBudgetTransferModal = function (receiverBudgetId = null) {
+    window.ensureFiscalStateDefaults();
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+
+    if (vaults.length === 0) {
+        showToast("Create at least 1 Savings Vault first before transferring to a budget.", "warning");
+        return;
+    }
+
+    if (budgets.length === 0) {
+        showToast("Create at least 1 Category Budget first before transferring.", "warning");
+        return;
+    }
+
+    const senderSelect = document.getElementById('fiscal-v2b-sender-vlt');
+    const receiverSelect = document.getElementById('fiscal-v2b-receiver-bgt');
+    const amountInput = document.getElementById('fiscal-v2b-amount');
+
+    if (!senderSelect || !receiverSelect) return;
+
+    let vHtml = '';
+    vaults.forEach(v => {
+        const amt = parseFloat(v.currentAmount) || 0;
+        vHtml += `<option value="${v.id}">${v.name} (Balance: ৳${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })})</option>`;
+    });
+    senderSelect.innerHTML = vHtml;
+
+    let bHtml = '';
+    budgets.forEach(b => {
+        const tgt = parseFloat(b.targetBudget) || 0;
+        bHtml += `<option value="${b.id}">${b.category} (Limit: ৳${tgt.toLocaleString('en-US', { minimumFractionDigits: 2 })})</option>`;
+    });
+    receiverSelect.innerHTML = bHtml;
+
+    senderSelect.value = vaults[0].id;
+    if (receiverBudgetId && budgets.some(b => b.id === receiverBudgetId)) {
+        receiverSelect.value = receiverBudgetId;
+    } else {
+        receiverSelect.value = budgets[0].id;
+    }
+
+    if (amountInput) amountInput.value = '';
+    window.updateVaultToBudgetPreview();
+    openModal('fiscal-vault-to-budget-modal');
+};
+
+window.updateVaultToBudgetPreview = function () {
+    const senderSelect = document.getElementById('fiscal-v2b-sender-vlt');
+    const receiverSelect = document.getElementById('fiscal-v2b-receiver-bgt');
+    const amountInput = document.getElementById('fiscal-v2b-amount');
+
+    if (!senderSelect || !receiverSelect) return;
+
+    const senderId = senderSelect.value;
+    const receiverId = receiverSelect.value;
+    const amount = parseFloat(amountInput?.value) || 0;
+
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+    const senderVlt = vaults.find(v => v.id === senderId);
+    const receiverBgt = budgets.find(b => b.id === receiverId);
+
+    const senderCurrEl = document.getElementById('fiscal-v2b-sender-curr');
+    const senderAfterEl = document.getElementById('fiscal-v2b-sender-after');
+    const receiverCurrEl = document.getElementById('fiscal-v2b-receiver-curr');
+    const receiverAfterEl = document.getElementById('fiscal-v2b-receiver-after');
+
+    if (senderVlt) {
+        const sAmt = parseFloat(senderVlt.currentAmount) || 0;
+        if (senderCurrEl) senderCurrEl.textContent = `৳${sAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const afterAmt = sAmt - amount;
+        if (senderAfterEl) {
+            if (afterAmt < 0) {
+                senderAfterEl.textContent = `Insufficient Balance! (-৳${Math.abs(afterAmt).toFixed(2)})`;
+                senderAfterEl.className = "text-[10px] font-black text-rose-600 dark:text-rose-400";
+            } else {
+                senderAfterEl.textContent = `After Transfer: ৳${afterAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                senderAfterEl.className = "text-[10px] font-bold text-slate-500";
+            }
+        }
+    }
+
+    if (receiverBgt) {
+        const rTgt = parseFloat(receiverBgt.targetBudget) || 0;
+        if (receiverCurrEl) receiverCurrEl.textContent = `৳${rTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const afterTgt = rTgt + amount;
+        if (receiverAfterEl) {
+            receiverAfterEl.textContent = `New Budget Limit: ৳${afterTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            receiverAfterEl.className = "text-[10px] font-bold text-slate-500";
+        }
+    }
+};
+
+window.executeVaultToBudgetTransfer = function (event) {
+    event.preventDefault();
+    window.ensureFiscalStateDefaults();
+
+    const senderId = document.getElementById('fiscal-v2b-sender-vlt').value;
+    const receiverId = document.getElementById('fiscal-v2b-receiver-bgt').value;
+    const amount = parseFloat(document.getElementById('fiscal-v2b-amount').value) || 0;
+
+    if (amount <= 0) {
+        showToast("Please enter a valid funding amount greater than 0.", "warning");
+        return;
+    }
+
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+
+    const senderVlt = vaults.find(v => v.id === senderId);
+    const receiverBgt = budgets.find(b => b.id === receiverId);
+
+    if (!senderVlt || !receiverBgt) {
+        showToast("Selected vault or budget could not be found.", "error");
+        return;
+    }
+
+    const senderAmt = parseFloat(senderVlt.currentAmount) || 0;
+    if (senderAmt < amount) {
+        showToast(`Insufficient balance in [${senderVlt.name}]! (Available: ৳${senderAmt.toFixed(2)})`, "warning");
+        return;
+    }
+
+    // Perform transfer
+    senderVlt.currentAmount = Math.max(0, senderAmt - amount);
+    receiverBgt.targetBudget = (parseFloat(receiverBgt.targetBudget) || 0) + amount;
+    receiverBgt.sourceVaultId = senderVlt.id;
+    receiverBgt.sourceVaultName = senderVlt.name;
+
+    FirebaseService.saveToCloud();
+    window.renderFiscalLedgerPage();
+    closeModal('fiscal-vault-to-budget-modal');
+    showToast(`Funded ৳${amount.toFixed(2)} from Vault [${senderVlt.name}] into [${receiverBgt.category}] budget!`, "success");
+};
+
+// Render Visual Chart.js Analytics
+window.renderFiscalCharts = function () {
+    window.ensureFiscalStateDefaults();
+
+    const txs = AppState.fiscalLedger.transactions || [];
+    const bgts = AppState.fiscalLedger.budgets || [];
+    const vlts = AppState.fiscalLedger.vaults || [];
+
+    // 1. Trend Line Chart (Inflow vs Outflow)
+    const trendCtx = document.getElementById('fiscalTrendChart')?.getContext('2d');
+    if (trendCtx) {
+        if (window.fiscalTrendChartInstance) window.fiscalTrendChartInstance.destroy();
+
+        const dateMap = {};
+        txs.forEach(t => {
+            const d = t.date || 'Unknown';
+            if (!dateMap[d]) dateMap[d] = { inflow: 0, outflow: 0 };
+            const amt = parseFloat(t.amount) || 0;
+            if (t.type === 'cr' || t.type === 'inflow' || t.type === 'income') {
+                dateMap[d].inflow += amt;
+            } else {
+                dateMap[d].outflow += amt;
+            }
+        });
+
+        const sortedDates = Object.keys(dateMap).sort();
+        const inflows = sortedDates.map(d => dateMap[d].inflow);
+        const outflows = sortedDates.map(d => dateMap[d].outflow);
+
+        window.fiscalTrendChartInstance = new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: sortedDates.length ? sortedDates : ['No Data'],
+                datasets: [
+                    { label: 'CR Income (৳)', data: inflows.length ? inflows : [0], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 },
+                    { label: 'DR Expense (৳)', data: outflows.length ? outflows : [0], borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', fill: true, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // 2. Budget vs Actual Bar Chart
+    const budgetCtx = document.getElementById('fiscalBudgetChart')?.getContext('2d');
+    if (budgetCtx) {
+        if (window.fiscalBudgetChartInstance) window.fiscalBudgetChartInstance.destroy();
+
+        const categories = bgts.map(b => b.category);
+        const targets = bgts.map(b => parseFloat(b.targetBudget) || 0);
+        const actuals = bgts.map(b => {
+            return txs.filter(t => (t.type === 'dr' || t.type === 'outflow' || t.type === 'expense') && t.category === b.category)
+                      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        });
+
+        window.fiscalBudgetChartInstance = new Chart(budgetCtx, {
+            type: 'bar',
+            data: {
+                labels: categories.length ? categories : ['No Budgets'],
+                datasets: [
+                    { label: 'Target Limit (৳)', data: targets.length ? targets : [0], backgroundColor: 'rgba(148, 163, 184, 0.5)' },
+                    { label: 'Actual DR Expense (৳)', data: actuals.length ? actuals : [0], backgroundColor: '#e11d48' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // 3. Vault Doughnut Chart
+    const vaultCtx = document.getElementById('fiscalVaultChart')?.getContext('2d');
+    if (vaultCtx) {
+        if (window.fiscalVaultChartInstance) window.fiscalVaultChartInstance.destroy();
+
+        const vNames = vlts.map(v => v.name);
+        const vAmounts = vlts.map(v => parseFloat(v.currentAmount) || 0);
+
+        window.fiscalVaultChartInstance = new Chart(vaultCtx, {
+            type: 'doughnut',
+            data: {
+                labels: vNames.length ? vNames : ['No Vaults'],
+                datasets: [{
+                    data: vAmounts.length ? vAmounts : [1],
+                    backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+};
+
