@@ -2936,6 +2936,7 @@ function renderUI() {
     if (window.renderOutcomeProgramToggles) window.renderOutcomeProgramToggles();
     if (window.renderSchedulePage) window.renderSchedulePage();
     if (window.renderFiscalLedgerPage) window.renderFiscalLedgerPage();
+    if (window.renderDashboardFiscalSummary) window.renderDashboardFiscalSummary();
 
     // Dynamic Form & Manage UI Syncs
     window.populateTrackDropdowns();
@@ -16867,7 +16868,7 @@ window.currentFiscalView = 'table';
 
 window.switchFiscalTab = function (tabName) {
     window.currentFiscalTab = tabName;
-    const tabs = ['ledger', 'budget', 'vaults', 'analytics', 'accounting'];
+    const tabs = ['ledger', 'budget', 'vaults', 'analytics', 'accounting', 'database'];
     tabs.forEach(t => {
         const btn = document.getElementById(`fiscal-tab-btn-${t}`);
         const pane = document.getElementById(`fiscal-pane-${t}`);
@@ -16888,6 +16889,8 @@ window.switchFiscalTab = function (tabName) {
         setTimeout(() => { window.renderFiscalCharts(); }, 100);
     } else if (tabName === 'accounting') {
         setTimeout(() => { window.renderAccountingCycleMatrix(); }, 100);
+    } else if (tabName === 'database') {
+        setTimeout(() => { window.renderFiscalDatabaseTab(); }, 100);
     }
 };
 
@@ -16925,8 +16928,94 @@ window.ensureFiscalStateDefaults = function () {
     }
 };
 
+window.calculateNetLiquidCapital = function (transactions, budgets, vaults) {
+    const txs = transactions || [];
+    const bgts = budgets || [];
+    const vlts = vaults || [];
+
+    let generalNetCash = 0;
+    txs.forEach(tx => {
+        const amt = parseFloat(tx.amount) || 0;
+        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        if (!tx.category || !tx.category.startsWith('Vault: ')) {
+            if (isCr) {
+                generalNetCash += amt;
+            } else {
+                generalNetCash -= amt;
+            }
+        }
+    });
+
+    let liquidVaultHold = 0;
+    vlts.forEach(v => {
+        const amt = parseFloat(v.currentAmount) || 0;
+        if (v.isLiquidSource !== false) {
+            liquidVaultHold += amt;
+        }
+    });
+
+    const totalRemainingBudget = bgts.reduce((sum, b) => {
+        const actualSpent = txs
+            .filter(t => (t.type === 'dr' || t.type === 'outflow' || t.type === 'expense') && t.category === b.category)
+            .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+        const targetLimit = parseFloat(b.targetBudget) || 0;
+        return sum + (targetLimit - actualSpent);
+    }, 0);
+
+    const liquidCashRemain = liquidVaultHold + Math.max(0, generalNetCash);
+    return totalRemainingBudget + liquidCashRemain;
+};
+
+window.renderDashboardFiscalSummary = function () {
+    window.ensureFiscalStateDefaults();
+
+    const transactions = AppState.fiscalLedger.transactions || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+    const vaults = AppState.fiscalLedger.vaults || [];
+
+    let totalInflow = 0;
+    let totalOutflow = 0;
+
+    transactions.forEach(tx => {
+        const amt = parseFloat(tx.amount) || 0;
+        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        if (isCr) {
+            totalInflow += amt;
+        } else {
+            totalOutflow += amt;
+        }
+    });
+
+    const netCapital = window.calculateNetLiquidCapital(transactions, budgets, vaults);
+
+    const netEl = document.getElementById('db-fiscal-net-liquid');
+    const badgeEl = document.getElementById('db-fiscal-status-badge');
+    const inflowEl = document.getElementById('db-fiscal-total-inflow');
+    const outflowEl = document.getElementById('db-fiscal-total-outflow');
+
+    if (netEl) {
+        netEl.textContent = `৳${netCapital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    if (inflowEl) {
+        inflowEl.textContent = `৳${totalInflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    if (outflowEl) {
+        outflowEl.textContent = `৳${totalOutflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    if (badgeEl) {
+        if (netCapital >= 0) {
+            badgeEl.textContent = 'Surplus';
+            badgeEl.className = 'px-2 py-0.5 text-[8px] font-black uppercase rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
+        } else {
+            badgeEl.textContent = 'Deficit';
+            badgeEl.className = 'px-2 py-0.5 text-[8px] font-black uppercase rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20';
+        }
+    }
+};
+
 window.renderFiscalLedgerPage = function () {
     window.ensureFiscalStateDefaults();
+    if (window.renderDashboardFiscalSummary) window.renderDashboardFiscalSummary();
 
     const transactions = AppState.fiscalLedger.transactions || [];
     const budgets = AppState.fiscalLedger.budgets || [];
@@ -16937,39 +17026,25 @@ window.renderFiscalLedgerPage = function () {
     // CR = Income (Inflow)
     let totalInflow = 0;
     let totalOutflow = 0;
-    let generalNetCash = 0;
 
     transactions.forEach(tx => {
         const amt = parseFloat(tx.amount) || 0;
         const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
         if (isCr) {
             totalInflow += amt;
-            if (!tx.category || !tx.category.startsWith('Vault: ')) {
-                generalNetCash += amt;
-            }
         } else {
             totalOutflow += amt;
-            if (!tx.category || !tx.category.startsWith('Vault: ')) {
-                generalNetCash -= amt;
-            }
         }
     });
 
     let totalVaultHold = 0;
-    let liquidVaultHold = 0;
-    let lockedVaultHold = 0;
     vaults.forEach(v => {
         const amt = parseFloat(v.currentAmount) || 0;
         totalVaultHold += amt;
-        if (v.isLiquidSource !== false) {
-            liquidVaultHold += amt;
-        } else {
-            lockedVaultHold += amt;
-        }
     });
 
-    // Net Liquid Capital = Liquid Vault Reserves + Unallocated General Operating Cash Flow
-    const netCapital = liquidVaultHold + Math.max(0, generalNetCash);
+    // Net Liquid Capital = Remaining Budget + Liquid Cash Remain
+    const netCapital = window.calculateNetLiquidCapital(transactions, budgets, vaults);
 
     // Update Executive KPI Cards
     const kpiNetEl = document.getElementById('fiscal-kpi-net');
@@ -17237,6 +17312,245 @@ window.renderFiscalLedgerPage = function () {
         window.renderFiscalCharts();
     } else if (window.currentFiscalTab === 'accounting') {
         window.renderAccountingCycleMatrix();
+    } else if (window.currentFiscalTab === 'database') {
+        window.renderFiscalDatabaseTab();
+    }
+};
+
+window.applyFiscalDbDatePreset = function (preset) {
+    const startInput = document.getElementById('fiscal-db-start-date');
+    const endInput = document.getElementById('fiscal-db-end-date');
+    if (!startInput || !endInput) return;
+
+    if (preset === 'ALL') {
+        startInput.value = '';
+        endInput.value = '';
+    } else {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        if (preset === 'TODAY') {
+            startInput.value = todayStr;
+            endInput.value = todayStr;
+        } else if (preset === 'THIS_WEEK') {
+            const dayOfWeek = now.getDay();
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - dayOfWeek);
+            startInput.value = startOfWeek.toISOString().split('T')[0];
+            endInput.value = todayStr;
+        } else if (preset === 'THIS_MONTH') {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            startInput.value = startOfMonth.toISOString().split('T')[0];
+            endInput.value = todayStr;
+        } else if (preset === 'LAST_MONTH') {
+            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+            startInput.value = startOfLastMonth.toISOString().split('T')[0];
+            endInput.value = endOfLastMonth.toISOString().split('T')[0];
+        } else if (preset === 'THIS_YEAR') {
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            startInput.value = startOfYear.toISOString().split('T')[0];
+            endInput.value = todayStr;
+        }
+    }
+    window.renderFiscalDatabaseTab();
+};
+
+window.resetFiscalDbFilters = function () {
+    const presetSelect = document.getElementById('fiscal-db-date-preset');
+    const startInput = document.getElementById('fiscal-db-start-date');
+    const endInput = document.getElementById('fiscal-db-end-date');
+    const typeSelect = document.getElementById('fiscal-db-filter-type');
+    const categorySelect = document.getElementById('fiscal-db-filter-category');
+    const searchInput = document.getElementById('fiscal-db-search-input');
+
+    if (presetSelect) presetSelect.value = 'ALL';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+    if (typeSelect) typeSelect.value = 'ALL';
+    if (categorySelect) categorySelect.value = 'ALL';
+    if (searchInput) searchInput.value = '';
+
+    window.renderFiscalDatabaseTab();
+};
+
+window.renderFiscalDatabaseTab = function () {
+    window.ensureFiscalStateDefaults();
+    const transactions = AppState.fiscalLedger.transactions || [];
+    const vaults = AppState.fiscalLedger.vaults || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+
+    // Populate Category Dropdown dynamically if needed
+    const catSelect = document.getElementById('fiscal-db-filter-category');
+    if (catSelect) {
+        const currentSelected = catSelect.value || 'ALL';
+        const uniqueCategories = new Set();
+        transactions.forEach(t => {
+            if (t.category) uniqueCategories.add(t.category);
+        });
+        budgets.forEach(b => {
+            if (b.category) uniqueCategories.add(b.category);
+        });
+        vaults.forEach(v => {
+            uniqueCategories.add(`Vault: ${v.id}`);
+        });
+
+        let catHtml = `<option value="ALL">All Categories</option>`;
+        Array.from(uniqueCategories).sort().forEach(cat => {
+            let label = cat;
+            if (cat.startsWith('Vault: ')) {
+                const vId = cat.replace('Vault: ', '').trim();
+                const vlt = vaults.find(v => v.id === vId || v.name === vId);
+                label = vlt ? `Vault: ${vlt.name}` : cat;
+            }
+            catHtml += `<option value="${cat}">${label}</option>`;
+        });
+        catSelect.innerHTML = catHtml;
+        if (Array.from(catSelect.options).some(o => o.value === currentSelected)) {
+            catSelect.value = currentSelected;
+        }
+    }
+
+    // Read Filter Values
+    const startDate = document.getElementById('fiscal-db-start-date')?.value || '';
+    const endDate = document.getElementById('fiscal-db-end-date')?.value || '';
+    const filterType = document.getElementById('fiscal-db-filter-type')?.value || 'ALL';
+    const filterCat = document.getElementById('fiscal-db-filter-category')?.value || 'ALL';
+    const searchVal = (document.getElementById('fiscal-db-search-input')?.value || '').toLowerCase().trim();
+
+    // Helper for category label
+    const getCategoryLabel = (cat) => {
+        if (!cat) return 'General';
+        if (cat.startsWith('Vault: ')) {
+            const vId = cat.replace('Vault: ', '').trim();
+            const vlt = vaults.find(v => v.id === vId || v.name === vId);
+            return vlt ? `Vault: ${vlt.name}` : cat;
+        }
+        return cat;
+    };
+
+    // Filter Transactions
+    const filtered = transactions.filter(tx => {
+        // Date Range
+        if (startDate && tx.date < startDate) return false;
+        if (endDate && tx.date > endDate) return false;
+
+        // Movement Type Filter
+        if (filterType === 'inflow' && !(tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income')) return false;
+        if (filterType === 'outflow' && !(tx.type === 'dr' || tx.type === 'outflow' || tx.type === 'expense')) return false;
+        if (filterType === 'budget_set' && !(tx.type === 'budget_set' || tx.type === 'budget_add')) return false;
+        if (filterType === 'budget_fund' && !(tx.type === 'budget_fund' || tx.type === 'budget_refund')) return false;
+        if (filterType === 'vault_transfer' && tx.type !== 'vault_transfer') return false;
+        if (filterType === 'deposit_withdrawal' && !(tx.type === 'deposit' || tx.type === 'withdrawal')) return false;
+        if (filterType === 'auto_topup' && tx.type !== 'auto_topup') return false;
+
+        // Category Filter
+        if (filterCat !== 'ALL' && tx.category !== filterCat) return false;
+
+        // Search Filter
+        if (searchVal) {
+            const matchHead = (tx.head || '').toLowerCase().includes(searchVal);
+            const matchCat = (tx.category || '').toLowerCase().includes(searchVal);
+            const matchLabel = getCategoryLabel(tx.category).toLowerCase().includes(searchVal);
+            const matchId = (tx.id || '').toLowerCase().includes(searchVal);
+            const matchAmt = (tx.amount || '').toString().includes(searchVal);
+            const matchDate = (tx.date || '').includes(searchVal);
+            const matchType = (tx.type || '').toLowerCase().includes(searchVal);
+            if (!matchHead && !matchCat && !matchLabel && !matchId && !matchAmt && !matchDate && !matchType) return false;
+        }
+
+        return true;
+    });
+
+    // Compute Metrics for Filtered Selection
+    let totalInflow = 0;
+    let totalOutflow = 0;
+
+    filtered.forEach(tx => {
+        const amt = parseFloat(tx.amount) || 0;
+        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income' || tx.type === 'deposit' || tx.type === 'budget_fund';
+        const isDr = tx.type === 'dr' || tx.type === 'outflow' || tx.type === 'expense' || tx.type === 'withdrawal' || tx.type === 'budget_refund';
+        if (isCr) {
+            totalInflow += amt;
+        } else if (isDr) {
+            totalOutflow += amt;
+        }
+    });
+
+    const netRange = totalInflow - totalOutflow;
+
+    const countEl = document.getElementById('fiscal-db-kpi-count');
+    const inflowEl = document.getElementById('fiscal-db-kpi-inflow');
+    const outflowEl = document.getElementById('fiscal-db-kpi-outflow');
+    const netEl = document.getElementById('fiscal-db-kpi-net');
+
+    if (countEl) countEl.textContent = filtered.length;
+    if (inflowEl) inflowEl.textContent = `৳${totalInflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (outflowEl) outflowEl.textContent = `৳${totalOutflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (netEl) {
+        netEl.textContent = `৳${netRange.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        netEl.className = netRange >= 0 ? 'text-xl font-black text-emerald-600 dark:text-emerald-400' : 'text-xl font-black text-rose-600 dark:text-rose-400';
+    }
+
+    // Render Database Table Body
+    const tbody = document.getElementById('fiscal-db-table-body');
+    if (tbody) {
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 font-bold">No movement records match the selected date range and filter criteria.</td></tr>`;
+        } else {
+            tbody.innerHTML = filtered.map(tx => {
+                const amtFormatted = `৳${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                let typeBadge = '';
+                if (tx.type === 'budget_set' || tx.type === 'budget_add') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">Budget Limit Set</span>`;
+                } else if (tx.type === 'budget_fund') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Budget Fund Transfer</span>`;
+                } else if (tx.type === 'budget_refund') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600">Budget Refund</span>`;
+                } else if (tx.type === 'vault_transfer') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">Inter-Vault Transfer</span>`;
+                } else if (tx.type === 'deposit') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">+ Vault Deposit</span>`;
+                } else if (tx.type === 'withdrawal') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">- Vault Withdrawal</span>`;
+                } else if (tx.type === 'auto_topup') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">⚡ Auto Deficit Top-Up</span>`;
+                } else if (tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income') {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">+ CR (Inflow)</span>`;
+                } else {
+                    typeBadge = `<span class="px-2 py-1 text-[9px] font-black uppercase rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">- DR (Outflow)</span>`;
+                }
+
+                const isCredit = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income' || tx.type === 'deposit' || tx.type === 'budget_fund';
+
+                return `
+                    <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
+                        <td class="py-3 px-4 font-mono text-[10px] text-slate-400">${tx.id}</td>
+                        <td class="py-3 px-4 font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">${tx.date}</td>
+                        <td class="py-3 px-4">
+                            <div class="font-black text-slate-900 dark:text-white">${tx.head || getCategoryLabel(tx.category)}</div>
+                            <div class="text-[10px] text-slate-400 font-semibold uppercase">${tx.status || 'cleared'}</div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${getCategoryLabel(tx.category)}</span>
+                        </td>
+                        <td class="py-3 px-4 whitespace-nowrap">${typeBadge}</td>
+                        <td class="py-3 px-4 text-right font-black whitespace-nowrap ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${isCredit ? '+' : '-'}${amtFormatted}</td>
+                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="window.openFiscalTxModal('${tx.id}')" class="p-1.5 text-slate-400 hover:text-teal-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" title="Edit Movement">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                                <button onclick="window.deleteFiscalTransaction('${tx.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" title="Delete Movement">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
     }
 };
 
@@ -17328,6 +17642,17 @@ window.saveFiscalVault = function (event) {
         AppState.fiscalLedger.vaults[idx] = vltObj;
     } else {
         AppState.fiscalLedger.vaults.push(vltObj);
+        if (currentAmount > 0) {
+            AppState.fiscalLedger.transactions.unshift({
+                id: `mov-vcr-${Date.now()}`,
+                date: new Date().toISOString().split('T')[0],
+                type: 'deposit',
+                head: `Vault Initial Reserve Deposit: ${name}`,
+                category: `Vault: ${id}`,
+                amount: currentAmount,
+                status: 'cleared'
+            });
+        }
     }
 
     FirebaseService.saveToCloud();
@@ -17365,12 +17690,15 @@ window.setFiscalTxType = function (type) {
     const vaults = AppState.fiscalLedger.vaults || [];
 
     if (isDr) {
-        if (labelEl) labelEl.textContent = 'Budget Category (from Budget Tab)';
+        if (labelEl) labelEl.textContent = 'Expense Source (Budget or Vault)';
         if (categorySelect) {
             const curVal = categorySelect.value;
             let html = '';
+
+            // 1st: Budget options
+            let budgetOpts = '';
             if (budgets.length === 0) {
-                html = `<option value="">No budgets found (Create in Budget Tab first)</option>`;
+                budgetOpts = `<option value="General">General Operating Budget (Auto-Funded from Liquid Source)</option>`;
             } else {
                 budgets.forEach(b => {
                     const spent = (AppState.fiscalLedger.transactions || [])
@@ -17378,9 +17706,21 @@ window.setFiscalTxType = function (type) {
                         .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
                     const limit = parseFloat(b.targetBudget) || 0;
                     const rem = limit - spent;
-                    html += `<option value="${b.category}">${b.category} (Limit: ৳${limit.toLocaleString()}, Rem: ৳${rem.toLocaleString()})</option>`;
+                    budgetOpts += `<option value="${b.category}">${b.category} (Limit: ৳${limit.toLocaleString()}, Rem: ৳${rem.toLocaleString()})</option>`;
                 });
             }
+            html += `<optgroup label="Budget Categories">${budgetOpts}</optgroup>`;
+
+            // 2nd: Vault options
+            if (vaults.length > 0) {
+                let vaultOpts = '';
+                vaults.forEach(v => {
+                    const curAmt = parseFloat(v.currentAmount) || 0;
+                    vaultOpts += `<option value="Vault: ${v.id}">Vault: ${v.name} (Available: ৳${curAmt.toLocaleString()})</option>`;
+                });
+                html += `<optgroup label="Savings & Liquid Vaults">${vaultOpts}</optgroup>`;
+            }
+
             categorySelect.innerHTML = html;
             if (curVal && Array.from(categorySelect.options).some(o => o.value === curVal)) {
                 categorySelect.value = curVal;
@@ -17475,6 +17815,14 @@ window.saveFiscalTransaction = function (event) {
             oldVault.currentAmount = Math.max(0, (parseFloat(oldVault.currentAmount) || 0) - (parseFloat(oldTx.amount) || 0));
         }
     }
+    // Reverse old vault expense if previous tx was DR on a vault
+    if (oldTx && (oldTx.type === 'dr' || oldTx.type === 'outflow' || oldTx.type === 'expense') && oldTx.category && oldTx.category.startsWith('Vault: ')) {
+        const oldVaultId = oldTx.category.replace('Vault: ', '').trim();
+        const oldVault = AppState.fiscalLedger.vaults.find(v => v.id === oldVaultId || v.name === oldVaultId);
+        if (oldVault) {
+            oldVault.currentAmount = (parseFloat(oldVault.currentAmount) || 0) + (parseFloat(oldTx.amount) || 0);
+        }
+    }
 
     const txObj = { id, date, type, head, category, amount, status: 'cleared' };
     if (existingIdx >= 0) {
@@ -17498,13 +17846,97 @@ window.saveFiscalTransaction = function (event) {
             showToast(oldTx ? "Cash flow income entry updated!" : "Cash flow income entry logged!", "success");
         }
     } else if (type === 'dr' || type === 'outflow' || type === 'expense') {
-        const bgt = AppState.fiscalLedger.budgets.find(b => b.category === category);
-        if (bgt) {
-            showToast(oldTx ? `DR Expense updated for budget [${category}]` : `DR Expense ৳${amount.toFixed(2)} cut from budget [${category}]`, "success");
+        if (category.startsWith('Vault: ')) {
+            const vaultId = category.replace('Vault: ', '').trim();
+            const vault = AppState.fiscalLedger.vaults.find(v => v.id === vaultId || v.name === vaultId);
+            if (vault) {
+                const curAmt = parseFloat(vault.currentAmount) || 0;
+                vault.currentAmount = Math.max(0, curAmt - amount);
+                if (oldTx) {
+                    showToast(`Expense updated! ৳${amount.toFixed(2)} paid directly from Vault [${vault.name}]`, "success");
+                } else {
+                    showToast(`DR Expense ৳${amount.toFixed(2)} paid directly from Vault [${vault.name}]!`, "success");
+                }
+            } else {
+                showToast(oldTx ? "Cash flow expense entry updated!" : "Cash flow expense entry logged!", "success");
+            }
         } else {
-            showToast(oldTx ? "Cash flow expense entry updated!" : "Cash flow expense entry logged!", "success");
+            let bgt = AppState.fiscalLedger.budgets.find(b => b.category === category);
+
+        // Calculate total actual spent for this category (sum of all DR entries in this category)
+        const totalSpent = (AppState.fiscalLedger.transactions || [])
+            .filter(t => (t.type === 'dr' || t.type === 'outflow' || t.type === 'expense') && t.category === category)
+            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+        const currentTargetBudget = bgt ? (parseFloat(bgt.targetBudget) || 0) : 0;
+
+        // Auto-transfer from Liquid Source Vault if deficit occurs (expense exceeds remaining budget)
+        if (totalSpent > currentTargetBudget) {
+            const deficit = totalSpent - currentTargetBudget;
+
+            // Locate primary Liquid Source vault
+            const vaults = AppState.fiscalLedger.vaults || [];
+            let liquidVault = vaults.find(v => v.isLiquidSource === true);
+            if (!liquidVault) {
+                liquidVault = vaults.find(v => v.isLiquidSource !== false);
+            }
+
+            if (liquidVault && (parseFloat(liquidVault.currentAmount) || 0) > 0) {
+                const available = parseFloat(liquidVault.currentAmount) || 0;
+                const transferAmt = Math.min(available, deficit);
+
+                // Deduct transfer amount from Liquid Source Vault balance
+                liquidVault.currentAmount = Math.max(0, available - transferAmt);
+
+                if (bgt) {
+                    bgt.targetBudget = (parseFloat(bgt.targetBudget) || 0) + transferAmt;
+                    bgt.fundedAmount = (parseFloat(bgt.fundedAmount !== undefined ? bgt.fundedAmount : bgt.targetBudget) || 0) + transferAmt;
+                    bgt.sourceVaultId = liquidVault.id;
+                    bgt.sourceVaultName = liquidVault.name;
+                } else {
+                    bgt = {
+                        id: `bgt-${Date.now()}`,
+                        category: category,
+                        targetBudget: transferAmt,
+                        fundedAmount: transferAmt,
+                        sourceVaultId: liquidVault.id,
+                        sourceVaultName: liquidVault.name,
+                        period: 'Monthly'
+                    };
+                    AppState.fiscalLedger.budgets.push(bgt);
+                }
+
+                AppState.fiscalLedger.transactions.push({
+                    id: `mov-topup-${Date.now()}`,
+                    date: date,
+                    type: 'auto_topup',
+                    head: `Auto Deficit Top-Up: Vault [${liquidVault.name}] ➔ Budget [${category}]`,
+                    category: category,
+                    amount: transferAmt,
+                    status: 'cleared'
+                });
+
+                const remainingDeficit = deficit - transferAmt;
+                if (remainingDeficit > 0) {
+                    showToast(`Expense logged! ৳${transferAmt.toFixed(2)} auto-transferred from Liquid Source Vault [${liquidVault.name}] into budget. Remaining uncovered deficit: ৳${remainingDeficit.toFixed(2)}`, "warning");
+                } else {
+                    showToast(`Expense logged! Deficit of ৳${transferAmt.toFixed(2)} automatically transferred from Liquid Source Vault [${liquidVault.name}] to budget [${category}]!`, "success");
+                }
+            } else {
+                if (bgt) {
+                    showToast(oldTx ? `DR Expense updated for budget [${category}] (Over Budget by ৳${deficit.toFixed(2)})` : `DR Expense ৳${amount.toFixed(2)} cut from budget [${category}] (Over Budget by ৳${deficit.toFixed(2)})`, "warning");
+                } else {
+                    showToast(oldTx ? "Cash flow expense entry updated!" : "Cash flow expense entry logged!", "success");
+                }
+            }
+        } else {
+            if (bgt) {
+                showToast(oldTx ? `DR Expense updated for budget [${category}]` : `DR Expense ৳${amount.toFixed(2)} cut from budget [${category}]`, "success");
+            } else {
+                showToast(oldTx ? "Cash flow expense entry updated!" : "Cash flow expense entry logged!", "success");
+            }
         }
-    } else {
+    } } else {
         showToast(oldTx ? "Cash flow entry updated!" : "Cash flow entry saved!", "success");
     }
 
@@ -17551,6 +17983,13 @@ window.executeFiscalDelete = function () {
             const vault = AppState.fiscalLedger.vaults.find(v => v.id === vaultId || v.name === vaultId);
             if (vault) {
                 vault.currentAmount = Math.max(0, (parseFloat(vault.currentAmount) || 0) - (parseFloat(tx.amount) || 0));
+            }
+        }
+        if (tx && (tx.type === 'dr' || tx.type === 'outflow' || tx.type === 'expense') && tx.category && tx.category.startsWith('Vault: ')) {
+            const vaultId = tx.category.replace('Vault: ', '').trim();
+            const vault = AppState.fiscalLedger.vaults.find(v => v.id === vaultId || v.name === vaultId);
+            if (vault) {
+                vault.currentAmount = (parseFloat(vault.currentAmount) || 0) + (parseFloat(tx.amount) || 0);
             }
         }
         AppState.fiscalLedger.transactions = (AppState.fiscalLedger.transactions || []).filter(t => t.id !== id);
@@ -17707,8 +18146,28 @@ window.saveFiscalBudget = function (event) {
     const bgtObj = { id, category, targetBudget, sourceVaultId, sourceVaultName, fundedAmount, period: 'Monthly' };
     if (idx >= 0) {
         AppState.fiscalLedger.budgets[idx] = bgtObj;
+        if (oldBgt && oldBgt.targetBudget !== targetBudget) {
+            AppState.fiscalLedger.transactions.unshift({
+                id: `mov-bgt-${Date.now()}`,
+                date: new Date().toISOString().split('T')[0],
+                type: 'budget_set',
+                head: `Budget Limit Updated: ${category} (Target Limit: ৳${targetBudget.toFixed(2)})`,
+                category: category,
+                amount: Math.abs(targetBudget - oldBgt.targetBudget),
+                status: 'cleared'
+            });
+        }
     } else {
         AppState.fiscalLedger.budgets.push(bgtObj);
+        AppState.fiscalLedger.transactions.unshift({
+            id: `mov-bgt-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            type: 'budget_set',
+            head: `Category Budget Set: ${category}`,
+            category: category,
+            amount: targetBudget,
+            status: 'cleared'
+        });
     }
 
     FirebaseService.saveToCloud();
@@ -17745,10 +18204,28 @@ window.processFiscalTransfer = function (event) {
 
     if (type === 'deposit') {
         vlt.currentAmount = (parseFloat(vlt.currentAmount) || 0) + amount;
+        AppState.fiscalLedger.transactions.unshift({
+            id: `mov-dep-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            type: 'deposit',
+            head: `Vault Deposit: ${vlt.name}`,
+            category: `Vault: ${vlt.id}`,
+            amount: amount,
+            status: 'cleared'
+        });
         showToast(`Deposited ৳${amount.toFixed(2)} into ${vlt.name}`, "success");
     } else {
         const cur = parseFloat(vlt.currentAmount) || 0;
         vlt.currentAmount = Math.max(0, cur - amount);
+        AppState.fiscalLedger.transactions.unshift({
+            id: `mov-wth-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            type: 'withdrawal',
+            head: `Vault Withdrawal: ${vlt.name}`,
+            category: `Vault: ${vlt.id}`,
+            amount: amount,
+            status: 'cleared'
+        });
         showToast(`Withdrew ৳${amount.toFixed(2)} from ${vlt.name}`, "info");
     }
 
@@ -17878,6 +18355,16 @@ window.executeVaultToVaultTransfer = function (event) {
     // Perform transfer
     senderVlt.currentAmount = Math.max(0, senderAmt - amount);
     receiverVlt.currentAmount = (parseFloat(receiverVlt.currentAmount) || 0) + amount;
+
+    AppState.fiscalLedger.transactions.unshift({
+        id: `mov-v2v-${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        type: 'vault_transfer',
+        head: `Vault Transfer: ${senderVlt.name} ➔ ${receiverVlt.name}`,
+        category: `Vault: ${senderVlt.id}`,
+        amount: amount,
+        status: 'cleared'
+    });
 
     FirebaseService.saveToCloud();
     window.renderFiscalLedgerPage();
@@ -18092,6 +18579,16 @@ window.executeVaultToBudgetTransfer = function (event) {
         receiverBgt.fundedAmount = Math.max(0, prevFunded - amount);
         senderVlt.currentAmount = senderAmt + amount;
 
+        AppState.fiscalLedger.transactions.unshift({
+            id: `mov-v2b-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            type: 'budget_refund',
+            head: `Budget Return: [${receiverBgt.category}] ➔ Vault [${senderVlt.name}]`,
+            category: receiverBgt.category,
+            amount: amount,
+            status: 'cleared'
+        });
+
         showToast(`Returned ৳${amount.toFixed(2)} from [${receiverBgt.category}] budget to Vault [${senderVlt.name}]!`, "success");
     } else {
         // Add money from Vault to Budget
@@ -18105,6 +18602,16 @@ window.executeVaultToBudgetTransfer = function (event) {
         receiverBgt.sourceVaultId = senderVlt.id;
         receiverBgt.sourceVaultName = senderVlt.name;
         receiverBgt.fundedAmount = prevFunded + amount;
+
+        AppState.fiscalLedger.transactions.unshift({
+            id: `mov-v2b-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            type: 'budget_fund',
+            head: `Budget Fund Transfer: Vault [${senderVlt.name}] ➔ Budget [${receiverBgt.category}]`,
+            category: receiverBgt.category,
+            amount: amount,
+            status: 'cleared'
+        });
 
         showToast(`Funded ৳${amount.toFixed(2)} from Vault [${senderVlt.name}] into [${receiverBgt.category}] budget!`, "success");
     }
@@ -18134,19 +18641,21 @@ window.renderAccountingCycleMatrix = function () {
     const vaults = AppState.fiscalLedger.vaults || [];
 
     // Calculate core totals for Double-Entry System:
-    let totalRevenues = 0; // Credit Inflows (R)
-    let totalExpenses = 0; // Debit Outflows (E)
+    let totalRevenues = 0; // True Operating Income (Inflows/CR)
+    let totalExpenses = 0; // True Operating Expense (Outflows/DR)
     let generalOperatingCash = 0; // Unallocated General Cash Flow
 
     transactions.forEach(tx => {
         const amt = parseFloat(tx.amount) || 0;
-        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
-        if (isCr) {
+        const isTrueCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        const isTrueDr = tx.type === 'dr' || tx.type === 'outflow' || tx.type === 'expense';
+
+        if (isTrueCr) {
             totalRevenues += amt;
             if (!tx.category || !tx.category.startsWith('Vault: ')) {
                 generalOperatingCash += amt;
             }
-        } else {
+        } else if (isTrueDr) {
             totalExpenses += amt;
             if (!tx.category || !tx.category.startsWith('Vault: ')) {
                 generalOperatingCash -= amt;
@@ -18179,13 +18688,142 @@ window.renderAccountingCycleMatrix = function () {
     const ownersEquityEnd = totalAssets - totalLiabilities;
     const ownersEquityBeg = ownersEquityEnd - netOperatingIncome;
 
+    const fmtCurrency = (num) => `৳${parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const getMovementAccountingDetails = (t) => {
+        const amt = parseFloat(t.amount) || 0;
+        const amtStr = fmtCurrency(amt);
+        const cat = t.category || 'General';
+
+        switch (t.type) {
+            case 'budget_set':
+            case 'budget_add':
+                return {
+                    typeLabel: 'Budget Limit Set',
+                    typeClass: 'text-amber-600 font-bold',
+                    drAccount: `Dr. ${cat} Budget Limit Allocation (+Budget)`,
+                    crAccount: `Cr. Owner's Equity Budget Reserve (+Equity)`,
+                    drTitle: `${cat} Budget Limit Allocation (5020)`,
+                    crTitle: `Owner's Equity Budget Reserve (3020)`,
+                    drCode: '5020',
+                    crCode: '3020',
+                    eqEffect: `<span class="text-amber-600">ΔOE (${amtStr}) Allocated</span>`,
+                    isCredit: false
+                };
+            case 'budget_fund':
+                return {
+                    typeLabel: 'Budget Fund Transfer',
+                    typeClass: 'text-indigo-600 font-bold',
+                    drAccount: `Dr. ${cat} Budget Fund (+Asset)`,
+                    crAccount: `Cr. Vault Reserve Holding (-Vault Asset)`,
+                    drTitle: `${cat} Budget Fund Asset (1030)`,
+                    crTitle: `Vault Reserve Holding (1020)`,
+                    drCode: '1030',
+                    crCode: '1020',
+                    eqEffect: `<span class="text-indigo-600">Reallocated Asset (${amtStr})</span>`,
+                    isCredit: true
+                };
+            case 'budget_refund':
+                return {
+                    typeLabel: 'Budget Refund',
+                    typeClass: 'text-slate-600 font-bold',
+                    drAccount: `Dr. Vault Reserve Holding (+Vault Asset)`,
+                    crAccount: `Cr. ${cat} Budget Fund (-Budget Asset)`,
+                    drTitle: `Vault Reserve Holding (1020)`,
+                    crTitle: `${cat} Budget Fund Asset (1030)`,
+                    drCode: '1020',
+                    crCode: '1030',
+                    eqEffect: `<span class="text-slate-600">Reallocated Asset (${amtStr})</span>`,
+                    isCredit: false
+                };
+            case 'vault_transfer':
+                return {
+                    typeLabel: 'Inter-Vault Transfer',
+                    typeClass: 'text-purple-600 font-bold',
+                    drAccount: `Dr. Receiver Vault Holding (+Target Vault Asset)`,
+                    crAccount: `Cr. Sender Vault Holding (-Source Vault Asset)`,
+                    drTitle: `Target Vault Holding Asset (1020-B)`,
+                    crTitle: `Source Vault Holding Asset (1020-A)`,
+                    drCode: '1020-B',
+                    crCode: '1020-A',
+                    eqEffect: `<span class="text-purple-600">Internal Vault Shift (${amtStr})</span>`,
+                    isCredit: false
+                };
+            case 'deposit':
+                return {
+                    typeLabel: '+ Vault Deposit',
+                    typeClass: 'text-cyan-600 font-bold',
+                    drAccount: `Dr. Vault Reserve Holding (+Vault Asset)`,
+                    crAccount: `Cr. Cash Operating Capital (-Cash Asset)`,
+                    drTitle: `Vault Reserve Holding (1020)`,
+                    crTitle: `Cash Operating Capital (1010)`,
+                    drCode: '1020',
+                    crCode: '1010',
+                    eqEffect: `<span class="text-cyan-600">+${amtStr} Vault / -${amtStr} Cash</span>`,
+                    isCredit: true
+                };
+            case 'withdrawal':
+                return {
+                    typeLabel: '- Vault Withdrawal',
+                    typeClass: 'text-orange-600 font-bold',
+                    drAccount: `Dr. Cash Operating Capital (+Cash Asset)`,
+                    crAccount: `Cr. Vault Reserve Holding (-Vault Asset)`,
+                    drTitle: `Cash Operating Capital (1010)`,
+                    crTitle: `Vault Reserve Holding (1020)`,
+                    drCode: '1010',
+                    crCode: '1020',
+                    eqEffect: `<span class="text-orange-600">+${amtStr} Cash / -${amtStr} Vault</span>`,
+                    isCredit: false
+                };
+            case 'auto_topup':
+                return {
+                    typeLabel: '⚡ Auto Deficit Top-Up',
+                    typeClass: 'text-teal-600 font-bold',
+                    drAccount: `Dr. ${cat} Deficit Transfer (+Budget)`,
+                    crAccount: `Cr. Liquid Source Vault (-Liquid Asset)`,
+                    drTitle: `${cat} Deficit Transfer (5020)`,
+                    crTitle: `Liquid Source Vault Asset (1020)`,
+                    drCode: '5020',
+                    crCode: '1020',
+                    eqEffect: `<span class="text-teal-600">Auto Transfer (${amtStr})</span>`,
+                    isCredit: false
+                };
+            case 'cr':
+            case 'inflow':
+            case 'income':
+                return {
+                    typeLabel: '+ Credit (Inflow)',
+                    typeClass: 'text-emerald-600 font-bold',
+                    drAccount: `Dr. Cash Operating Asset (+Asset)`,
+                    crAccount: `Cr. ${cat} Income Stream (+Revenue)`,
+                    drTitle: `Cash Operating Asset (1010)`,
+                    crTitle: `${cat} Income Stream (4010)`,
+                    drCode: '1010',
+                    crCode: '4010',
+                    eqEffect: `<span class="text-emerald-600">+${amtStr} Assets = +${amtStr} Revenue</span>`,
+                    isCredit: true
+                };
+            default:
+                return {
+                    typeLabel: '- Debit (Outflow)',
+                    typeClass: 'text-rose-600 font-bold',
+                    drAccount: `Dr. ${cat} Operating Expense (+Expense)`,
+                    crAccount: `Cr. Cash Operating Asset (-Asset)`,
+                    drTitle: `${cat} Operating Expense (5010)`,
+                    crTitle: `Cash Operating Asset (1010)`,
+                    drCode: '5010',
+                    crCode: '1010',
+                    eqEffect: `<span class="text-rose-600">-${amtStr} Assets = -${amtStr} Equity</span>`,
+                    isCredit: false
+                };
+        }
+    };
+
     // Update Top Banner Equation Proof:
     const eqAssetsEl = document.getElementById('accounting-eq-assets');
     const eqLiabEl = document.getElementById('accounting-eq-liab');
     const eqEquityEl = document.getElementById('accounting-eq-equity');
     const eqStatusEl = document.getElementById('accounting-eq-status');
-
-    const fmtCurrency = (num) => `৳${parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     if (eqAssetsEl) eqAssetsEl.textContent = fmtCurrency(totalAssets);
     if (eqLiabEl) eqLiabEl.textContent = fmtCurrency(totalLiabilities);
@@ -18235,15 +18873,15 @@ window.renderAccountingCycleMatrix = function () {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
                         ${transactions.length === 0 ? `<tr><td colspan="6" class="py-6 text-center text-slate-400 font-bold">No raw transactions logged yet.</td></tr>` : transactions.map((t, idx) => {
-                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            const info = getMovementAccountingDetails(t);
                             return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                                     <td class="py-3 px-4 font-mono text-[10px] text-slate-400">TX-${String(idx + 1).padStart(3, '0')}</td>
                                     <td class="py-3 px-4 font-bold">${t.date || 'N/A'}</td>
-                                    <td class="py-3 px-4 font-black text-slate-900 dark:text-white">${t.head || t.category || 'Cash Flow Entry'}</td>
+                                    <td class="py-3 px-4 font-black text-slate-900 dark:text-white">${t.head || t.category || 'Fiscal Movement'}</td>
                                     <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-[10px]">${t.category || 'General'}</span></td>
-                                    <td class="py-3 px-4">${isCr ? '<span class="text-emerald-600 font-bold">+ Credit (Inflow)</span>' : '<span class="text-rose-600 font-bold">- Debit (Outflow)</span>'}</td>
-                                    <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${fmtCurrency(t.amount)}</td>
+                                    <td class="py-3 px-4"><span class="${info.typeClass}">${info.typeLabel}</span></td>
+                                    <td class="py-3 px-4 text-right font-black ${info.isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${fmtCurrency(t.amount)}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -18286,20 +18924,14 @@ window.renderAccountingCycleMatrix = function () {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
                         ${transactions.length === 0 ? `<tr><td colspan="5" class="py-6 text-center text-slate-400 font-bold">No transactions to analyze.</td></tr>` : transactions.map((t, idx) => {
-                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            const info = getMovementAccountingDetails(t);
                             return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                                     <td class="py-3 px-4 font-mono text-[10px] text-slate-400">TX-${String(idx + 1).padStart(3, '0')}</td>
                                     <td class="py-3 px-4 font-black text-slate-900 dark:text-white">${t.head || t.category}</td>
-                                    <td class="py-3 px-4">
-                                        ${isCr ? `<span class="text-teal-600 dark:text-teal-400 font-bold">Dr. Cash Operating Asset (+Asset)</span>` : `<span class="text-rose-600 dark:text-rose-400 font-bold">Dr. ${t.category || 'Operating Expense'} (+Expense)</span>`}
-                                    </td>
-                                    <td class="py-3 px-4">
-                                        ${isCr ? `<span class="text-indigo-600 dark:text-indigo-400 font-bold">Cr. ${t.category || 'Operating Inflow'} (+Revenue)</span>` : `<span class="text-slate-600 dark:text-slate-400 font-bold">Cr. Cash Operating Asset (-Asset)</span>`}
-                                    </td>
-                                    <td class="py-3 px-4 text-right font-mono font-bold">
-                                        ${isCr ? `<span class="text-emerald-600">+${fmtCurrency(t.amount)} Assets = +${fmtCurrency(t.amount)} Revenue</span>` : `<span class="text-rose-600">-${fmtCurrency(t.amount)} Assets = -${fmtCurrency(t.amount)} Equity</span>`}
-                                    </td>
+                                    <td class="py-3 px-4 font-bold text-teal-600 dark:text-teal-400">${info.drAccount}</td>
+                                    <td class="py-3 px-4 font-bold text-indigo-600 dark:text-indigo-400">${info.crAccount}</td>
+                                    <td class="py-3 px-4 text-right font-mono font-bold">${info.eqEffect}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -18363,17 +18995,17 @@ window.renderAccountingCycleMatrix = function () {
                     </thead>
                     <tbody class="divide-y divide-slate-200/50 dark:divide-slate-700/50 font-mono text-xs font-semibold">
                         ${transactions.length === 0 ? `<tr><td colspan="8" class="py-6 text-center text-slate-400 font-bold">No transaction data available for math proof.</td></tr>` : transactions.map((t, idx) => {
-                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            const info = getMovementAccountingDetails(t);
                             const amtStr = fmtCurrency(t.amount);
                             return `
                                 <tr class="hover:bg-teal-50/30 dark:hover:bg-slate-700/30">
                                     <td class="py-3 px-4 text-slate-400 text-[10px]">TX-${String(idx + 1).padStart(3, '0')}</td>
                                     <td class="py-3 px-4 font-sans font-black text-slate-900 dark:text-white">${t.head || t.category}</td>
-                                    <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600' : 'text-rose-600'}">${isCr ? '+' : '-'}${amtStr}</td>
+                                    <td class="py-3 px-4 text-right font-black ${info.isCredit ? 'text-emerald-600' : 'text-rose-600'}">${info.isCredit ? '+' : '-'}${amtStr}</td>
                                     <td class="py-3 px-4 text-center font-serif text-slate-400">=</td>
                                     <td class="py-3 px-4 text-right text-slate-400">৳0.00</td>
                                     <td class="py-3 px-4 text-center font-serif text-slate-400">+</td>
-                                    <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600' : 'text-rose-600'}">${isCr ? '+' : '-'}${amtStr}</td>
+                                    <td class="py-3 px-4 text-right font-black ${info.isCredit ? 'text-emerald-600' : 'text-rose-600'}">${info.isCredit ? '+' : '-'}${amtStr}</td>
                                     <td class="py-3 px-4 text-center">
                                         <span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-300">✓ Balanced</span>
                                     </td>
@@ -18480,20 +19112,20 @@ window.renderAccountingCycleMatrix = function () {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
                         ${transactions.length === 0 ? `<tr><td colspan="5" class="py-6 text-center text-slate-400 font-bold">No general journal entries logged.</td></tr>` : transactions.map((t, idx) => {
-                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            const info = getMovementAccountingDetails(t);
                             return `
                                 <tr class="bg-slate-50/40 dark:bg-slate-800/40 border-t border-slate-200/50 dark:border-slate-700/50">
                                     <td class="py-2.5 px-4 font-bold" rowspan="2">${t.date || 'N/A'}</td>
-                                    <td class="py-1 px-4 font-black text-slate-900 dark:text-white">${isCr ? 'Cash Operating Asset (1010)' : `${t.category || 'Operating Expense'} (5010)`}</td>
-                                    <td class="py-1 px-4 text-center font-mono text-[10px]">1010</td>
-                                    <td class="py-1 px-4 text-right font-black ${isCr ? 'text-teal-600' : 'text-rose-600'}">${fmtCurrency(t.amount)}</td>
+                                    <td class="py-1 px-4 font-black text-slate-900 dark:text-white">${info.drTitle}</td>
+                                    <td class="py-1 px-4 text-center font-mono text-[10px]">${info.drCode}</td>
+                                    <td class="py-1 px-4 text-right font-black ${info.isCredit ? 'text-teal-600' : 'text-rose-600'}">${fmtCurrency(t.amount)}</td>
                                     <td class="py-1 px-4 text-right font-mono text-slate-400">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="py-1 px-4 pl-8 text-slate-600 dark:text-slate-300 font-bold">${isCr ? `  Cr. ${t.category || 'Income Stream'} (4010)` : '  Cr. Cash Operating Asset (1010)'}</td>
-                                    <td class="py-1 px-4 text-center font-mono text-[10px]">${isCr ? '4010' : '1010'}</td>
+                                    <td class="py-1 px-4 pl-8 text-slate-600 dark:text-slate-300 font-bold">  Cr. ${info.crTitle}</td>
+                                    <td class="py-1 px-4 text-center font-mono text-[10px]">${info.crCode}</td>
                                     <td class="py-1 px-4 text-right font-mono text-slate-400">-</td>
-                                    <td class="py-1 px-4 text-right font-black ${isCr ? 'text-indigo-600' : 'text-slate-600 dark:text-slate-400'}">${fmtCurrency(t.amount)}</td>
+                                    <td class="py-1 px-4 text-right font-black ${info.isCredit ? 'text-indigo-600' : 'text-slate-600 dark:text-slate-400'}">${fmtCurrency(t.amount)}</td>
                                 </tr>
                             `;
                         }).join('')}
