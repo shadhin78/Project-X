@@ -17098,11 +17098,11 @@ window.renderFiscalLedgerPage = function () {
         return cat;
     };
 
-    // Render Transactions Table Body
+    // Render Transactions Table Body (Desktop Table)
     const tbody = document.getElementById('fiscal-tx-table-body');
     if (tbody) {
         if (filteredTxs.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 font-bold">No cash flow transactions found. Click "+ Log Cash Flow" to record entries.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 font-bold">No cash flow transactions found. Click "+ Log Cash" to record entries.</td></tr>`;
         } else {
             tbody.innerHTML = filteredTxs.map(tx => {
                 const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
@@ -17131,6 +17131,51 @@ window.renderFiscalLedgerPage = function () {
                             </div>
                         </td>
                     </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    // Render Mobile Transaction Cards Container (Realme 8 / Mobile Phones)
+    const mobileCardsEl = document.getElementById('fiscal-tx-mobile-cards');
+    if (mobileCardsEl) {
+        if (filteredTxs.length === 0) {
+            mobileCardsEl.innerHTML = `<div class="p-6 text-center text-slate-400 font-bold text-xs bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">No cash flow transactions found. Click "+ Log Cash" to record entries.</div>`;
+        } else {
+            mobileCardsEl.innerHTML = filteredTxs.map(tx => {
+                const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+                const amtFormatted = `৳${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const typeBadge = isCr
+                    ? `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">+ CR</span>`
+                    : `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">- DR</span>`;
+
+                return `
+                    <div class="p-3.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 shadow-xs space-y-2.5">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-black text-sm text-slate-900 dark:text-white truncate">${tx.head || getCategoryLabel(tx.category)}</div>
+                                <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-semibold">
+                                    <span>${tx.date}</span>
+                                    <span>•</span>
+                                    <span class="truncate">${getCategoryLabel(tx.category)}</span>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="font-black text-sm ${isCr ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${isCr ? '+' : '-'}${amtFormatted}</div>
+                                <div class="mt-0.5">${typeBadge}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-1.5 border-t border-slate-100 dark:border-slate-700/60 pt-2">
+                            <button onclick="window.openFiscalTxModal('${tx.id}')" class="px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 bg-slate-100 dark:bg-slate-700 rounded-lg transition-colors flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                <span>Edit</span>
+                            </button>
+                            <button onclick="window.deleteFiscalTransaction('${tx.id}')" class="px-2.5 py-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 rounded-lg transition-colors flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                <span>Delete</span>
+                            </button>
+                        </div>
+                    </div>
                 `;
             }).join('');
         }
@@ -17184,7 +17229,7 @@ window.renderFiscalLedgerPage = function () {
     const budgetGridEl = document.getElementById('fiscal-budget-grid');
     if (budgetGridEl) {
         if (budgets.length === 0) {
-            budgetGridEl.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold">No category budgets created yet. Click "Add Category Budget" to start.</div>`;
+            budgetGridEl.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold">No category budgets created yet. Click "Add Budget" to start.</div>`;
         } else {
             budgetGridEl.innerHTML = budgets.map(b => {
                 // Calculate actual expenses cut against this budget category
@@ -17199,39 +17244,42 @@ window.renderFiscalLedgerPage = function () {
 
                 const badge = isOver
                     ? `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300">Over Budget (-৳${Math.abs(remaining).toFixed(2)})</span>`
-                    : `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Remaining: ৳${remaining.toFixed(2)}</span>`;
+                    : `<span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Remain: ৳${remaining.toFixed(2)}</span>`;
 
                 const barColor = isOver ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-teal-500';
 
                 return `
-                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
-                        <div class="flex items-center justify-between mb-3">
-                            <div>
-                                <h5 class="font-black text-sm dark:text-white">${b.category}</h5>
-                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${b.sourceVaultName ? `Funded from Vault: ${b.sourceVaultName}` : `${b.period || 'Monthly'} Budget`}</p>
+                    <div class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <h5 class="font-black text-sm dark:text-white truncate">${b.category}</h5>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 truncate">${b.sourceVaultName ? `Vault: ${b.sourceVaultName}` : `${b.period || 'Monthly'} Budget`}</p>
                             </div>
-                            <div class="flex items-center gap-1.5">
+                            <div class="shrink-0 text-right">
                                 ${badge}
-                                <button onclick="window.openVaultToBudgetTransferModal('${b.id}')" class="p-1 text-slate-500 hover:text-indigo-600 rounded flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 border border-indigo-200 dark:border-indigo-800/50 transition-all active:scale-95" title="Fund budget from vault">
-                                    <svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                                    <span>Fund</span>
-                                </button>
-                                <button onclick="window.openFiscalBudgetModal('${b.id}')" class="p-1 text-slate-400 hover:text-teal-600 rounded" title="Edit Budget">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                </button>
-                                <button onclick="window.deleteFiscalBudget('${b.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="Delete Budget">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                </button>
                             </div>
                         </div>
 
-                        <div class="flex items-baseline justify-between mb-2">
-                            <span class="text-xs font-bold text-slate-500">Expenses Cut: <strong class="${isOver ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}">৳${actualSpent.toFixed(2)}</strong></span>
-                            <span class="text-xs font-bold text-slate-400">Target Limit: <strong>৳${targetLimit.toFixed(2)}</strong></span>
+                        <div class="flex items-baseline justify-between text-xs font-bold text-slate-500">
+                            <span>Cut: <strong class="${isOver ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}">৳${actualSpent.toFixed(2)}</strong></span>
+                            <span class="text-slate-400">Limit: <strong>৳${targetLimit.toFixed(2)}</strong></span>
                         </div>
 
                         <div class="w-full bg-slate-100 dark:bg-slate-700/60 rounded-full h-2.5 overflow-hidden">
                             <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-1.5 border-t border-slate-100 dark:border-slate-700/60 pt-2.5">
+                            <button onclick="window.openVaultToBudgetTransferModal('${b.id}')" class="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 rounded-lg hover:bg-indigo-600 hover:text-white transition-all active:scale-95 flex items-center gap-1" title="Fund budget from vault">
+                                <svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                <span>Fund</span>
+                            </button>
+                            <button onclick="window.openFiscalBudgetModal('${b.id}')" class="p-1 text-slate-400 hover:text-teal-600 rounded" title="Edit Budget">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                            <button onclick="window.deleteFiscalBudget('${b.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="Delete Budget">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -17243,7 +17291,7 @@ window.renderFiscalLedgerPage = function () {
     const vaultsGridEl = document.getElementById('fiscal-vaults-grid');
     if (vaultsGridEl) {
         if (vaults.length === 0) {
-            vaultsGridEl.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold">No savings vaults created. Click "+ Create Vault" to set up hold reserves.</div>`;
+            vaultsGridEl.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold">No savings vaults created. Click "New Vault" to set up hold reserves.</div>`;
         } else {
             vaultsGridEl.innerHTML = vaults.map(v => {
                 const currentAmt = parseFloat(v.currentAmount) || 0;
@@ -17253,13 +17301,13 @@ window.renderFiscalLedgerPage = function () {
                 const isLiquid = v.isLiquidSource !== false;
 
                 const liquidBadge = isLiquid
-                    ? `<button onclick="window.toggleVaultLiquidStatus('${v.id}')" class="px-2.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 transition-all flex items-center gap-1 active:scale-95" title="Source of Liquid Calculation (Included in Net Liquid Capital). Click to toggle.">⚡ Liquid Source</button>`
-                    : `<button onclick="window.toggleVaultLiquidStatus('${v.id}')" class="px-2.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 transition-all flex items-center gap-1 active:scale-95" title="Hold Reserve (Excluded from Net Liquid Capital). Click to toggle.">🔒 Hold Reserve</button>`;
+                    ? `<button onclick="window.toggleVaultLiquidStatus('${v.id}')" class="px-2 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 transition-all flex items-center gap-1 active:scale-95" title="Source of Liquid Calculation (Included in Net Liquid Capital). Click to toggle.">⚡ Liquid Source</button>`
+                    : `<button onclick="window.toggleVaultLiquidStatus('${v.id}')" class="px-2 py-0.5 text-[9px] font-black uppercase rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 transition-all flex items-center gap-1 active:scale-95" title="Hold Reserve (Excluded from Net Liquid Capital). Click to toggle.">🔒 Hold Reserve</button>`;
 
                 return `
-                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between relative group hover:shadow-md transition-all">
+                    <div class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between space-y-3 relative group hover:shadow-md transition-all">
                         <div>
-                            <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center justify-between mb-2.5">
                                 ${liquidBadge}
                                 <div class="flex items-center gap-1">
                                     <button onclick="window.openFiscalVaultModal('${v.id}')" class="p-1 text-slate-400 hover:text-indigo-600 rounded" title="Edit Vault">
@@ -17271,18 +17319,18 @@ window.renderFiscalLedgerPage = function () {
                                 </div>
                             </div>
 
-                            <h5 class="font-black text-base dark:text-white tracking-tight mb-1">${v.name}</h5>
-                            <div class="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-4">
-                                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                <span>Held at: <strong class="text-slate-700 dark:text-slate-300 font-bold">${v.location || 'Reserve Vault'}</strong></span>
+                            <h5 class="font-black text-sm sm:text-base dark:text-white tracking-tight mb-0.5 truncate">${v.name}</h5>
+                            <div class="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium mb-3">
+                                <svg class="w-3 h-3 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                <span class="truncate">Held at: <strong class="text-slate-700 dark:text-slate-300 font-bold">${v.location || 'Reserve Vault'}</strong></span>
                             </div>
 
-                            <div class="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 mb-4">
-                                <div class="flex justify-between items-baseline mb-1">
-                                    <span class="text-[10px] font-black uppercase text-slate-400">Vault Balance</span>
-                                    <span class="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">${hasGoal ? `${pct}% of Goal` : 'Active Reserve'}</span>
+                            <div class="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                <div class="flex justify-between items-baseline mb-1 text-[10px]">
+                                    <span class="font-black uppercase text-slate-400">Vault Balance</span>
+                                    <span class="font-black uppercase text-indigo-600 dark:text-indigo-400">${hasGoal ? `${pct}% of Goal` : 'Active Reserve'}</span>
                                 </div>
-                                <div class="text-xl font-black text-slate-900 dark:text-white">৳${currentAmt.toFixed(2)} ${hasGoal ? `<span class="text-xs font-semibold text-slate-400">/ ৳${targetAmt.toFixed(2)}</span>` : ''}</div>
+                                <div class="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate">৳${currentAmt.toFixed(2)} ${hasGoal ? `<span class="text-xs font-semibold text-slate-400">/ ৳${targetAmt.toFixed(2)}</span>` : ''}</div>
                                 ${hasGoal ? `
                                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-2 overflow-hidden">
                                     <div class="bg-indigo-600 h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
@@ -17290,14 +17338,14 @@ window.renderFiscalLedgerPage = function () {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3">
-                            <span class="text-[10px] text-slate-400 font-bold">${hasGoal ? `Goal: ৳${targetAmt.toLocaleString()}` : 'Flexible Fund'}</span>
-                            <div class="flex items-center gap-1.5">
-                                <button onclick="window.openVaultTransferModal('${v.id}')" class="bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-600 hover:text-white text-teal-600 dark:text-teal-400 font-black text-[10px] uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-teal-200 dark:border-teal-800/50 transition-all active:scale-95 flex items-center gap-1" title="Transfer cash to another vault">
+                        <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-2.5">
+                            <span class="text-[10px] text-slate-400 font-bold truncate">${hasGoal ? `Goal: ৳${targetAmt.toLocaleString()}` : 'Flexible Fund'}</span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button onclick="window.openVaultTransferModal('${v.id}')" class="bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-600 hover:text-white text-teal-600 dark:text-teal-400 font-black text-[9px] uppercase tracking-wider px-2 py-1.5 rounded-lg border border-teal-200 dark:border-teal-800/50 transition-all active:scale-95 flex items-center gap-1" title="Transfer cash to another vault">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
                                     <span>Transfer</span>
                                 </button>
-                                <button onclick="window.openFiscalDepositModal('${v.id}')" class="bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-400 font-black text-[10px] uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/50 transition-all active:scale-95 flex items-center gap-1">
+                                <button onclick="window.openFiscalDepositModal('${v.id}')" class="bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-400 font-black text-[9px] uppercase tracking-wider px-2 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/50 transition-all active:scale-95 flex items-center gap-1">
                                     <span>Deposit / Withdraw</span>
                                 </button>
                             </div>
@@ -17548,6 +17596,63 @@ window.renderFiscalDatabaseTab = function () {
                             </div>
                         </td>
                     </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    // Render Mobile Database Cards Container (Realme 8 / Mobile Phones)
+    const dbMobileCardsEl = document.getElementById('fiscal-db-mobile-cards');
+    if (dbMobileCardsEl) {
+        if (filtered.length === 0) {
+            dbMobileCardsEl.innerHTML = `<div class="p-6 text-center text-slate-400 font-bold text-xs bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">No movement records match the selected date range and filter criteria.</div>`;
+        } else {
+            dbMobileCardsEl.innerHTML = filtered.map(tx => {
+                const amtFormatted = `৳${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                let typeBadge = '';
+                if (tx.type === 'budget_set' || tx.type === 'budget_add') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Budget Set</span>`;
+                } else if (tx.type === 'budget_fund') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Fund Transfer</span>`;
+                } else if (tx.type === 'vault_transfer') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">Vault Transfer</span>`;
+                } else if (tx.type === 'deposit') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300">+ Deposit</span>`;
+                } else if (tx.type === 'withdrawal') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">- Withdrawal</span>`;
+                } else if (tx.type === 'auto_topup') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">⚡ Auto Topup</span>`;
+                } else if (tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">+ Inflow</span>`;
+                } else {
+                    typeBadge = `<span class="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300">- Outflow</span>`;
+                }
+                const isCredit = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income' || tx.type === 'deposit' || tx.type === 'budget_fund';
+
+                return `
+                    <div class="p-3.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 shadow-xs space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-black text-xs text-slate-900 dark:text-white truncate">${tx.head || getCategoryLabel(tx.category)}</div>
+                                <div class="text-[9px] text-slate-400 font-mono mt-0.5">${tx.id} • ${tx.date}</div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="font-black text-xs ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${isCredit ? '+' : '-'}${amtFormatted}</div>
+                                <div class="mt-0.5">${typeBadge}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-700/60 pt-2 text-[10px]">
+                            <span class="px-2 py-0.5 font-bold rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 truncate max-w-[150px]">${getCategoryLabel(tx.category)}</span>
+                            <div class="flex items-center gap-1">
+                                <button onclick="window.openFiscalTxModal('${tx.id}')" class="p-1 text-slate-400 hover:text-teal-600 rounded" title="Edit">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                                <button onclick="window.deleteFiscalTransaction('${tx.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="Delete">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 `;
             }).join('');
         }

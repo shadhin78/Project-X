@@ -507,3 +507,45 @@ select optgroup {
     background-color: #0f172a !important;
     color: #f8fafc !important;
 }
+
+/* ===== Fiscal Mobile Optimization Styles ===== */
+@media (max-width: 639px) {
+    .fiscal-bottom-sheet {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        max-height: 88vh !important;
+        animation: fiscalBottomSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+}
+
+@keyframes fiscalBottomSheetSlideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0.8;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Touch interaction & responsive input adjustments */
+.touch-action-manipulation {
+    touch-action: manipulation;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 4px;
+}
