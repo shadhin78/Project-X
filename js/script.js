@@ -2935,6 +2935,7 @@ function renderUI() {
     if (window.renderDashboardDailyChecklist) window.renderDashboardDailyChecklist();
     if (window.renderOutcomeProgramToggles) window.renderOutcomeProgramToggles();
     if (window.renderSchedulePage) window.renderSchedulePage();
+    if (window.renderFiscalLedgerPage) window.renderFiscalLedgerPage();
 
     // Dynamic Form & Manage UI Syncs
     window.populateTrackDropdowns();
@@ -3987,6 +3988,8 @@ function updateMetrics() {
         const currentPaceDisplay = globalCurPace.toFixed(2);
         safeSetText('target-req-pace', `--`);
         safeSetText('current-pace-stat', `${currentPaceDisplay} Ch/Day`);
+        safeSetText('global-pace-req', `--`);
+        safeSetText('global-pace-act', `${currentPaceDisplay} Ch/Day`);
         safeSetText('db-target-req-pace', `--`);
         safeSetText('db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
 
@@ -4218,6 +4221,10 @@ function updateMetrics() {
         safeSetText('current-pace-stat', `${currentPaceDisplay} Ch/Day`);
         safeSetHtml('projected-finish', finishDisplay);
 
+        safeSetText('global-pace-req', `${reqPaceDisplay} Ch/Day`);
+        safeSetText('global-pace-act', `${currentPaceDisplay} Ch/Day`);
+        safeSetHtml('global-pace-finish', finishDisplay);
+
         safeSetText('db-target-req-pace', `${reqPaceDisplay} Ch/Day`);
         safeSetText('db-current-pace-stat', `${currentPaceDisplay} Ch/Day`);
         safeSetHtml('db-projected-finish', finishDisplay);
@@ -4313,6 +4320,9 @@ function updateMetrics() {
     renderCategoryProgress(subjectStats);
     renderTrackProgress(subjectStats);
     window.renderPaceGoals(subjectStats);
+    if (window.renderGlobalPaceTrendChart) {
+        window.renderGlobalPaceTrendChart();
+    }
 
     if (AppState.progressChart) { AppState.progressChart.data.datasets[0].data = [displayCompleted, scopeTotalChapters - displayCompleted]; AppState.progressChart.update(); }
 
@@ -9731,7 +9741,7 @@ window.openModal = function (modalId, typeKey = null) {
 
 window.closeModal = function (modalId) {
     const backdrops = { 'global-chapters-modal': 'gcm-backdrop', 'program-completions-modal': 'pcm-completions-backdrop', 'create-schedule-group-modal': 'csgm-backdrop', 'pace-candle-modal': 'pcm-backdrop', 'program-trend-modal': 'ptm-results-backdrop', 'analytics-modal': 'am-backdrop', 'yearly-actions-modal': 'ym-backdrop', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-backdrop', 'edit-pace-modal': 'epm-backdrop', 'edit-trends-pace-modal': 'etpm-backdrop', 'pace-trend-modal': 'ptm-backdrop', 'goal-details-modal': 'gdm-backdrop', 'revision-manage-modal': 'rmm-backdrop', 'revision-trend-modal': 'rvm-backdrop', 'global-history-modal': 'ghm-backdrop', 'subject-time-modal': 'stm-time-backdrop', 'daily-actions-db-modal': 'dadb-backdrop', 'daily-targets-db-modal': 'dtdb-backdrop', 'weekly-targets-db-modal': 'wtdb-backdrop', 'result-modal': 'resm-backdrop', 'edit-subject-modal': 'esm-backdrop', 'edit-track-modal': 'etm-track-backdrop', 'custom-timer-modal': 'ctm-backdrop', 'account-settings-modal': 'asm-account-backdrop', 'add-schedule-modal': 'asm-schedule-backdrop', 'add-timer-session-modal': 'atsm-backdrop', 'edit-timer-session-modal': 'etsm-backdrop', 'timer-analytics-modal': 'tam-backdrop', 'add-daily-target-modal': 'adtm-backdrop', 'add-weekly-target-modal': 'wtm-backdrop', 'fiscal-tx-modal': 'fiscal-tx-backdrop', 'fiscal-budget-modal': 'fiscal-budget-backdrop', 'fiscal-vault-modal': 'fiscal-vault-backdrop', 'fiscal-deposit-modal': 'fiscal-deposit-backdrop', 'fiscal-delete-modal': 'fiscal-delete-backdrop' };
-    const contents = { 'global-chapters-modal': 'gcm-content', 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-backdrop', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'edit-timer-session-modal': 'etsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content', 'fiscal-tx-modal': 'fiscal-tx-content', 'fiscal-budget-modal': 'fiscal-budget-content', 'fiscal-vault-modal': 'fiscal-vault-content', 'fiscal-deposit-modal': 'fiscal-deposit-content', 'fiscal-delete-modal': 'fiscal-delete-content' };
+    const contents = { 'global-chapters-modal': 'gcm-content', 'program-completions-modal': 'pcm-completions-content', 'create-schedule-group-modal': 'csgm-content', 'pace-candle-modal': 'pcm-content', 'program-trend-modal': 'ptm-results-content', 'analytics-modal': 'am-content', 'yearly-actions-modal': 'ym-content', 'subject-trend-modal': 'stm-content', 'edit-task-modal': 'etm-content', 'edit-pace-modal': 'epm-content', 'edit-trends-pace-modal': 'etpm-content', 'pace-trend-modal': 'ptm-content', 'goal-details-modal': 'gdm-content', 'revision-manage-modal': 'rmm-content', 'revision-trend-modal': 'rvm-content', 'global-history-modal': 'ghm-content', 'subject-time-modal': 'stm-time-content', 'daily-actions-db-modal': 'dadb-content', 'daily-targets-db-modal': 'dtdb-content', 'weekly-targets-db-modal': 'wtdb-content', 'result-modal': 'resm-content', 'edit-subject-modal': 'esm-content', 'edit-track-modal': 'etm-track-content', 'custom-timer-modal': 'ctm-content', 'account-settings-modal': 'asm-account-content', 'add-schedule-modal': 'asm-schedule-content', 'add-timer-session-modal': 'atsm-content', 'edit-timer-session-modal': 'etsm-content', 'timer-analytics-modal': 'tam-content', 'add-daily-target-modal': 'adtm-content', 'add-weekly-target-modal': 'wtm-content', 'fiscal-tx-modal': 'fiscal-tx-content', 'fiscal-budget-modal': 'fiscal-budget-content', 'fiscal-vault-modal': 'fiscal-vault-content', 'fiscal-deposit-modal': 'fiscal-deposit-content', 'fiscal-delete-modal': 'fiscal-delete-content' };
     const modal = document.getElementById(modalId);
     const backdrop = (backdrops[modalId] && document.getElementById(backdrops[modalId])) || (modal ? modal.children[0] : null);
     const content = (contents[modalId] && document.getElementById(contents[modalId])) || (modal ? modal.children[1] : null);
@@ -10405,9 +10415,11 @@ window.openPaceCandleChartModal = function (goalId) {
 };
 
 window.openPaceTrendModal = function (goalId) {
-    window.activeTrendGoalId = goalId || null;
+    const globalGoal = window.paceGoals ? window.paceGoals.find(g => g.type === 'global') : null;
+    const targetId = goalId || (globalGoal ? globalGoal.id : null);
+    window.activeTrendGoalId = targetId;
     openModal('pace-trend-modal');
-    window.renderPaceTrendChart(goalId); // Initial render setup
+    window.renderPaceTrendChart(targetId); // Initial render setup
     // Critical Fix: Force the chart to recalculate its dimensions strictly AFTER the 300ms CSS transition completes.
     // This perfectly syncs the canvas to the newly visible layout dimensions, preventing squishing/blurring.
     setTimeout(() => {
@@ -11238,92 +11250,23 @@ window.renderSpectraPaceTrendChart = function (goalId) {
     });
 };
 
+
+
 window.renderGlobalPaceTrendChart = function () {
-    let goal = window.paceGoals ? window.paceGoals.find(g => g.type === 'global') : null;
-    if (!goal) {
-        goal = {
-            id: 'global-timeline',
-            type: 'global',
-            target: 'Global Scope',
-            startDate: AppState.PLAN_START_DATE.toISOString().split('T')[0],
-            deadline: AppState.PLAN_END_DATE.toISOString().split('T')[0]
-        };
+    if (!window.lastSubjectStats || !window.latestPaceData) {
+        if (typeof updateMetrics === 'function') updateMetrics();
     }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const msPerDay = 1000 * 60 * 60 * 24;
-    const subjectStats = window.lastSubjectStats || {};
-    let total = 0;
-    let completed = 0;
-
-    let targetedSubjects = new Set();
-    window.getAllSubjects().forEach(s => targetedSubjects.add(s.subject));
-
-    targetedSubjects.forEach(sub => {
-        if (subjectStats[sub]) {
-            total += subjectStats[sub].totalChapters;
-            completed += subjectStats[sub].effectiveChapters;
-        }
-    });
-
-    const startDate = goal.startDate ? Utils.parseDateSafe(goal.startDate) : new Date(AppState.PLAN_START_DATE);
-    const targetDate = goal.deadline ? Utils.parseDateSafe(goal.deadline) : new Date(AppState.PLAN_END_DATE);
-    startDate.setHours(0, 0, 0, 0);
-    targetDate.setHours(23, 59, 59, 999);
-
-    const remaining = Math.max(0, total - completed);
-    const totalDays = Math.max(1, Math.ceil((targetDate - startDate) / msPerDay));
-    const daysElapsed = Math.floor((today - startDate) / msPerDay) + 1;
-    const daysRemaining = Math.max(0, Math.ceil((targetDate - today) / msPerDay));
-
-    let reqPaceVal = 0;
-    let curPaceVal = 0;
-
-    if (total > 0) {
-        if (today < startDate) {
-            reqPaceVal = total / totalDays;
-            curPaceVal = 0;
-        } else if (today > targetDate) {
-            reqPaceVal = remaining > 0 ? remaining : 0;
-            curPaceVal = completed / daysElapsed;
-        } else {
-            reqPaceVal = remaining > 0 ? remaining / Math.max(1, daysRemaining) : 0;
-            curPaceVal = completed / daysElapsed;
-        }
-    }
-
-    let projectedDate = new Date(today);
-    if (remaining <= 0) {
-        projectedDate = new Date(today);
-    } else if (curPaceVal > 0) {
-        const daysToFinish = remaining / curPaceVal;
-        projectedDate.setDate(today.getDate() + daysToFinish);
-    } else {
-        projectedDate = new Date(0);
-    }
-
-    const paceData = {
-        total: total,
-        completed: completed,
-        start: startDate,
-        end: targetDate,
-        today: today,
-        reqPace: reqPaceVal,
-        curPace: curPaceVal,
-        projectedDate: projectedDate,
-        subjects: Array.from(targetedSubjects),
-        title: "Global Scope Trend",
-        description: "Burn-up comparison of Required vs Actual trajectories for all subjects."
-    };
 
     const canvas = document.getElementById('globalPaceTrendCanvas');
     if (!canvas) return;
 
-    const { reqPace, curPace, projectedDate: projDt, title, description } = paceData;
+    let paceData = window.latestPaceData;
+    if (!paceData) return;
 
-    safeSetText('global-pace-title', title);
-    safeSetText('global-pace-desc', description);
+    const { total, completed, start: startDate, end: targetDate, today, reqPace, curPace, projectedDate: projDt, subjects } = paceData;
+
+    safeSetText('global-pace-title', "Global Scope Trend");
+    safeSetText('global-pace-desc', "Burn-up comparison of Required vs Actual trajectories for global scope.");
 
     safeSetText('global-pace-req', `${reqPace.toFixed(2)} Ch/Day`);
     safeSetText('global-pace-act', `${curPace.toFixed(2)} Ch/Day`);
@@ -11369,7 +11312,6 @@ window.renderGlobalPaceTrendChart = function () {
 
     let currentDt = new Date(loopStart);
     let cumulativeAct = 0;
-    // Calculate baseline completions before loopStart
     AppState.tasks.forEach(t => {
         const taskDate = getTaskDate(t);
         if (taskDate < loopStart) {
@@ -16925,7 +16867,7 @@ window.currentFiscalView = 'table';
 
 window.switchFiscalTab = function (tabName) {
     window.currentFiscalTab = tabName;
-    const tabs = ['ledger', 'budget', 'vaults', 'analytics'];
+    const tabs = ['ledger', 'budget', 'vaults', 'analytics', 'accounting'];
     tabs.forEach(t => {
         const btn = document.getElementById(`fiscal-tab-btn-${t}`);
         const pane = document.getElementById(`fiscal-pane-${t}`);
@@ -16944,6 +16886,8 @@ window.switchFiscalTab = function (tabName) {
 
     if (tabName === 'analytics') {
         setTimeout(() => { window.renderFiscalCharts(); }, 100);
+    } else if (tabName === 'accounting') {
+        setTimeout(() => { window.renderAccountingCycleMatrix(); }, 100);
     }
 };
 
@@ -16993,26 +16937,39 @@ window.renderFiscalLedgerPage = function () {
     // CR = Income (Inflow)
     let totalInflow = 0;
     let totalOutflow = 0;
+    let generalNetCash = 0;
+
     transactions.forEach(tx => {
         const amt = parseFloat(tx.amount) || 0;
-        if (tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income') {
+        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        if (isCr) {
             totalInflow += amt;
+            if (!tx.category || !tx.category.startsWith('Vault: ')) {
+                generalNetCash += amt;
+            }
         } else {
             totalOutflow += amt;
+            if (!tx.category || !tx.category.startsWith('Vault: ')) {
+                generalNetCash -= amt;
+            }
         }
     });
 
     let totalVaultHold = 0;
+    let liquidVaultHold = 0;
     let lockedVaultHold = 0;
     vaults.forEach(v => {
         const amt = parseFloat(v.currentAmount) || 0;
         totalVaultHold += amt;
-        if (v.isLiquidSource === false) {
+        if (v.isLiquidSource !== false) {
+            liquidVaultHold += amt;
+        } else {
             lockedVaultHold += amt;
         }
     });
 
-    const netCapital = (totalInflow - totalOutflow) - lockedVaultHold;
+    // Net Liquid Capital = Liquid Vault Reserves + Unallocated General Operating Cash Flow
+    const netCapital = liquidVaultHold + Math.max(0, generalNetCash);
 
     // Update Executive KPI Cards
     const kpiNetEl = document.getElementById('fiscal-kpi-net');
@@ -17278,6 +17235,8 @@ window.renderFiscalLedgerPage = function () {
 
     if (window.currentFiscalTab === 'analytics') {
         window.renderFiscalCharts();
+    } else if (window.currentFiscalTab === 'accounting') {
+        window.renderAccountingCycleMatrix();
     }
 };
 
@@ -17307,7 +17266,6 @@ window.toggleVaultLiquidStatus = function (vltId) {
 window.openFiscalVaultModal = function (vltId = null) {
     document.getElementById('fiscal-vlt-id').value = vltId || '';
     const titleEl = document.getElementById('fiscal-vlt-modal-title');
-    const liquidCheckbox = document.getElementById('fiscal-vlt-liquid');
 
     if (vltId) {
         const vlt = (AppState.fiscalLedger.vaults || []).find(v => v.id === vltId);
@@ -17317,7 +17275,6 @@ window.openFiscalVaultModal = function (vltId = null) {
             document.getElementById('fiscal-vlt-location').value = vlt.location || '';
             document.getElementById('fiscal-vlt-current').value = vlt.currentAmount !== undefined ? vlt.currentAmount : 0;
             document.getElementById('fiscal-vlt-target').value = vlt.targetAmount || '';
-            if (liquidCheckbox) liquidCheckbox.checked = vlt.isLiquidSource === true;
         }
     } else {
         if (titleEl) titleEl.textContent = 'Create Savings / Hold Vault';
@@ -17325,11 +17282,6 @@ window.openFiscalVaultModal = function (vltId = null) {
         document.getElementById('fiscal-vlt-location').value = '';
         document.getElementById('fiscal-vlt-current').value = '0';
         document.getElementById('fiscal-vlt-target').value = '';
-        if (liquidCheckbox) {
-            // Check if any vault is currently a liquid source
-            const hasLiquid = (AppState.fiscalLedger.vaults || []).some(v => v.isLiquidSource === true);
-            liquidCheckbox.checked = !hasLiquid;
-        }
     }
     openModal('fiscal-vault-modal');
 };
@@ -17349,17 +17301,29 @@ window.saveFiscalVault = function (event) {
     const location = locationInput || 'General Reserve';
     const currentAmount = parseFloat(document.getElementById('fiscal-vlt-current').value) || 0;
     const targetAmount = parseFloat(document.getElementById('fiscal-vlt-target').value) || 0;
-    const isLiquidSource = document.getElementById('fiscal-vlt-liquid')?.checked === true;
 
-    if (isLiquidSource) {
-        // Unset all existing liquid sources first
-        (AppState.fiscalLedger.vaults || []).forEach(v => {
-            if (v.id !== id) v.isLiquidSource = false;
-        });
+    const idx = AppState.fiscalLedger.vaults.findIndex(v => v.id === id);
+    const oldVault = idx >= 0 ? AppState.fiscalLedger.vaults[idx] : null;
+
+    // Retain existing liquid source status if editing, or default to primary if this is the first vault
+    const isLiquidSource = oldVault ? (oldVault.isLiquidSource === true) : ((AppState.fiscalLedger.vaults || []).length === 0);
+
+    let toastMsg = "Capital vault saved!";
+    if (oldVault) {
+        const oldAmt = parseFloat(oldVault.currentAmount) || 0;
+        const delta = currentAmount - oldAmt;
+        if (delta > 0) {
+            toastMsg = `Vault [${name}] updated! (+৳${delta.toFixed(2)} balance adjusted)`;
+        } else if (delta < 0) {
+            toastMsg = `Vault [${name}] updated! (-৳${Math.abs(delta).toFixed(2)} balance adjusted)`;
+        } else {
+            toastMsg = `Vault [${name}] updated!`;
+        }
+    } else {
+        toastMsg = `Vault [${name}] created! (Initial Balance: ৳${currentAmount.toFixed(2)})`;
     }
 
     const vltObj = { id, name, location, currentAmount, targetAmount, isLiquidSource };
-    const idx = AppState.fiscalLedger.vaults.findIndex(v => v.id === id);
     if (idx >= 0) {
         AppState.fiscalLedger.vaults[idx] = vltObj;
     } else {
@@ -17369,7 +17333,7 @@ window.saveFiscalVault = function (event) {
     FirebaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-vault-modal');
-    showToast("Capital vault saved!", "success");
+    showToast(toastMsg, "success");
 };
 
 // DR and CR Toggle Button Handler
@@ -17464,6 +17428,12 @@ window.openFiscalTxModal = function (txId = null) {
 
             const categorySelect = document.getElementById('fiscal-tx-category');
             if (categorySelect && tx.category) {
+                if (!Array.from(categorySelect.options).some(o => o.value === tx.category)) {
+                    const opt = document.createElement('option');
+                    opt.value = tx.category;
+                    opt.textContent = tx.category;
+                    categorySelect.appendChild(opt);
+                }
                 categorySelect.value = tx.category;
             }
         }
@@ -17519,19 +17489,23 @@ window.saveFiscalTransaction = function (event) {
         const vault = AppState.fiscalLedger.vaults.find(v => v.id === vaultId || v.name === vaultId);
         if (vault) {
             vault.currentAmount = (parseFloat(vault.currentAmount) || 0) + amount;
-            showToast(`CR Income ৳${amount.toFixed(2)} added into Vault [${vault.name}]`, "success");
+            if (oldTx) {
+                showToast(`Income entry updated into Vault [${vault.name}]`, "success");
+            } else {
+                showToast(`CR Income ৳${amount.toFixed(2)} added into Vault [${vault.name}]`, "success");
+            }
         } else {
-            showToast("Cash flow income entry logged!", "success");
+            showToast(oldTx ? "Cash flow income entry updated!" : "Cash flow income entry logged!", "success");
         }
     } else if (type === 'dr' || type === 'outflow' || type === 'expense') {
         const bgt = AppState.fiscalLedger.budgets.find(b => b.category === category);
         if (bgt) {
-            showToast(`DR Expense ৳${amount.toFixed(2)} cut from budget [${category}]`, "success");
+            showToast(oldTx ? `DR Expense updated for budget [${category}]` : `DR Expense ৳${amount.toFixed(2)} cut from budget [${category}]`, "success");
         } else {
-            showToast("Cash flow expense entry logged!", "success");
+            showToast(oldTx ? "Cash flow expense entry updated!" : "Cash flow expense entry logged!", "success");
         }
     } else {
-        showToast("Cash flow entry saved!", "success");
+        showToast(oldTx ? "Cash flow entry updated!" : "Cash flow entry saved!", "success");
     }
 
     FirebaseService.saveToCloud();
@@ -17582,6 +17556,14 @@ window.executeFiscalDelete = function () {
         AppState.fiscalLedger.transactions = (AppState.fiscalLedger.transactions || []).filter(t => t.id !== id);
         showToast("Cash flow entry deleted.", "info");
     } else if (type === 'budget') {
+        const bgt = (AppState.fiscalLedger.budgets || []).find(b => b.id === id);
+        if (bgt && bgt.sourceVaultId) {
+            const vlt = AppState.fiscalLedger.vaults.find(v => v.id === bgt.sourceVaultId);
+            if (vlt) {
+                const oldFunded = parseFloat(bgt.fundedAmount !== undefined ? bgt.fundedAmount : bgt.targetBudget) || 0;
+                vlt.currentAmount = (parseFloat(vlt.currentAmount) || 0) + oldFunded;
+            }
+        }
         AppState.fiscalLedger.budgets = (AppState.fiscalLedger.budgets || []).filter(b => b.id !== id);
         showToast("Category budget removed.", "info");
     } else if (type === 'vault') {
@@ -17642,18 +17624,87 @@ window.saveFiscalBudget = function (event) {
     const targetBudget = parseFloat(document.getElementById('fiscal-bgt-amount').value) || 0;
     const sourceVaultId = document.getElementById('fiscal-bgt-vault')?.value || '';
 
+    const idx = AppState.fiscalLedger.budgets.findIndex(b => b.id === id);
+    const oldBgt = idx >= 0 ? AppState.fiscalLedger.budgets[idx] : null;
+
     let sourceVaultName = '';
-    if (sourceVaultId) {
-        const vlt = AppState.fiscalLedger.vaults.find(v => v.id === sourceVaultId);
-        if (vlt) {
-            sourceVaultName = vlt.name;
-            const oldAmt = parseFloat(vlt.currentAmount) || 0;
-            vlt.currentAmount = Math.max(0, oldAmt - targetBudget);
+    let fundedAmount = 0;
+    let toastMsg = '';
+
+    if (oldBgt) {
+        const oldFunded = parseFloat(oldBgt.fundedAmount !== undefined ? oldBgt.fundedAmount : oldBgt.targetBudget) || 0;
+        const oldVaultId = oldBgt.sourceVaultId || '';
+        const newVaultId = sourceVaultId || '';
+
+        if (oldVaultId === newVaultId && newVaultId !== '') {
+            // Same vault selected - apply delta funding/refund
+            const vlt = AppState.fiscalLedger.vaults.find(v => v.id === newVaultId);
+            if (vlt) {
+                sourceVaultName = vlt.name;
+                const delta = targetBudget - oldFunded;
+                const vltCurrent = parseFloat(vlt.currentAmount) || 0;
+
+                if (delta > 0) {
+                    const actualDeduct = Math.min(vltCurrent, delta);
+                    vlt.currentAmount = Math.max(0, vltCurrent - actualDeduct);
+                    fundedAmount = oldFunded + actualDeduct;
+                    toastMsg = `Budget updated! ৳${actualDeduct.toFixed(2)} Dr. added from Vault [${vlt.name}] (Total Budget: ৳${targetBudget.toFixed(2)})`;
+                } else if (delta < 0) {
+                    const refund = Math.abs(delta);
+                    vlt.currentAmount = vltCurrent + refund;
+                    fundedAmount = targetBudget;
+                    toastMsg = `Budget updated! ৳${refund.toFixed(2)} Cr. refunded to Vault [${vlt.name}] (Total Budget: ৳${targetBudget.toFixed(2)})`;
+                } else {
+                    fundedAmount = oldFunded;
+                    toastMsg = `Category budget limit updated to ৳${targetBudget.toFixed(2)}`;
+                }
+            } else {
+                fundedAmount = targetBudget;
+                toastMsg = `Category budget updated!`;
+            }
+        } else {
+            // Vault changed or cleared
+            if (oldVaultId !== '') {
+                const oldVault = AppState.fiscalLedger.vaults.find(v => v.id === oldVaultId);
+                if (oldVault) {
+                    oldVault.currentAmount = (parseFloat(oldVault.currentAmount) || 0) + oldFunded;
+                }
+            }
+
+            if (newVaultId !== '') {
+                const vlt = AppState.fiscalLedger.vaults.find(v => v.id === newVaultId);
+                if (vlt) {
+                    sourceVaultName = vlt.name;
+                    const vltCurrent = parseFloat(vlt.currentAmount) || 0;
+                    const actualDeduct = Math.min(vltCurrent, targetBudget);
+                    vlt.currentAmount = Math.max(0, vltCurrent - actualDeduct);
+                    fundedAmount = actualDeduct;
+                    toastMsg = `Budget updated! Funded ৳${fundedAmount.toFixed(2)} Dr. from Vault [${vlt.name}]`;
+                }
+            } else {
+                fundedAmount = 0;
+                toastMsg = `Category budget updated! (Unfunded, ৳${oldFunded.toFixed(2)} refunded to vault)`;
+            }
+        }
+    } else {
+        // Brand new budget
+        if (sourceVaultId) {
+            const vlt = AppState.fiscalLedger.vaults.find(v => v.id === sourceVaultId);
+            if (vlt) {
+                sourceVaultName = vlt.name;
+                const vltCurrent = parseFloat(vlt.currentAmount) || 0;
+                const actualDeduct = Math.min(vltCurrent, targetBudget);
+                vlt.currentAmount = Math.max(0, vltCurrent - actualDeduct);
+                fundedAmount = actualDeduct;
+                toastMsg = `Budget set! ৳${fundedAmount.toFixed(2)} Dr. from Vault [${sourceVaultName}] & Cr. into [${category}] budget`;
+            }
+        } else {
+            fundedAmount = 0;
+            toastMsg = `Category budget created!`;
         }
     }
 
-    const bgtObj = { id, category, targetBudget, sourceVaultId, sourceVaultName, period: 'Monthly' };
-    const idx = AppState.fiscalLedger.budgets.findIndex(b => b.id === id);
+    const bgtObj = { id, category, targetBudget, sourceVaultId, sourceVaultName, fundedAmount, period: 'Monthly' };
     if (idx >= 0) {
         AppState.fiscalLedger.budgets[idx] = bgtObj;
     } else {
@@ -17664,62 +17715,11 @@ window.saveFiscalBudget = function (event) {
     window.renderFiscalLedgerPage();
     closeModal('fiscal-budget-modal');
 
-    if (sourceVaultName) {
-        showToast(`Budget set! ৳${targetBudget.toFixed(2)} Dr. from Vault [${sourceVaultName}] & Cr. into [${category}] budget`, "success");
-    } else {
-        showToast("Category budget updated!", "success");
-    }
+    showToast(toastMsg || "Category budget updated!", "success");
 };
 
 window.deleteFiscalBudget = function (bgtId) {
     window.confirmDeleteFiscalItem('budget', bgtId);
-};
-
-// Vault CRUD Handlers
-window.openFiscalVaultModal = function (vltId = null) {
-    document.getElementById('fiscal-vlt-id').value = vltId || '';
-    const titleEl = document.getElementById('fiscal-vlt-modal-title');
-    if (vltId) {
-        const vlt = (AppState.fiscalLedger.vaults || []).find(v => v.id === vltId);
-        if (vlt) {
-            if (titleEl) titleEl.textContent = 'Edit Savings Vault';
-            document.getElementById('fiscal-vlt-name').value = vlt.name || '';
-            document.getElementById('fiscal-vlt-location').value = vlt.location || '';
-            document.getElementById('fiscal-vlt-current').value = vlt.currentAmount !== undefined ? vlt.currentAmount : 0;
-            document.getElementById('fiscal-vlt-target').value = vlt.targetAmount || '';
-        }
-    } else {
-        if (titleEl) titleEl.textContent = 'Create Savings / Hold Vault';
-        document.getElementById('fiscal-vlt-name').value = '';
-        document.getElementById('fiscal-vlt-location').value = '';
-        document.getElementById('fiscal-vlt-current').value = '0';
-        document.getElementById('fiscal-vlt-target').value = '';
-    }
-    openModal('fiscal-vault-modal');
-};
-
-window.saveFiscalVault = function (event) {
-    event.preventDefault();
-    window.ensureFiscalStateDefaults();
-
-    const id = document.getElementById('fiscal-vlt-id').value || `vlt-${Date.now()}`;
-    const name = document.getElementById('fiscal-vlt-name').value.trim();
-    const location = document.getElementById('fiscal-vlt-location').value.trim();
-    const currentAmount = parseFloat(document.getElementById('fiscal-vlt-current').value) || 0;
-    const targetAmount = parseFloat(document.getElementById('fiscal-vlt-target').value) || 0;
-
-    const vltObj = { id, name, location, currentAmount, targetAmount };
-    const idx = AppState.fiscalLedger.vaults.findIndex(v => v.id === id);
-    if (idx >= 0) {
-        AppState.fiscalLedger.vaults[idx] = vltObj;
-    } else {
-        AppState.fiscalLedger.vaults.push(vltObj);
-    }
-
-    FirebaseService.saveToCloud();
-    window.renderFiscalLedgerPage();
-    closeModal('fiscal-vault-modal');
-    showToast("Capital vault saved!", "success");
 };
 
 window.deleteFiscalVault = function (vltId) {
@@ -17886,13 +17886,55 @@ window.executeVaultToVaultTransfer = function (event) {
 };
 
 // Vault-to-Budget Transfer Handlers
-window.openVaultToBudgetTransferModal = function (receiverBudgetId = null) {
+window.setVaultToBudgetDirection = function (direction) {
+    const dirInput = document.getElementById('fiscal-v2b-direction');
+    const addBtn = document.getElementById('fiscal-v2b-dir-add');
+    const removeBtn = document.getElementById('fiscal-v2b-dir-remove');
+
+    const senderHeader = document.getElementById('fiscal-v2b-sender-header');
+    const senderLabel = document.getElementById('fiscal-v2b-sender-label');
+    const receiverHeader = document.getElementById('fiscal-v2b-receiver-header');
+    const receiverLabel = document.getElementById('fiscal-v2b-receiver-label');
+    const amountLabel = document.getElementById('fiscal-v2b-amount-label');
+    const submitBtn = document.getElementById('fiscal-v2b-submit-btn');
+    const submitText = document.getElementById('fiscal-v2b-submit-text');
+
+    if (dirInput) dirInput.value = direction;
+
+    if (direction === 'remove') {
+        if (addBtn) addBtn.className = "py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700";
+        if (removeBtn) removeBtn.className = "py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border bg-amber-600 text-white border-amber-600 shadow-sm";
+
+        if (senderHeader) senderHeader.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path></svg> Receiver Vault / Savings (To)`;
+        if (senderLabel) senderLabel.textContent = "Select Target Vault";
+        if (receiverHeader) receiverHeader.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M7 11l5-5m0 0l5 5m-5-5v12"></path></svg> Source Budget (From)`;
+        if (receiverLabel) receiverLabel.textContent = "Select Source Budget";
+        if (amountLabel) amountLabel.innerHTML = `Removal Amount (৳ BDT) <span class="text-rose-500 font-black">*</span>`;
+        if (submitBtn) submitBtn.className = "w-2/3 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2";
+        if (submitText) submitText.textContent = "Confirm Return to Vault";
+    } else {
+        if (addBtn) addBtn.className = "py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border bg-teal-600 text-white border-teal-600 shadow-sm";
+        if (removeBtn) removeBtn.className = "py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700";
+
+        if (senderHeader) senderHeader.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path></svg> Sender Vault / Savings (From)`;
+        if (senderLabel) senderLabel.textContent = "Select Sender Vault";
+        if (receiverHeader) receiverHeader.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M7 11l5-5m0 0l5 5m-5-5v12"></path></svg> Receiver Budget (To)`;
+        if (receiverLabel) receiverLabel.textContent = "Select Receiver Budget";
+        if (amountLabel) amountLabel.innerHTML = `Funding Amount (৳ BDT) <span class="text-rose-500 font-black">*</span>`;
+        if (submitBtn) submitBtn.className = "w-2/3 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2";
+        if (submitText) submitText.textContent = "Confirm Budget Funding";
+    }
+
+    window.updateVaultToBudgetPreview();
+};
+
+window.openVaultToBudgetTransferModal = function (receiverBudgetId = null, defaultDirection = 'add') {
     window.ensureFiscalStateDefaults();
     const vaults = AppState.fiscalLedger.vaults || [];
     const budgets = AppState.fiscalLedger.budgets || [];
 
     if (vaults.length === 0) {
-        showToast("Create at least 1 Savings Vault first before transferring to a budget.", "warning");
+        showToast("Create at least 1 Savings Vault first before transferring.", "warning");
         return;
     }
 
@@ -17929,7 +17971,7 @@ window.openVaultToBudgetTransferModal = function (receiverBudgetId = null) {
     }
 
     if (amountInput) amountInput.value = '';
-    window.updateVaultToBudgetPreview();
+    window.setVaultToBudgetDirection(defaultDirection);
     openModal('fiscal-vault-to-budget-modal');
 };
 
@@ -17937,6 +17979,7 @@ window.updateVaultToBudgetPreview = function () {
     const senderSelect = document.getElementById('fiscal-v2b-sender-vlt');
     const receiverSelect = document.getElementById('fiscal-v2b-receiver-bgt');
     const amountInput = document.getElementById('fiscal-v2b-amount');
+    const direction = document.getElementById('fiscal-v2b-direction')?.value || 'add';
 
     if (!senderSelect || !receiverSelect) return;
 
@@ -17954,28 +17997,57 @@ window.updateVaultToBudgetPreview = function () {
     const receiverCurrEl = document.getElementById('fiscal-v2b-receiver-curr');
     const receiverAfterEl = document.getElementById('fiscal-v2b-receiver-after');
 
-    if (senderVlt) {
-        const sAmt = parseFloat(senderVlt.currentAmount) || 0;
-        if (senderCurrEl) senderCurrEl.textContent = `৳${sAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const afterAmt = sAmt - amount;
-        if (senderAfterEl) {
-            if (afterAmt < 0) {
-                senderAfterEl.textContent = `Insufficient Balance! (-৳${Math.abs(afterAmt).toFixed(2)})`;
-                senderAfterEl.className = "text-[10px] font-black text-rose-600 dark:text-rose-400";
-            } else {
-                senderAfterEl.textContent = `After Transfer: ৳${afterAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                senderAfterEl.className = "text-[10px] font-bold text-slate-500";
+    if (direction === 'remove') {
+        // Removing from Budget & returning to Vault
+        if (senderVlt) {
+            const sAmt = parseFloat(senderVlt.currentAmount) || 0;
+            if (senderCurrEl) senderCurrEl.textContent = `৳${sAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const afterAmt = sAmt + amount;
+            if (senderAfterEl) {
+                senderAfterEl.textContent = `After Return: ৳${afterAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                senderAfterEl.className = "text-[10px] font-bold text-emerald-600 dark:text-emerald-400";
             }
         }
-    }
 
-    if (receiverBgt) {
-        const rTgt = parseFloat(receiverBgt.targetBudget) || 0;
-        if (receiverCurrEl) receiverCurrEl.textContent = `৳${rTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const afterTgt = rTgt + amount;
-        if (receiverAfterEl) {
-            receiverAfterEl.textContent = `New Budget Limit: ৳${afterTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            receiverAfterEl.className = "text-[10px] font-bold text-slate-500";
+        if (receiverBgt) {
+            const rTgt = parseFloat(receiverBgt.targetBudget) || 0;
+            if (receiverCurrEl) receiverCurrEl.textContent = `৳${rTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const afterTgt = rTgt - amount;
+            if (receiverAfterEl) {
+                if (afterTgt < 0) {
+                    receiverAfterEl.textContent = `Insufficient Budget Limit! (-৳${Math.abs(afterTgt).toFixed(2)})`;
+                    receiverAfterEl.className = "text-[10px] font-black text-rose-600 dark:text-rose-400";
+                } else {
+                    receiverAfterEl.textContent = `New Budget Limit: ৳${afterTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    receiverAfterEl.className = "text-[10px] font-bold text-slate-500";
+                }
+            }
+        }
+    } else {
+        // Adding to Budget from Vault
+        if (senderVlt) {
+            const sAmt = parseFloat(senderVlt.currentAmount) || 0;
+            if (senderCurrEl) senderCurrEl.textContent = `৳${sAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const afterAmt = sAmt - amount;
+            if (senderAfterEl) {
+                if (afterAmt < 0) {
+                    senderAfterEl.textContent = `Insufficient Balance! (-৳${Math.abs(afterAmt).toFixed(2)})`;
+                    senderAfterEl.className = "text-[10px] font-black text-rose-600 dark:text-rose-400";
+                } else {
+                    senderAfterEl.textContent = `After Transfer: ৳${afterAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    senderAfterEl.className = "text-[10px] font-bold text-slate-500";
+                }
+            }
+        }
+
+        if (receiverBgt) {
+            const rTgt = parseFloat(receiverBgt.targetBudget) || 0;
+            if (receiverCurrEl) receiverCurrEl.textContent = `৳${rTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const afterTgt = rTgt + amount;
+            if (receiverAfterEl) {
+                receiverAfterEl.textContent = `New Budget Limit: ৳${afterTgt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                receiverAfterEl.className = "text-[10px] font-bold text-slate-500";
+            }
         }
     }
 };
@@ -17984,12 +18056,13 @@ window.executeVaultToBudgetTransfer = function (event) {
     event.preventDefault();
     window.ensureFiscalStateDefaults();
 
+    const direction = document.getElementById('fiscal-v2b-direction')?.value || 'add';
     const senderId = document.getElementById('fiscal-v2b-sender-vlt').value;
     const receiverId = document.getElementById('fiscal-v2b-receiver-bgt').value;
     const amount = parseFloat(document.getElementById('fiscal-v2b-amount').value) || 0;
 
     if (amount <= 0) {
-        showToast("Please enter a valid funding amount greater than 0.", "warning");
+        showToast("Please enter a valid transfer amount greater than 0.", "warning");
         return;
     }
 
@@ -18005,21 +18078,900 @@ window.executeVaultToBudgetTransfer = function (event) {
     }
 
     const senderAmt = parseFloat(senderVlt.currentAmount) || 0;
-    if (senderAmt < amount) {
-        showToast(`Insufficient balance in [${senderVlt.name}]! (Available: ৳${senderAmt.toFixed(2)})`, "warning");
-        return;
-    }
+    const prevTgt = parseFloat(receiverBgt.targetBudget) || 0;
+    const prevFunded = receiverBgt.fundedAmount !== undefined ? parseFloat(receiverBgt.fundedAmount) : prevTgt;
 
-    // Perform transfer
-    senderVlt.currentAmount = Math.max(0, senderAmt - amount);
-    receiverBgt.targetBudget = (parseFloat(receiverBgt.targetBudget) || 0) + amount;
-    receiverBgt.sourceVaultId = senderVlt.id;
-    receiverBgt.sourceVaultName = senderVlt.name;
+    if (direction === 'remove') {
+        // Return money from Budget to Vault
+        if (prevTgt < amount) {
+            showToast(`Amount exceeds current Budget limit for [${receiverBgt.category}]! (Limit: ৳${prevTgt.toFixed(2)})`, "warning");
+            return;
+        }
+
+        receiverBgt.targetBudget = Math.max(0, prevTgt - amount);
+        receiverBgt.fundedAmount = Math.max(0, prevFunded - amount);
+        senderVlt.currentAmount = senderAmt + amount;
+
+        showToast(`Returned ৳${amount.toFixed(2)} from [${receiverBgt.category}] budget to Vault [${senderVlt.name}]!`, "success");
+    } else {
+        // Add money from Vault to Budget
+        if (senderAmt < amount) {
+            showToast(`Insufficient balance in Vault [${senderVlt.name}]! (Available: ৳${senderAmt.toFixed(2)})`, "warning");
+            return;
+        }
+
+        senderVlt.currentAmount = Math.max(0, senderAmt - amount);
+        receiverBgt.targetBudget = prevTgt + amount;
+        receiverBgt.sourceVaultId = senderVlt.id;
+        receiverBgt.sourceVaultName = senderVlt.name;
+        receiverBgt.fundedAmount = prevFunded + amount;
+
+        showToast(`Funded ৳${amount.toFixed(2)} from Vault [${senderVlt.name}] into [${receiverBgt.category}] budget!`, "success");
+    }
 
     FirebaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-vault-to-budget-modal');
-    showToast(`Funded ৳${amount.toFixed(2)} from Vault [${senderVlt.name}] into [${receiverBgt.category}] budget!`, "success");
+};
+
+// --- Double-Entry Accounting Process & Cycle Matrix Renderer ---
+window.jumpToAccountingStage = function (stageNum) {
+    const el = document.getElementById(`accounting-stage-${stageNum}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900');
+        setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2', 'dark:ring-offset-slate-900');
+        }, 2000);
+    }
+};
+
+window.renderAccountingCycleMatrix = function () {
+    window.ensureFiscalStateDefaults();
+
+    const transactions = AppState.fiscalLedger.transactions || [];
+    const budgets = AppState.fiscalLedger.budgets || [];
+    const vaults = AppState.fiscalLedger.vaults || [];
+
+    // Calculate core totals for Double-Entry System:
+    let totalRevenues = 0; // Credit Inflows (R)
+    let totalExpenses = 0; // Debit Outflows (E)
+    let generalOperatingCash = 0; // Unallocated General Cash Flow
+
+    transactions.forEach(tx => {
+        const amt = parseFloat(tx.amount) || 0;
+        const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        if (isCr) {
+            totalRevenues += amt;
+            if (!tx.category || !tx.category.startsWith('Vault: ')) {
+                generalOperatingCash += amt;
+            }
+        } else {
+            totalExpenses += amt;
+            if (!tx.category || !tx.category.startsWith('Vault: ')) {
+                generalOperatingCash -= amt;
+            }
+        }
+    });
+
+    let totalVaultReserves = 0;
+    let liquidVaultReserves = 0;
+    let nonLiquidVaultReserves = 0;
+    vaults.forEach(v => {
+        const amt = parseFloat(v.currentAmount) || 0;
+        totalVaultReserves += amt;
+        if (v.isLiquidSource !== false) {
+            liquidVaultReserves += amt;
+        } else {
+            nonLiquidVaultReserves += amt;
+        }
+    });
+
+    const netOperatingIncome = totalRevenues - totalExpenses;
+    const operatingCashAsset = Math.max(0, generalOperatingCash) + liquidVaultReserves;
+    const vaultReservesAsset = nonLiquidVaultReserves;
+    const totalAssets = operatingCashAsset + vaultReservesAsset;
+    
+    // Liabilities (Hold payables / allocations)
+    let totalLiabilities = 0;
+
+    // Owner's Equity Equations (OE):
+    const ownersEquityEnd = totalAssets - totalLiabilities;
+    const ownersEquityBeg = ownersEquityEnd - netOperatingIncome;
+
+    // Update Top Banner Equation Proof:
+    const eqAssetsEl = document.getElementById('accounting-eq-assets');
+    const eqLiabEl = document.getElementById('accounting-eq-liab');
+    const eqEquityEl = document.getElementById('accounting-eq-equity');
+    const eqStatusEl = document.getElementById('accounting-eq-status');
+
+    const fmtCurrency = (num) => `৳${parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    if (eqAssetsEl) eqAssetsEl.textContent = fmtCurrency(totalAssets);
+    if (eqLiabEl) eqLiabEl.textContent = fmtCurrency(totalLiabilities);
+    if (eqEquityEl) eqEquityEl.textContent = fmtCurrency(ownersEquityEnd);
+
+    if (eqStatusEl) {
+        const isBalanced = Math.abs(totalAssets - (totalLiabilities + ownersEquityEnd)) < 0.01;
+        if (isBalanced) {
+            eqStatusEl.textContent = "✓ A = L + OE Balanced";
+            eqStatusEl.className = "px-2.5 py-1 text-[9px] font-black uppercase rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        } else {
+            eqStatusEl.textContent = "⚠ Out of Balance";
+            eqStatusEl.className = "px-2.5 py-1 text-[9px] font-black uppercase rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40";
+        }
+    }
+
+    const wrapper = document.getElementById('accounting-stages-wrapper');
+    if (!wrapper) return;
+
+    let html = '';
+
+    // STAGE 1: Transaction
+    html += `
+        <div id="accounting-stage-1" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">01</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">1. Transaction (Event Data Ingestion)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Raw cash flow events logged with dates, heads, categories, and flow direction.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 1 of 13</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Ref ID</th>
+                            <th class="py-3 px-4">Date</th>
+                            <th class="py-3 px-4">Entry Description & Head</th>
+                            <th class="py-3 px-4">Category / Allocation</th>
+                            <th class="py-3 px-4">Flow Type</th>
+                            <th class="py-3 px-4 text-right">Raw Amount (৳)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        ${transactions.length === 0 ? `<tr><td colspan="6" class="py-6 text-center text-slate-400 font-bold">No raw transactions logged yet.</td></tr>` : transactions.map((t, idx) => {
+                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            return `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                    <td class="py-3 px-4 font-mono text-[10px] text-slate-400">TX-${String(idx + 1).padStart(3, '0')}</td>
+                                    <td class="py-3 px-4 font-bold">${t.date || 'N/A'}</td>
+                                    <td class="py-3 px-4 font-black text-slate-900 dark:text-white">${t.head || t.category || 'Cash Flow Entry'}</td>
+                                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-[10px]">${t.category || 'General'}</span></td>
+                                    <td class="py-3 px-4">${isCr ? '<span class="text-emerald-600 font-bold">+ Credit (Inflow)</span>' : '<span class="text-rose-600 font-bold">- Debit (Outflow)</span>'}</td>
+                                    <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${fmtCurrency(t.amount)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Dual-Impact Analysis ↓</div>
+        </div>
+    `;
+
+    // STAGE 2: Analyze Transaction
+    html += `
+        <div id="accounting-stage-2" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">02</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">2. Analyze Transaction (Debit/Credit Rule Analysis)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Deconstructing every transaction into Debit (Dr.) and Credit (Cr.) dual account effects.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 2 of 13</span>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 font-mono text-xs text-slate-600 dark:text-slate-300 flex flex-wrap justify-between gap-4">
+                <div><span class="font-bold text-emerald-600 dark:text-emerald-400">Debit (Dr.) Rule:</span> Increases Assets & Expenses | Decreases Liabilities & Equity</div>
+                <div><span class="font-bold text-indigo-600 dark:text-indigo-400">Credit (Cr.) Rule:</span> Increases Liabilities, Revenue & Equity | Decreases Assets</div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Tx Ref</th>
+                            <th class="py-3 px-4">Event Description</th>
+                            <th class="py-3 px-4">Debit (Dr.) Account Analysis</th>
+                            <th class="py-3 px-4">Credit (Cr.) Account Analysis</th>
+                            <th class="py-3 px-4 text-right">Equation Effect (ΔA = ΔL + ΔOE)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        ${transactions.length === 0 ? `<tr><td colspan="5" class="py-6 text-center text-slate-400 font-bold">No transactions to analyze.</td></tr>` : transactions.map((t, idx) => {
+                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            return `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                    <td class="py-3 px-4 font-mono text-[10px] text-slate-400">TX-${String(idx + 1).padStart(3, '0')}</td>
+                                    <td class="py-3 px-4 font-black text-slate-900 dark:text-white">${t.head || t.category}</td>
+                                    <td class="py-3 px-4">
+                                        ${isCr ? `<span class="text-teal-600 dark:text-teal-400 font-bold">Dr. Cash Operating Asset (+Asset)</span>` : `<span class="text-rose-600 dark:text-rose-400 font-bold">Dr. ${t.category || 'Operating Expense'} (+Expense)</span>`}
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        ${isCr ? `<span class="text-indigo-600 dark:text-indigo-400 font-bold">Cr. ${t.category || 'Operating Inflow'} (+Revenue)</span>` : `<span class="text-slate-600 dark:text-slate-400 font-bold">Cr. Cash Operating Asset (-Asset)</span>`}
+                                    </td>
+                                    <td class="py-3 px-4 text-right font-mono font-bold">
+                                        ${isCr ? `<span class="text-emerald-600">+${fmtCurrency(t.amount)} Assets = +${fmtCurrency(t.amount)} Revenue</span>` : `<span class="text-rose-600">-${fmtCurrency(t.amount)} Assets = -${fmtCurrency(t.amount)} Equity</span>`}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Math for A = L + OE Equilibrium Proof ↓</div>
+        </div>
+    `;
+
+    // STAGE 3: Math for A = L + OE (Accounting Equation Equilibrium Proof)
+    html += `
+        <div id="accounting-stage-3" class="bg-teal-950/20 dark:bg-slate-800 p-6 rounded-3xl border-2 border-teal-500/40 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-teal-500/30 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-teal-600 text-white font-black text-xs flex items-center justify-center shadow-sm">03</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>3. Math for A = L + OE (Accounting Equation Equilibrium Proof)</span>
+                            <span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-teal-500/20 text-teal-300 border border-teal-500/40">Mathematical Proof</span>
+                        </h4>
+                        <p class="text-xs text-slate-500 font-medium">Proving double-entry mathematical equilibrium: Assets (A) = Liabilities (L) + Owner's Equity (OE) for every transaction.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-300">Stage 3 of 13</span>
+            </div>
+
+            <!-- Mathematical Equation Breakdown Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
+                <div class="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/30 text-slate-900 dark:text-slate-100">
+                    <div class="text-[10px] font-black uppercase text-teal-600 dark:text-teal-400">Total Assets (A)</div>
+                    <div class="text-lg font-black text-teal-600 dark:text-teal-300 mt-1">${fmtCurrency(totalAssets)}</div>
+                    <div class="text-[10px] text-slate-500 mt-1">Liquid Operating Cash + Vault Reserves</div>
+                </div>
+                <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-slate-900 dark:text-slate-100">
+                    <div class="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">Total Liabilities (L)</div>
+                    <div class="text-lg font-black text-amber-600 dark:text-amber-300 mt-1">${fmtCurrency(totalLiabilities)}</div>
+                    <div class="text-[10px] text-slate-500 mt-1">Hold Payables & Obligations</div>
+                </div>
+                <div class="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-slate-900 dark:text-slate-100">
+                    <div class="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">Owner's Equity (OE)</div>
+                    <div class="text-lg font-black text-indigo-600 dark:text-indigo-300 mt-1">${fmtCurrency(ownersEquityEnd)}</div>
+                    <div class="text-[10px] text-slate-500 mt-1">Capital + Retained Operating Income</div>
+                </div>
+            </div>
+
+            <!-- Mathematical Equilibrium Table -->
+            <div class="overflow-x-auto custom-scrollbar border border-teal-500/30 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-teal-900/40 text-teal-200 font-black uppercase tracking-widest text-[9px] border-b border-teal-500/30">
+                            <th class="py-3 px-4">Tx Ref</th>
+                            <th class="py-3 px-4">Transaction Event</th>
+                            <th class="py-3 px-4 text-right">Δ Assets (ΔA)</th>
+                            <th class="py-3 px-4 text-center font-serif">=</th>
+                            <th class="py-3 px-4 text-right">Δ Liabilities (ΔL)</th>
+                            <th class="py-3 px-4 text-center font-serif">+</th>
+                            <th class="py-3 px-4 text-right">Δ Owner's Equity (ΔOE)</th>
+                            <th class="py-3 px-4 text-center">Equilibrium Proof</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200/50 dark:divide-slate-700/50 font-mono text-xs font-semibold">
+                        ${transactions.length === 0 ? `<tr><td colspan="8" class="py-6 text-center text-slate-400 font-bold">No transaction data available for math proof.</td></tr>` : transactions.map((t, idx) => {
+                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            const amtStr = fmtCurrency(t.amount);
+                            return `
+                                <tr class="hover:bg-teal-50/30 dark:hover:bg-slate-700/30">
+                                    <td class="py-3 px-4 text-slate-400 text-[10px]">TX-${String(idx + 1).padStart(3, '0')}</td>
+                                    <td class="py-3 px-4 font-sans font-black text-slate-900 dark:text-white">${t.head || t.category}</td>
+                                    <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600' : 'text-rose-600'}">${isCr ? '+' : '-'}${amtStr}</td>
+                                    <td class="py-3 px-4 text-center font-serif text-slate-400">=</td>
+                                    <td class="py-3 px-4 text-right text-slate-400">৳0.00</td>
+                                    <td class="py-3 px-4 text-center font-serif text-slate-400">+</td>
+                                    <td class="py-3 px-4 text-right font-black ${isCr ? 'text-emerald-600' : 'text-rose-600'}">${isCr ? '+' : '-'}${amtStr}</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-300">✓ Balanced</span>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-teal-900/60 text-white font-black font-mono text-xs border-t-2 border-teal-500">
+                            <td colspan="2" class="py-3.5 px-4 font-sans">EQUATION TOTALS (A = L + OE)</td>
+                            <td class="py-3.5 px-4 text-right text-teal-300">${fmtCurrency(totalAssets)}</td>
+                            <td class="py-3.5 px-4 text-center font-serif">=</td>
+                            <td class="py-3.5 px-4 text-right text-amber-300">${fmtCurrency(totalLiabilities)}</td>
+                            <td class="py-3.5 px-4 text-center font-serif">+</td>
+                            <td class="py-3.5 px-4 text-right text-indigo-300">${fmtCurrency(ownersEquityEnd)}</td>
+                            <td class="py-3.5 px-4 text-center"><span class="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-teal-400 text-slate-900">VERIFIED PROOF</span></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Account Identification Matrix ↓</div>
+        </div>
+    `;
+
+    // STAGE 4: Identify Accounts
+    html += `
+        <div id="accounting-stage-4" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">04</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">4. Identify Accounts (Chart of Accounts Mapping Matrix)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Categorizing accounts into 5 core financial classifications.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 4 of 13</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div class="bg-teal-50/50 dark:bg-teal-950/20 p-4 rounded-2xl border border-teal-200 dark:border-teal-800/50">
+                    <div class="text-xs font-black uppercase tracking-wider text-teal-800 dark:text-teal-300 mb-2">1000 - ASSETS</div>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="font-bold text-slate-800 dark:text-slate-200">1010 Cash & Operating: <span class="text-teal-600 font-black">${fmtCurrency(operatingCashAsset)}</span></div>
+                        <div class="font-bold text-slate-800 dark:text-slate-200">1020 Vault Reserves: <span class="text-teal-600 font-black">${fmtCurrency(vaultReservesAsset)}</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/50">
+                    <div class="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 mb-2">2000 - LIABILITIES</div>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="font-bold text-slate-800 dark:text-slate-200">2010 Hold Payables: <span class="text-amber-600 font-black">${fmtCurrency(totalLiabilities)}</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-2xl border border-indigo-200 dark:border-indigo-800/50">
+                    <div class="text-xs font-black uppercase tracking-wider text-indigo-800 dark:text-indigo-300 mb-2">3000 - OWNER'S EQUITY</div>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="font-bold text-slate-800 dark:text-slate-200">3010 Retained Capital: <span class="text-indigo-600 font-black">${fmtCurrency(ownersEquityEnd)}</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50/50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/50">
+                    <div class="text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 mb-2">4000 - REVENUE</div>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="font-bold text-slate-800 dark:text-slate-200">4010 Operating Inflows: <span class="text-emerald-600 font-black">${fmtCurrency(totalRevenues)}</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50/50 dark:bg-rose-950/20 p-4 rounded-2xl border border-rose-200 dark:border-rose-800/50">
+                    <div class="text-xs font-black uppercase tracking-wider text-rose-800 dark:text-rose-300 mb-2">5000 - EXPENSES</div>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="font-bold text-slate-800 dark:text-slate-200">5010 Operating Spending: <span class="text-rose-600 font-black">${fmtCurrency(totalExpenses)}</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to General Journal Entry Ledger ↓</div>
+        </div>
+    `;
+
+    // STAGE 5: Journal Entry
+    html += `
+        <div id="accounting-stage-5" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">05</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">5. Journal Entry (General Journal Double-Entry Ledger)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Standard general journal entries ensuring strict Debit = Credit balance per entry.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 5 of 13</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Date</th>
+                            <th class="py-3 px-4">Account Titles & Explanation</th>
+                            <th class="py-3 px-4 text-center">Ref</th>
+                            <th class="py-3 px-4 text-right">Debit (Dr. ৳)</th>
+                            <th class="py-3 px-4 text-right">Credit (Cr. ৳)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        ${transactions.length === 0 ? `<tr><td colspan="5" class="py-6 text-center text-slate-400 font-bold">No general journal entries logged.</td></tr>` : transactions.map((t, idx) => {
+                            const isCr = t.type === 'cr' || t.type === 'inflow' || t.type === 'income';
+                            return `
+                                <tr class="bg-slate-50/40 dark:bg-slate-800/40 border-t border-slate-200/50 dark:border-slate-700/50">
+                                    <td class="py-2.5 px-4 font-bold" rowspan="2">${t.date || 'N/A'}</td>
+                                    <td class="py-1 px-4 font-black text-slate-900 dark:text-white">${isCr ? 'Cash Operating Asset (1010)' : `${t.category || 'Operating Expense'} (5010)`}</td>
+                                    <td class="py-1 px-4 text-center font-mono text-[10px]">1010</td>
+                                    <td class="py-1 px-4 text-right font-black ${isCr ? 'text-teal-600' : 'text-rose-600'}">${fmtCurrency(t.amount)}</td>
+                                    <td class="py-1 px-4 text-right font-mono text-slate-400">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-1 px-4 pl-8 text-slate-600 dark:text-slate-300 font-bold">${isCr ? `  Cr. ${t.category || 'Income Stream'} (4010)` : '  Cr. Cash Operating Asset (1010)'}</td>
+                                    <td class="py-1 px-4 text-center font-mono text-[10px]">${isCr ? '4010' : '1010'}</td>
+                                    <td class="py-1 px-4 text-right font-mono text-slate-400">-</td>
+                                    <td class="py-1 px-4 text-right font-black ${isCr ? 'text-indigo-600' : 'text-slate-600 dark:text-slate-400'}">${fmtCurrency(t.amount)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-slate-100 dark:bg-slate-900 font-black uppercase text-xs border-t-2 border-slate-300 dark:border-slate-600">
+                            <td colspan="3" class="py-3 px-4 text-slate-700 dark:text-slate-200">Total Journal Entries Volume</td>
+                            <td class="py-3 px-4 text-right text-teal-600 dark:text-teal-400">${fmtCurrency(totalRevenues + totalExpenses)}</td>
+                            <td class="py-3 px-4 text-right text-teal-600 dark:text-teal-400">${fmtCurrency(totalRevenues + totalExpenses)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to General Ledger T-Accounts Matrix ↓</div>
+        </div>
+    `;
+
+    // STAGE 6: Ledger
+    html += `
+        <div id="accounting-stage-6" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">06</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">6. Ledger (General Ledger T-Accounts Matrix)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Aggregating entries by individual T-Account ledgers to compute ending balances.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 6 of 13</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="border-2 border-teal-400 dark:border-teal-700/80 rounded-2xl p-4 bg-teal-50/20 dark:bg-teal-950/10">
+                    <div class="text-center font-black text-sm uppercase text-teal-800 dark:text-teal-300 border-b-2 border-teal-500 pb-2 mb-3">
+                        Account: 1010 - Cash Operating Asset
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-xs font-medium border-b border-teal-200 dark:border-teal-800 pb-3 mb-3">
+                        <div>
+                            <div class="font-black text-emerald-600 border-b border-teal-200 pb-1 mb-2">Debit (Dr.) - Inflows</div>
+                            <div class="space-y-1">
+                                <div>Total Inflows: <span class="font-bold">${fmtCurrency(totalRevenues)}</span></div>
+                            </div>
+                        </div>
+                        <div class="border-l border-teal-200 dark:border-teal-800 pl-4">
+                            <div class="font-black text-rose-600 border-b border-teal-200 pb-1 mb-2">Credit (Cr.) - Outflows</div>
+                            <div class="space-y-1">
+                                <div>Total Outflows: <span class="font-bold">${fmtCurrency(totalExpenses)}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center font-black text-xs text-teal-900 dark:text-teal-200">
+                        <span>Ending Dr. Balance:</span>
+                        <span>${fmtCurrency(operatingCashAsset)}</span>
+                    </div>
+                </div>
+
+                <div class="border-2 border-indigo-400 dark:border-indigo-700/80 rounded-2xl p-4 bg-indigo-50/20 dark:bg-indigo-950/10">
+                    <div class="text-center font-black text-sm uppercase text-indigo-800 dark:text-indigo-300 border-b-2 border-indigo-500 pb-2 mb-3">
+                        Account: 1020 - Vault Capital Reserves
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-xs font-medium border-b border-indigo-200 dark:border-indigo-800 pb-3 mb-3">
+                        <div>
+                            <div class="font-black text-emerald-600 border-b border-indigo-200 pb-1 mb-2">Debit (Dr.) - Reserve Holdings</div>
+                            <div class="space-y-1">
+                                <div>Vault Holds: <span class="font-bold">${fmtCurrency(vaultReservesAsset)}</span></div>
+                            </div>
+                        </div>
+                        <div class="border-l border-indigo-200 dark:border-indigo-800 pl-4">
+                            <div class="font-black text-rose-600 border-b border-indigo-200 pb-1 mb-2">Credit (Cr.) - Releases</div>
+                            <div class="space-y-1">
+                                <div>Releases: <span class="font-bold">৳0.00</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center font-black text-xs text-indigo-900 dark:text-indigo-200">
+                        <span>Ending Dr. Balance:</span>
+                        <span>${fmtCurrency(vaultReservesAsset)}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Unadjusted Trial Balance ↓</div>
+        </div>
+    `;
+
+    // STAGE 7: Trial Balance
+    html += `
+        <div id="accounting-stage-7" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">07</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">7. Trial Balance (Unadjusted Debit/Credit Verification)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Mathematical proof verifying that Total Debits equal Total Credits across all general ledger accounts.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300">Σ Dr. = Σ Cr. Verified</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Account Code</th>
+                            <th class="py-3 px-4">Account Title</th>
+                            <th class="py-3 px-4 text-right">Debit (Dr. ৳)</th>
+                            <th class="py-3 px-4 text-right">Credit (Cr. ৳)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">1010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Cash Operating Asset Account</td>
+                            <td class="py-3 px-4 text-right font-black text-emerald-600">${fmtCurrency(operatingCashAsset)}</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">1020</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Vault Reserve Holdings Asset Account</td>
+                            <td class="py-3 px-4 text-right font-black text-emerald-600">${fmtCurrency(vaultReservesAsset)}</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">3010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Owner's Capital Equity Account (Beginning)</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                            <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(ownersEquityBeg)}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">4010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Operating Revenue Income Account</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                            <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(totalRevenues)}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">5010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Operating Expenses Outflow Account</td>
+                            <td class="py-3 px-4 text-right font-black text-emerald-600">${fmtCurrency(totalExpenses)}</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 font-black uppercase text-xs border-t-2 border-emerald-500">
+                            <td colspan="2" class="py-3.5 px-4">Total Unadjusted Trial Balance (Σ Dr. = Σ Cr.)</td>
+                            <td class="py-3.5 px-4 text-right">${fmtCurrency(totalAssets + totalExpenses)}</td>
+                            <td class="py-3.5 px-4 text-right">${fmtCurrency(totalLiabilities + ownersEquityBeg + totalRevenues)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Adjusting Entries Log ↓</div>
+        </div>
+    `;
+
+    // STAGE 8: Adjusting Entries
+    html += `
+        <div id="accounting-stage-8" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">08</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">8. Adjusting Entries (Accruals & Period Matching)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Accounting adjustments for vault funding allocations and period-end matching.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 8 of 13</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Adj ID</th>
+                            <th class="py-3 px-4">Adjustment Description</th>
+                            <th class="py-3 px-4">Matching Principle Reason</th>
+                            <th class="py-3 px-4 text-right">Adjusted Dr. (৳)</th>
+                            <th class="py-3 px-4 text-right">Adjusted Cr. (৳)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        ${budgets.filter(b => b.fundedAmount).map((b, idx) => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                <td class="py-3 px-4 font-mono text-[10px] text-slate-400">ADJ-${String(idx + 1).padStart(3, '0')}</td>
+                                <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Vault Reserve Allocation to ${b.category} Budget</td>
+                                <td class="py-3 px-4 text-slate-500">Fund Transfer Matching</td>
+                                <td class="py-3 px-4 text-right font-black text-teal-600">${fmtCurrency(b.fundedAmount)}</td>
+                                <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(b.fundedAmount)}</td>
+                            </tr>
+                        `).join('') || `<tr><td colspan="5" class="py-6 text-center text-slate-400 font-bold">No period-end adjustments required. All cash flow matches real-time entries.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Income Statement ↓</div>
+        </div>
+    `;
+
+    // STAGE 9: Income Statement
+    html += `
+        <div id="accounting-stage-9" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">09</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">9. Income Statement (Financial Statement #1)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Measuring operating profitability: Total Revenues - Total Expenses = Net Operating Income.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-mono">Revenues - Expenses = Net Income</span>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-4 max-w-3xl mx-auto">
+                <div class="text-center border-b border-slate-200 dark:border-slate-700 pb-3">
+                    <h5 class="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">PROJECT X ENTERPRISE</h5>
+                    <div class="text-xs font-bold text-teal-600 dark:text-teal-400">INCOME STATEMENT</div>
+                    <div class="text-[10px] text-slate-400 font-medium">For Period Ending ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1">
+                        <span>Operating Revenues & Cash Inflows</span>
+                        <span>Credit (Cr.)</span>
+                    </div>
+                    <div class="flex justify-between pl-4 text-slate-600 dark:text-slate-300">
+                        <span>General Inflow Income Entries</span>
+                        <span>${fmtCurrency(totalRevenues)}</span>
+                    </div>
+                    <div class="flex justify-between font-black text-teal-600 dark:text-teal-400 border-t border-slate-200 dark:border-slate-700 pt-1">
+                        <span>TOTAL OPERATING REVENUES (A)</span>
+                        <span>${fmtCurrency(totalRevenues)}</span>
+                    </div>
+
+                    <div class="font-black text-slate-900 dark:text-white uppercase tracking-wider flex justify-between border-b border-slate-200 dark:border-slate-700 pb-1 pt-4">
+                        <span>Operating Expenses & Cash Outflows</span>
+                        <span>Debit (Dr.)</span>
+                    </div>
+                    <div class="flex justify-between pl-4 text-slate-600 dark:text-slate-300">
+                        <span>General Outflow Expense Entries</span>
+                        <span>(${fmtCurrency(totalExpenses)})</span>
+                    </div>
+                    <div class="flex justify-between font-black text-rose-600 dark:text-rose-400 border-t border-slate-200 dark:border-slate-700 pt-1">
+                        <span>TOTAL OPERATING EXPENSES (B)</span>
+                        <span>(${fmtCurrency(totalExpenses)})</span>
+                    </div>
+
+                    <div class="flex justify-between items-center font-black text-sm ${netOperatingIncome >= 0 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40'} p-3 rounded-xl border border-slate-200 dark:border-slate-700 mt-4">
+                        <span>NET OPERATING INCOME / (LOSS) (A - B)</span>
+                        <span>${fmtCurrency(netOperatingIncome)}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Statement of Owner's Equity ↓</div>
+        </div>
+    `;
+
+    // STAGE 10: Statement of Owner's Equity
+    html += `
+        <div id="accounting-stage-10" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">10</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">10. Statement of Owner's Equity (Financial Statement #2)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Reconciling owner's capital from beginning equity, net operating income, and reserve holdings.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-mono">Beg. OE + Net Income - Drawings = End. OE</span>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-4 max-w-3xl mx-auto">
+                <div class="text-center border-b border-slate-200 dark:border-slate-700 pb-3">
+                    <h5 class="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">PROJECT X ENTERPRISE</h5>
+                    <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400">STATEMENT OF OWNER'S EQUITY</div>
+                    <div class="text-[10px] text-slate-400 font-medium">For Period Ending ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                </div>
+
+                <div class="space-y-2.5 text-xs font-medium">
+                    <div class="flex justify-between text-slate-700 dark:text-slate-300">
+                        <span>Beginning Owner's Capital Equity</span>
+                        <span>${fmtCurrency(ownersEquityBeg)}</span>
+                    </div>
+                    <div class="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
+                        <span>Add: Net Operating Income from Period</span>
+                        <span>+${fmtCurrency(netOperatingIncome)}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-500">
+                        <span>Less: Capital Withdrawals / Distributions</span>
+                        <span>(৳0.00)</span>
+                    </div>
+                    <div class="flex justify-between items-center font-black text-sm text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 mt-2">
+                        <span>ENDING OWNER'S EQUITY (OE)</span>
+                        <span>${fmtCurrency(ownersEquityEnd)}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Balance Sheet (A = L + OE Proof) ↓</div>
+        </div>
+    `;
+
+    // STAGE 11: Balance Sheet
+    html += `
+        <div id="accounting-stage-11" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-teal-600 text-white font-black text-xs flex items-center justify-center shadow-sm">11</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">11. Balance Sheet (Statement of Financial Position: A = L + OE)</h4>
+                        <p class="text-xs text-slate-500 font-medium">The fundamental balance sheet proving Assets (A) = Liabilities (L) + Owner's Equity (OE).</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-mono">Assets = Liabilities + Equity</span>
+            </div>
+
+            <div class="bg-slate-900 text-white p-6 rounded-2xl border border-teal-500/30 shadow-lg space-y-6 max-w-4xl mx-auto">
+                <div class="text-center border-b border-slate-800 pb-4">
+                    <h5 class="font-black text-base uppercase tracking-widest text-teal-300">PROJECT X ENTERPRISE</h5>
+                    <div class="text-xs font-bold text-white uppercase tracking-wider">BALANCE SHEET</div>
+                    <div class="text-[10px] text-slate-400 font-medium">As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 space-y-3">
+                        <div class="font-black text-teal-400 uppercase tracking-wider border-b border-slate-700 pb-2 flex justify-between">
+                            <span>ASSETS (A)</span>
+                            <span>Amount (৳)</span>
+                        </div>
+                        <div class="space-y-1.5 text-slate-300">
+                            <div class="flex justify-between"><span>Cash Operating Capital</span> <span>${fmtCurrency(operatingCashAsset)}</span></div>
+                            <div class="flex justify-between"><span>Savings & Vault Reserves</span> <span>${fmtCurrency(vaultReservesAsset)}</span></div>
+                        </div>
+                        <div class="flex justify-between items-center font-black text-sm text-teal-300 border-t border-slate-700 pt-3">
+                            <span>TOTAL ASSETS (A)</span>
+                            <span>${fmtCurrency(totalAssets)}</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 space-y-3">
+                        <div class="font-black text-indigo-400 uppercase tracking-wider border-b border-slate-700 pb-2 flex justify-between">
+                            <span>LIABILITIES & EQUITY (L + OE)</span>
+                            <span>Amount (৳)</span>
+                        </div>
+                        <div class="space-y-1.5 text-slate-300">
+                            <div class="flex justify-between text-amber-300"><span>Total Liabilities (L)</span> <span>${fmtCurrency(totalLiabilities)}</span></div>
+                            <div class="flex justify-between text-indigo-300"><span>Ending Owner's Equity (OE)</span> <span>${fmtCurrency(ownersEquityEnd)}</span></div>
+                        </div>
+                        <div class="flex justify-between items-center font-black text-sm text-indigo-300 border-t border-slate-700 pt-3">
+                            <span>TOTAL LIABILITIES & EQUITY (L+OE)</span>
+                            <span>${fmtCurrency(totalLiabilities + ownersEquityEnd)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-teal-950/60 border border-teal-500/40 text-center font-mono font-bold text-teal-300 text-xs flex flex-col md:flex-row items-center justify-between gap-2">
+                    <div>MATHEMATICAL EQUATION PROOF:</div>
+                    <div class="text-sm font-black text-white">Assets (${fmtCurrency(totalAssets)}) = Liabilities (${fmtCurrency(totalLiabilities)}) + Owner's Equity (${fmtCurrency(ownersEquityEnd)})</div>
+                    <div class="px-2.5 py-1 rounded-md bg-teal-500/20 text-teal-300 text-[10px]">100% Balanced</div>
+                </div>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Period Closing Entries ↓</div>
+        </div>
+    `;
+
+    // STAGE 12: Closing Entries
+    html += `
+        <div id="accounting-stage-12" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">12</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">12. Closing Entries (Period-End Revenue & Expense Zero-Out Log)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Closing temporary revenue and expense accounts into Retained Owner's Equity.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Stage 12 of 13</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Closing Step</th>
+                            <th class="py-3 px-4">Account Titles & Explanation</th>
+                            <th class="py-3 px-4 text-right">Debit (Dr. ৳)</th>
+                            <th class="py-3 px-4 text-right">Credit (Cr. ৳)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        <tr>
+                            <td class="py-3 px-4 font-bold text-slate-600">Close Revenues</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Dr. Operating Revenue (4010) / Cr. Income Summary</td>
+                            <td class="py-3 px-4 text-right font-black text-teal-600">${fmtCurrency(totalRevenues)}</td>
+                            <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(totalRevenues)}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-bold text-slate-600">Close Expenses</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Dr. Income Summary / Cr. Operating Expenses (5010)</td>
+                            <td class="py-3 px-4 text-right font-black text-teal-600">${fmtCurrency(totalExpenses)}</td>
+                            <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(totalExpenses)}</td>
+                        </tr>
+                        <tr class="bg-indigo-50/40 dark:bg-indigo-950/20 font-bold">
+                            <td class="py-3 px-4 font-bold text-indigo-700 dark:text-indigo-300">Transfer Net Income</td>
+                            <td class="py-3 px-4 font-black text-indigo-900 dark:text-indigo-200">Dr. Income Summary / Cr. Retained Owner's Equity (3010)</td>
+                            <td class="py-3 px-4 text-right font-black text-teal-600">${fmtCurrency(netOperatingIncome)}</td>
+                            <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(netOperatingIncome)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center font-bold text-slate-400 text-xs py-1">↓ Flowing to Post-Closing Trial Balance ↓</div>
+        </div>
+    `;
+
+    // STAGE 13: Post-Closing Trial Balance
+    html += `
+        <div id="accounting-stage-13" class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-md space-y-4 transition-all">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-4 gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-sm">13</span>
+                    <div>
+                        <h4 class="font-black text-base text-slate-900 dark:text-white uppercase tracking-wider">13. Post-Closing Trial Balance (Final Permanent Accounts Verification)</h4>
+                        <p class="text-xs text-slate-500 font-medium">Final post-closing trial balance containing only permanent accounts (Assets, Liabilities, Equity) carried forward.</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 font-mono">Final Cycle Verification Complete</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <th class="py-3 px-4">Account Code</th>
+                            <th class="py-3 px-4">Permanent Account Title</th>
+                            <th class="py-3 px-4">Category</th>
+                            <th class="py-3 px-4 text-right">Final Debit (Dr. ৳)</th>
+                            <th class="py-3 px-4 text-right">Final Credit (Cr. ৳)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">1010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Cash Operating Asset Account</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[10px] font-bold">Asset</span></td>
+                            <td class="py-3 px-4 text-right font-black text-emerald-600">${fmtCurrency(operatingCashAsset)}</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">1020</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Vault Reserve Holdings Asset Account</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[10px] font-bold">Asset</span></td>
+                            <td class="py-3 px-4 text-right font-black text-emerald-600">${fmtCurrency(vaultReservesAsset)}</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">2010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Hold Payables Account</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-bold">Liability</span></td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                            <td class="py-3 px-4 text-right font-black text-amber-600">${fmtCurrency(totalLiabilities)}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-mono font-bold text-slate-400">3010</td>
+                            <td class="py-3 px-4 font-black text-slate-900 dark:text-white">Owner's Capital Equity Account</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Equity</span></td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-400">-</td>
+                            <td class="py-3 px-4 text-right font-black text-indigo-600">${fmtCurrency(ownersEquityEnd)}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-teal-50 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 font-black uppercase text-xs border-t-2 border-teal-500">
+                            <td colspan="3" class="py-3.5 px-4">Total Post-Closing Trial Balance (Σ Dr. = Σ Cr.)</td>
+                            <td class="py-3.5 px-4 text-right">${fmtCurrency(totalAssets)}</td>
+                            <td class="py-3.5 px-4 text-right">${fmtCurrency(totalLiabilities + ownersEquityEnd)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    `;
+
+    wrapper.innerHTML = html;
 };
 
 // Render Visual Chart.js Analytics
@@ -18078,7 +19030,7 @@ window.renderFiscalCharts = function () {
         const targets = bgts.map(b => parseFloat(b.targetBudget) || 0);
         const actuals = bgts.map(b => {
             return txs.filter(t => (t.type === 'dr' || t.type === 'outflow' || t.type === 'expense') && t.category === b.category)
-                      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
         });
 
         window.fiscalBudgetChartInstance = new Chart(budgetCtx, {

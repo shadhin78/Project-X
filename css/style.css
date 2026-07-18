@@ -353,8 +353,6 @@ body.timer-fullscreen-active {
 
 /* Render layer stabilization to fix Chromium and Safari backdrop-filter scroll glitches */
 .sticky,
-.backdrop-blur-xl,
-.backdrop-blur-sm,
 #sys-content-priority div,
 #sys-content-priority div.flex {
     transform: translate3d(0, 0, 0);
@@ -415,8 +413,17 @@ body.timer-fullscreen-active {
 /* Verbatim extraction of inline animations from index.html */
 
 @keyframes premium-pulse {
-    0%, 100% { transform: scale(1) translateY(0); filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.35)) brightness(1); }
-    50% { transform: scale(1.04) translateY(-4px); filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.65)) brightness(1.1); }
+
+    0%,
+    100% {
+        transform: scale(1) translateY(0);
+        filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.35)) brightness(1);
+    }
+
+    50% {
+        transform: scale(1.04) translateY(-4px);
+        filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.65)) brightness(1.1);
+    }
 }
 
 .animate-premium-pulse {
@@ -424,8 +431,13 @@ body.timer-fullscreen-active {
 }
 
 @keyframes shimmer-flow {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
 }
 
 .shimmer-progress {
@@ -471,12 +483,14 @@ h2 {
     transform-origin: 0px 0px;
     cursor: pointer;
 }
+
 @media (hover: hover) {
     .gcm-chapter-block:hover {
         filter: brightness(1.18) saturate(1.1) drop-shadow(0 0 5px currentColor);
         transform: scale(1.035);
     }
 }
+
 .gcm-chapter-block:active {
     transform: scale(0.98);
 }
