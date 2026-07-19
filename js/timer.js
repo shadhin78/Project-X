@@ -1080,7 +1080,7 @@
         const grouping = window.timerAnalyticsGrouping || 'daily';
 
         // 1. Sync timeframe buttons styling
-        [7, 30, 180].forEach(d => {
+        [1, 7, 30, 180].forEach(d => {
             const btn = document.getElementById(`tar-btn-${d}`);
             if (btn) {
                 if (d === range) {
@@ -1092,31 +1092,77 @@
         });
 
         // 2. Manage Grouping buttons based on selected Range
+        const hourlyBtn = document.getElementById('tag-btn-hourly');
+        const dailyBtn = document.getElementById('tag-btn-daily');
         const weeklyBtn = document.getElementById('tag-btn-weekly');
         const monthlyBtn = document.getElementById('tag-btn-monthly');
 
-        if (range === 7) {
+        const disabledClass = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
+
+        if (range === 1) {
+            // Force hourly grouping for Today
+            window.timerAnalyticsGrouping = 'hourly';
+            if (hourlyBtn) hourlyBtn.removeAttribute('disabled');
+            if (dailyBtn) {
+                dailyBtn.setAttribute('disabled', 'true');
+                dailyBtn.className = disabledClass;
+            }
+            if (weeklyBtn) {
+                weeklyBtn.setAttribute('disabled', 'true');
+                weeklyBtn.className = disabledClass;
+            }
+            if (monthlyBtn) {
+                monthlyBtn.setAttribute('disabled', 'true');
+                monthlyBtn.className = disabledClass;
+            }
+        } else if (range === 7) {
             // Force daily grouping for 7 days
-            window.timerAnalyticsGrouping = 'daily';
-            if (weeklyBtn) weeklyBtn.setAttribute('disabled', 'true');
-            if (monthlyBtn) monthlyBtn.setAttribute('disabled', 'true');
-            if (weeklyBtn) weeklyBtn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
-            if (monthlyBtn) monthlyBtn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
-        } else if (range === 30) {
-            if (weeklyBtn) weeklyBtn.removeAttribute('disabled');
-            if (monthlyBtn) monthlyBtn.setAttribute('disabled', 'true');
-            if (monthlyBtn) monthlyBtn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
-            if (window.timerAnalyticsGrouping === 'monthly') {
+            if (window.timerAnalyticsGrouping === 'hourly') {
                 window.timerAnalyticsGrouping = 'daily';
             }
+            if (hourlyBtn) {
+                hourlyBtn.setAttribute('disabled', 'true');
+                hourlyBtn.className = disabledClass;
+            }
+            if (dailyBtn) dailyBtn.removeAttribute('disabled');
+            if (weeklyBtn) {
+                weeklyBtn.setAttribute('disabled', 'true');
+                weeklyBtn.className = disabledClass;
+            }
+            if (monthlyBtn) {
+                monthlyBtn.setAttribute('disabled', 'true');
+                monthlyBtn.className = disabledClass;
+            }
+        } else if (range === 30) {
+            if (window.timerAnalyticsGrouping === 'hourly' || window.timerAnalyticsGrouping === 'monthly') {
+                window.timerAnalyticsGrouping = 'daily';
+            }
+            if (hourlyBtn) {
+                hourlyBtn.setAttribute('disabled', 'true');
+                hourlyBtn.className = disabledClass;
+            }
+            if (dailyBtn) dailyBtn.removeAttribute('disabled');
+            if (weeklyBtn) weeklyBtn.removeAttribute('disabled');
+            if (monthlyBtn) {
+                monthlyBtn.setAttribute('disabled', 'true');
+                monthlyBtn.className = disabledClass;
+            }
         } else {
-            // 180 days: all options allowed
+            // 180 days: all options allowed except hourly
+            if (window.timerAnalyticsGrouping === 'hourly') {
+                window.timerAnalyticsGrouping = 'daily';
+            }
+            if (hourlyBtn) {
+                hourlyBtn.setAttribute('disabled', 'true');
+                hourlyBtn.className = disabledClass;
+            }
+            if (dailyBtn) dailyBtn.removeAttribute('disabled');
             if (weeklyBtn) weeklyBtn.removeAttribute('disabled');
             if (monthlyBtn) monthlyBtn.removeAttribute('disabled');
         }
 
         const activeGrouping = window.timerAnalyticsGrouping;
-        ['daily', 'weekly', 'monthly'].forEach(g => {
+        ['hourly', 'daily', 'weekly', 'monthly'].forEach(g => {
             const btn = document.getElementById(`tag-btn-${g}`);
             if (btn) {
                 if (btn.hasAttribute('disabled')) return; // already styled above
@@ -1228,8 +1274,10 @@
 
     window.setTimerAnalyticsGrouping = function (grouping) {
         const range = window.timerAnalyticsRange || 180;
+        if (range === 1 && grouping !== 'hourly') return;
         if (range === 7 && grouping !== 'daily') return;
-        if (range === 30 && grouping === 'monthly') return;
+        if (range === 30 && (grouping === 'monthly' || grouping === 'hourly')) return;
+        if (range === 180 && grouping === 'hourly') return;
 
         window.timerAnalyticsGrouping = grouping;
         safeStorage.setItem('timerAnalyticsGrouping', grouping);
@@ -1257,190 +1305,311 @@
         let grouping = window.timerAnalyticsGrouping || 'daily';
 
         // Range constraints on grouping
-        if (range === 7) {
+        if (range === 1) {
+            grouping = 'hourly';
+        } else if (range === 7) {
             grouping = 'daily';
-        } else if (range === 30 && grouping === 'monthly') {
+        } else if (range === 30 && (grouping === 'monthly' || grouping === 'hourly')) {
+            grouping = 'daily';
+        } else if (range > 30 && grouping === 'hourly') {
             grouping = 'daily';
         }
 
-        // 1. Gather daily data points
-        const dailyPoints = [];
-        for (let i = range - 1; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-
-            const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
-            const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
-
-            let totalSeconds = 0;
-            if (AppState.timerLogs) {
-                AppState.timerLogs.forEach(log => {
-                    const logTime = new Date(log.date).getTime();
-                    if (logTime >= dayStart && logTime <= dayEnd) {
-                        totalSeconds += parseInt(log.duration || 0, 10);
-                    }
-                });
-            }
-
-            const actualHrs = parseFloat((totalSeconds / 3600).toFixed(2));
-            const dayTarget = window.getDailyFocusHoursTargetForDate(d);
-
-            dailyPoints.push({
-                date: d,
-                actual: actualHrs,
-                target: dayTarget
-            });
-        }
-
-        // 2. Compute Analytics Statistics (overall for the selected range)
-        const sumActual = dailyPoints.reduce((acc, p) => acc + p.actual, 0);
-        const avgActual = parseFloat((sumActual / range).toFixed(2));
-        const sumTarget = dailyPoints.reduce((acc, p) => acc + p.target, 0);
-        const avgTarget = parseFloat((sumTarget / range).toFixed(2));
-
-        // Target Met Success Rate (Calculated from average actual focus vs average target, uncapped, defaulting to 0% if target is 0)
-        const successRate = avgTarget > 0 ? Math.round((avgActual / avgTarget) * 100) : 0;
-        const successDays = dailyPoints.filter(p => p.actual >= p.target).length;
-
-        // Peak Day
-        let peakDay = { actual: 0, date: null };
-        dailyPoints.forEach(p => {
-            if (p.actual > peakDay.actual) {
-                peakDay = p;
-            }
-        });
-
-        // Update Stats UI
-        const avgDisplay = document.getElementById('timer-average-focus');
-        if (avgDisplay) {
-            avgDisplay.innerText = formatHoursToHrMin(avgActual);
-        }
-
-        const avgTargetDisplay = document.getElementById('timer-average-target');
-        if (avgTargetDisplay) {
-            avgTargetDisplay.innerText = formatHoursToHrMin(avgTarget);
-        }
-
-        const totalDisplay = document.getElementById('timer-total-focus');
-        if (totalDisplay) {
-            totalDisplay.innerText = formatHoursToHrMin(sumActual);
-        }
-
-        const successDisplay = document.getElementById('timer-success-rate');
-        if (successDisplay) {
-            successDisplay.innerText = `${successRate}%`;
-            // Color code success rate
-            if (successRate >= 75) {
-                successDisplay.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
-            } else if (successRate >= 40) {
-                successDisplay.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
-            } else {
-                successDisplay.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
-            }
-        }
-
-        const successSubtitle = document.getElementById('timer-success-rate-subtitle');
-        if (successSubtitle) {
-            successSubtitle.innerText = `${successDays} of ${range} days`;
-        }
-
-        const peakValueDisplay = document.getElementById('timer-peak-value');
-        const peakDateDisplay = document.getElementById('timer-peak-date');
-        if (peakValueDisplay && peakDateDisplay) {
-            if (peakDay.actual > 0 && peakDay.date) {
-                peakValueDisplay.innerText = formatHoursToHrMin(peakDay.actual);
-                peakDateDisplay.innerText = peakDay.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-            } else {
-                peakValueDisplay.innerText = "0 min";
-                peakDateDisplay.innerText = "No Data";
-            }
-        }
-
-        // 3. Perform Data Aggregation for Chart
         let chartLabels = [];
         let chartActuals = [];
         let chartTargets = [];
 
-        if (grouping === 'weekly') {
-            // Group by calendar weeks starting on Saturdays
-            const weeklyGroups = {};
-            dailyPoints.forEach(p => {
-                const d = new Date(p.date);
-                const dayOfWeek = d.getDay(); // 0: Sun, ..., 6: Sat
-                const diffToSat = (dayOfWeek + 1) % 7;
-                
-                const satDate = new Date(d);
-                satDate.setDate(d.getDate() - diffToSat);
-                satDate.setHours(0, 0, 0, 0);
-                
-                const key = `${satDate.getFullYear()}-${String(satDate.getMonth() + 1).padStart(2, '0')}-${String(satDate.getDate()).padStart(2, '0')}`;
-                if (!weeklyGroups[key]) {
-                    weeklyGroups[key] = [];
+        if (grouping === 'hourly') {
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
+            const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+
+            const hourlyActualSeconds = new Array(24).fill(0);
+
+            if (AppState.timerLogs) {
+                AppState.timerLogs.forEach(log => {
+                    const logTime = new Date(log.date).getTime();
+                    if (logTime >= todayStart && logTime <= todayEnd) {
+                        const logDate = new Date(log.date);
+                        const hr = logDate.getHours();
+                        if (hr >= 0 && hr < 24) {
+                            hourlyActualSeconds[hr] += parseInt(log.duration || 0, 10);
+                        }
+                    }
+                });
+            }
+
+            // Real-time addition for active timer/stopwatch if currently running or has active elapsed time
+            if (AppState.activeTimerState) {
+                let activeMs = 0;
+                if (AppState.activeTimerState.timerStates) {
+                    Object.values(AppState.activeTimerState.timerStates).forEach(store => {
+                        let ms = store.elapsedBeforeStart || 0;
+                        if (store.isRunning && store.startTime) {
+                            ms += (window.getServerTime() - parseStartTime(store.startTime));
+                        }
+                        activeMs += ms;
+                    });
+                } else {
+                    activeMs = AppState.activeTimerState.elapsedBeforeStart || 0;
+                    if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                        activeMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
+                    }
                 }
-                weeklyGroups[key].push(p);
-            });
-
-            // Chronological sort of the weeks
-            const sortedKeys = Object.keys(weeklyGroups).sort();
-
-            sortedKeys.forEach(key => {
-                const group = weeklyGroups[key];
-                const weekActualSum = group.reduce((acc, p) => acc + p.actual, 0);
-                const weekTargetSum = group.reduce((acc, p) => acc + p.target, 0);
-                const weekActual = parseFloat((weekActualSum / group.length).toFixed(2));
-                const weekTarget = parseFloat((weekTargetSum / group.length).toFixed(2));
-
-                chartActuals.push(weekActual);
-                chartTargets.push(weekTarget);
-
-                // Week Label (Saturday to Friday of that week)
-                const startD = new Date(key);
-                const endD = new Date(startD);
-                endD.setDate(startD.getDate() + 6); // Saturday + 6 days = Friday
-                
-                const startStr = startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                const endStr = endD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                chartLabels.push(`${startStr} - ${endStr}`);
-            });
-        } else if (grouping === 'monthly') {
-            // Group by calendar month
-            const monthlyGroups = {};
-            dailyPoints.forEach(p => {
-                const key = `${p.date.getFullYear()}-${String(p.date.getMonth() + 1).padStart(2, '0')}`;
-                if (!monthlyGroups[key]) {
-                    monthlyGroups[key] = [];
+                const activeSec = Math.floor(activeMs / 1000);
+                if (activeSec > 0) {
+                    const currentHr = today.getHours();
+                    hourlyActualSeconds[currentHr] += activeSec;
                 }
-                monthlyGroups[key].push(p);
-            });
+            }
 
-            // Chronological sort
-            const sortedKeys = Object.keys(monthlyGroups).sort();
+            const dayTarget = window.getDailyFocusHoursTargetForDate(today);
+            const hourlyTarget = parseFloat((dayTarget / 24).toFixed(2));
 
-            sortedKeys.forEach(key => {
-                const group = monthlyGroups[key];
-                const groupActualSum = group.reduce((acc, p) => acc + p.actual, 0);
-                const groupTargetSum = group.reduce((acc, p) => acc + p.target, 0);
-                const groupActual = parseFloat((groupActualSum / group.length).toFixed(2));
-                const groupTarget = parseFloat((groupTargetSum / group.length).toFixed(2));
+            let peakHour = { actual: 0, label: "No Data" };
 
-                chartActuals.push(groupActual);
-                chartTargets.push(groupTarget);
+            for (let h = 0; h < 24; h++) {
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                let displayHr = h % 12;
+                if (displayHr === 0) displayHr = 12;
+                const label = `${displayHr} ${ampm}`;
 
-                const firstD = group[0].date;
-                const labelStr = firstD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-                chartLabels.push(labelStr);
-            });
+                const actualHrs = parseFloat((hourlyActualSeconds[h] / 3600).toFixed(2));
+
+                chartLabels.push(label);
+                chartActuals.push(actualHrs);
+                chartTargets.push(hourlyTarget);
+
+                if (actualHrs > peakHour.actual) {
+                    peakHour = { actual: actualHrs, label: label };
+                }
+            }
+
+            const sumActual = parseFloat((hourlyActualSeconds.reduce((a, b) => a + b, 0) / 3600).toFixed(2));
+            const sumTarget = dayTarget;
+            const successRate = sumTarget > 0 ? Math.round((sumActual / sumTarget) * 100) : 0;
+
+            // Update Stats UI for Today
+            const avgDisplay = document.getElementById('timer-average-focus');
+            if (avgDisplay) avgDisplay.innerText = formatHoursToHrMin(sumActual);
+
+            const avgTargetDisplay = document.getElementById('timer-average-target');
+            if (avgTargetDisplay) avgTargetDisplay.innerText = formatHoursToHrMin(sumTarget);
+
+            const totalDisplay = document.getElementById('timer-total-focus');
+            if (totalDisplay) totalDisplay.innerText = formatHoursToHrMin(sumActual);
+
+            const successDisplay = document.getElementById('timer-success-rate');
+            if (successDisplay) {
+                successDisplay.innerText = `${successRate}%`;
+                if (successRate >= 75) {
+                    successDisplay.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
+                } else if (successRate >= 40) {
+                    successDisplay.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
+                } else {
+                    successDisplay.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
+                }
+            }
+
+            const successSubtitle = document.getElementById('timer-success-rate-subtitle');
+            if (successSubtitle) {
+                successSubtitle.innerText = `Today (Hourly)`;
+            }
+
+            const peakValueDisplay = document.getElementById('timer-peak-value');
+            const peakDateDisplay = document.getElementById('timer-peak-date');
+            if (peakValueDisplay && peakDateDisplay) {
+                if (peakHour.actual > 0) {
+                    peakValueDisplay.innerText = formatHoursToHrMin(peakHour.actual);
+                    peakDateDisplay.innerText = peakHour.label;
+                } else {
+                    peakValueDisplay.innerText = "0 min";
+                    peakDateDisplay.innerText = "No Data";
+                }
+            }
         } else {
-            // Daily (default)
-            chartLabels = dailyPoints.map(p => window.Utils.formatDate(p.date));
-            chartActuals = dailyPoints.map(p => p.actual);
-            chartTargets = dailyPoints.map(p => p.target);
+            // 1. Gather daily data points
+            const dailyPoints = [];
+            for (let i = range - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+
+                const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+                const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+
+                let totalSeconds = 0;
+                if (AppState.timerLogs) {
+                    AppState.timerLogs.forEach(log => {
+                        const logTime = new Date(log.date).getTime();
+                        if (logTime >= dayStart && logTime <= dayEnd) {
+                            totalSeconds += parseInt(log.duration || 0, 10);
+                        }
+                    });
+                }
+
+                const actualHrs = parseFloat((totalSeconds / 3600).toFixed(2));
+                const dayTarget = window.getDailyFocusHoursTargetForDate(d);
+
+                dailyPoints.push({
+                    date: d,
+                    actual: actualHrs,
+                    target: dayTarget
+                });
+            }
+
+            // 2. Compute Analytics Statistics (overall for the selected range)
+            const sumActual = dailyPoints.reduce((acc, p) => acc + p.actual, 0);
+            const avgActual = parseFloat((sumActual / range).toFixed(2));
+            const sumTarget = dailyPoints.reduce((acc, p) => acc + p.target, 0);
+            const avgTarget = parseFloat((sumTarget / range).toFixed(2));
+
+            const successRate = avgTarget > 0 ? Math.round((avgActual / avgTarget) * 100) : 0;
+            const successDays = dailyPoints.filter(p => p.actual >= p.target).length;
+
+            let peakDay = { actual: 0, date: null };
+            dailyPoints.forEach(p => {
+                if (p.actual > peakDay.actual) {
+                    peakDay = p;
+                }
+            });
+
+            // Update Stats UI
+            const avgDisplay = document.getElementById('timer-average-focus');
+            if (avgDisplay) {
+                avgDisplay.innerText = formatHoursToHrMin(avgActual);
+            }
+
+            const avgTargetDisplay = document.getElementById('timer-average-target');
+            if (avgTargetDisplay) {
+                avgTargetDisplay.innerText = formatHoursToHrMin(avgTarget);
+            }
+
+            const totalDisplay = document.getElementById('timer-total-focus');
+            if (totalDisplay) {
+                totalDisplay.innerText = formatHoursToHrMin(sumActual);
+            }
+
+            const successDisplay = document.getElementById('timer-success-rate');
+            if (successDisplay) {
+                successDisplay.innerText = `${successRate}%`;
+                if (successRate >= 75) {
+                    successDisplay.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
+                } else if (successRate >= 40) {
+                    successDisplay.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
+                } else {
+                    successDisplay.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
+                }
+            }
+
+            const successSubtitle = document.getElementById('timer-success-rate-subtitle');
+            if (successSubtitle) {
+                successSubtitle.innerText = `${successDays} of ${range} days`;
+            }
+
+            const peakValueDisplay = document.getElementById('timer-peak-value');
+            const peakDateDisplay = document.getElementById('timer-peak-date');
+            if (peakValueDisplay && peakDateDisplay) {
+                if (peakDay.actual > 0 && peakDay.date) {
+                    peakValueDisplay.innerText = formatHoursToHrMin(peakDay.actual);
+                    peakDateDisplay.innerText = peakDay.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                } else {
+                    peakValueDisplay.innerText = "0 min";
+                    peakDateDisplay.innerText = "No Data";
+                }
+            }
+
+            // 3. Perform Data Aggregation for Chart
+            if (grouping === 'weekly') {
+                const weeklyGroups = {};
+                dailyPoints.forEach(p => {
+                    const d = new Date(p.date);
+                    const dayOfWeek = d.getDay();
+                    const diffToSat = (dayOfWeek + 1) % 7;
+                    
+                    const satDate = new Date(d);
+                    satDate.setDate(d.getDate() - diffToSat);
+                    satDate.setHours(0, 0, 0, 0);
+                    
+                    const key = `${satDate.getFullYear()}-${String(satDate.getMonth() + 1).padStart(2, '0')}-${String(satDate.getDate()).padStart(2, '0')}`;
+                    if (!weeklyGroups[key]) {
+                        weeklyGroups[key] = [];
+                    }
+                    weeklyGroups[key].push(p);
+                });
+
+                const sortedKeys = Object.keys(weeklyGroups).sort();
+
+                sortedKeys.forEach(key => {
+                    const group = weeklyGroups[key];
+                    const weekActualSum = group.reduce((acc, p) => acc + p.actual, 0);
+                    const weekTargetSum = group.reduce((acc, p) => acc + p.target, 0);
+                    const weekActual = parseFloat((weekActualSum / group.length).toFixed(2));
+                    const weekTarget = parseFloat((weekTargetSum / group.length).toFixed(2));
+
+                    chartActuals.push(weekActual);
+                    chartTargets.push(weekTarget);
+
+                    const startD = new Date(key);
+                    const endD = new Date(startD);
+                    endD.setDate(startD.getDate() + 6);
+                    
+                    const startStr = startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    const endStr = endD.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    chartLabels.push(`${startStr} - ${endStr}`);
+                });
+            } else if (grouping === 'monthly') {
+                const monthlyGroups = {};
+                dailyPoints.forEach(p => {
+                    const key = `${p.date.getFullYear()}-${String(p.date.getMonth() + 1).padStart(2, '0')}`;
+                    if (!monthlyGroups[key]) {
+                        monthlyGroups[key] = [];
+                    }
+                    monthlyGroups[key].push(p);
+                });
+
+                const sortedKeys = Object.keys(monthlyGroups).sort();
+
+                sortedKeys.forEach(key => {
+                    const group = monthlyGroups[key];
+                    const groupActualSum = group.reduce((acc, p) => acc + p.actual, 0);
+                    const groupTargetSum = group.reduce((acc, p) => acc + p.target, 0);
+                    const groupActual = parseFloat((groupActualSum / group.length).toFixed(2));
+                    const groupTarget = parseFloat((groupTargetSum / group.length).toFixed(2));
+
+                    chartActuals.push(groupActual);
+                    chartTargets.push(groupTarget);
+
+                    const firstD = group[0].date;
+                    const labelStr = firstD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                    chartLabels.push(labelStr);
+                });
+            } else {
+                chartLabels = dailyPoints.map(p => window.Utils.formatDate(p.date));
+                chartActuals = dailyPoints.map(p => p.actual);
+                chartTargets = dailyPoints.map(p => p.target);
+            }
         }
 
         // 4. Set up datasets based on visual style
         let datasets = [];
         const canvasCtx = ctx.getContext('2d');
         const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        const actualLabelName = grouping === 'hourly'
+            ? 'Hourly Focus Hours'
+            : (grouping === 'daily'
+                ? 'Actual Focus Hours'
+                : (grouping === 'weekly'
+                    ? 'Weekly Focus Hours (Avg/Day)'
+                    : 'Monthly Focus Hours (Avg/Day)'));
+
+        const targetLabelName = grouping === 'hourly'
+            ? 'Hourly Target Hours'
+            : (grouping === 'daily'
+                ? 'Target Focus Hours'
+                : (grouping === 'weekly'
+                    ? 'Weekly Target Hours (Avg/Day)'
+                    : 'Monthly Target Hours (Avg/Day)'));
 
         if (style === 'combo') {
             // Combo: Actual is Bar with rounded gradients, Target is Line with glow
@@ -1476,24 +1645,24 @@
             datasets = [
                 {
                     type: 'bar',
-                    label: grouping === 'daily' ? 'Actual Focus Hours' : (grouping === 'weekly' ? 'Weekly Focus Hours (Avg/Day)' : 'Monthly Focus Hours (Avg/Day)'),
+                    label: actualLabelName,
                     data: chartActuals,
                     backgroundColor: barColors,
                     hoverBackgroundColor: barHoverColors,
                     borderRadius: 8,
                     borderWidth: 0,
-                    barPercentage: range > 30 && grouping === 'daily' ? 0.8 : 0.6
+                    barPercentage: range > 30 && grouping === 'daily' ? 0.8 : (grouping === 'hourly' ? 0.7 : 0.6)
                 },
                 {
                     type: 'line',
-                    label: grouping === 'daily' ? 'Target Focus Hours' : (grouping === 'weekly' ? 'Weekly Target Hours (Avg/Day)' : 'Monthly Target Hours (Avg/Day)'),
+                    label: targetLabelName,
                     data: chartTargets,
                     borderColor: '#f43f5e',
                     borderWidth: 3.5,
                     borderDash: [6, 4],
                     fill: false,
                     tension: 0.4,
-                    pointRadius: chartActuals.length > 30 ? 0 : 4.5,
+                    pointRadius: chartActuals.length > 30 ? 0 : 3.5,
                     pointHoverRadius: 8,
                     pointBackgroundColor: isDark ? '#0f172a' : '#ffffff',
                     pointBorderColor: '#f43f5e',
@@ -1524,7 +1693,7 @@
             datasets = [
                 {
                     type: 'bar',
-                    label: grouping === 'daily' ? 'Actual Focus Hours' : (grouping === 'weekly' ? 'Weekly Focus Hours (Avg/Day)' : 'Monthly Focus Hours (Avg/Day)'),
+                    label: actualLabelName,
                     data: chartActuals,
                     backgroundColor: barActualGrad,
                     hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
@@ -1533,7 +1702,7 @@
                 },
                 {
                     type: 'bar',
-                    label: grouping === 'daily' ? 'Target Focus Hours' : (grouping === 'weekly' ? 'Weekly Target Hours (Avg/Day)' : 'Monthly Target Hours (Avg/Day)'),
+                    label: targetLabelName,
                     data: chartTargets,
                     backgroundColor: barTargetGrad,
                     hoverBackgroundColor: 'rgba(244, 63, 94, 1.0)',
@@ -1565,14 +1734,14 @@
             datasets = [
                 {
                     type: 'line',
-                    label: grouping === 'daily' ? 'Actual Focus Hours' : (grouping === 'weekly' ? 'Weekly Focus Hours (Avg/Day)' : 'Monthly Focus Hours (Avg/Day)'),
+                    label: actualLabelName,
                     data: chartActuals,
                     borderColor: actualLineGradient,
                     borderWidth: 4,
                     backgroundColor: actualFillGradient,
                     fill: true,
                     tension: 0.4,
-                    pointRadius: chartActuals.length > 30 ? 0 : 4,
+                    pointRadius: chartActuals.length > 30 ? 0 : 3.5,
                     pointHoverRadius: 8,
                     pointBackgroundColor: isDark ? '#0f172a' : '#ffffff',
                     pointBorderColor: '#6366f1',
@@ -1583,14 +1752,14 @@
                 },
                 {
                     type: 'line',
-                    label: grouping === 'daily' ? 'Target Focus Hours' : (grouping === 'weekly' ? 'Weekly Target Hours (Avg/Day)' : 'Monthly Target Hours (Avg/Day)'),
+                    label: targetLabelName,
                     data: chartTargets,
                     borderColor: '#f43f5e',
                     borderWidth: 3.5,
                     borderDash: [6, 4],
                     fill: false,
                     tension: 0.4,
-                    pointRadius: chartActuals.length > 30 ? 0 : 4.5,
+                    pointRadius: chartActuals.length > 30 ? 0 : 3.5,
                     pointHoverRadius: 8,
                     pointBackgroundColor: isDark ? '#0f172a' : '#ffffff',
                     pointBorderColor: '#f43f5e',
