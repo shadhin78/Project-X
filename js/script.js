@@ -16896,21 +16896,21 @@ window.switchFiscalTab = function (tabName) {
 
 window.setFiscalLedgerView = function (viewType) {
     window.currentFiscalView = viewType;
-    const tableContainer = document.getElementById('fiscal-table-container');
+    const listContainer = document.getElementById('fiscal-list-container');
     const taccContainer = document.getElementById('fiscal-taccount-container');
     const tableBtn = document.getElementById('fiscal-view-table-btn');
     const taccBtn = document.getElementById('fiscal-view-taccount-btn');
 
     if (viewType === 'table') {
-        if (tableContainer) tableContainer.classList.remove('hidden');
+        if (listContainer) listContainer.classList.remove('hidden');
         if (taccContainer) taccContainer.classList.add('hidden');
-        if (tableBtn) tableBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
-        if (taccBtn) taccBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
+        if (tableBtn) tableBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
+        if (taccBtn) taccBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
     } else {
-        if (tableContainer) tableContainer.classList.add('hidden');
+        if (listContainer) listContainer.classList.add('hidden');
         if (taccContainer) taccContainer.classList.remove('hidden');
-        if (tableBtn) tableBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
-        if (taccBtn) taccBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
+        if (tableBtn) tableBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
+        if (taccBtn) taccBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
     }
     window.renderFiscalLedgerPage();
 };
@@ -17017,6 +17017,43 @@ window.renderFiscalLedgerPage = function () {
     window.ensureFiscalStateDefaults();
     if (window.renderDashboardFiscalSummary) window.renderDashboardFiscalSummary();
 
+    // Ensure active tab pane is displayed
+    const activeTab = window.currentFiscalTab || 'ledger';
+    const tabs = ['ledger', 'budget', 'vaults', 'analytics', 'accounting', 'database'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`fiscal-tab-btn-${t}`);
+        const pane = document.getElementById(`fiscal-pane-${t}`);
+        if (t === activeTab) {
+            if (btn) {
+                btn.className = 'px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 border-teal-600 text-teal-600 dark:text-teal-400 whitespace-nowrap transition-all flex items-center gap-2';
+            }
+            if (pane) pane.classList.remove('hidden');
+        } else {
+            if (btn) {
+                btn.className = 'px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-2';
+            }
+            if (pane) pane.classList.add('hidden');
+        }
+    });
+
+    // Sync active view container visibility (table/cards list container vs taccount container) and button states
+    const activeView = window.currentFiscalView || 'table';
+    const listContainer = document.getElementById('fiscal-list-container');
+    const taccContainer = document.getElementById('fiscal-taccount-container');
+    const tableBtn = document.getElementById('fiscal-view-table-btn');
+    const taccBtn = document.getElementById('fiscal-view-taccount-btn');
+    if (activeView === 'table') {
+        if (listContainer) listContainer.classList.remove('hidden');
+        if (taccContainer) taccContainer.classList.add('hidden');
+        if (tableBtn) tableBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
+        if (taccBtn) taccBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
+    } else {
+        if (listContainer) listContainer.classList.add('hidden');
+        if (taccContainer) taccContainer.classList.remove('hidden');
+        if (tableBtn) tableBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all';
+        if (taccBtn) taccBtn.className = 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all';
+    }
+
     const transactions = AppState.fiscalLedger.transactions || [];
     const budgets = AppState.fiscalLedger.budgets || [];
     const vaults = AppState.fiscalLedger.vaults || [];
@@ -17076,8 +17113,8 @@ window.renderFiscalLedgerPage = function () {
         const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
         const isDr = !isCr;
 
-        if (filterType === 'dr' && !isDr) return false;
-        if (filterType === 'cr' && !isCr) return false;
+        if ((filterType === 'dr' || filterType === 'outflow') && !isDr) return false;
+        if ((filterType === 'cr' || filterType === 'inflow') && !isCr) return false;
 
         if (searchVal) {
             const matchCategory = (tx.category || '').toLowerCase().includes(searchVal);
@@ -17181,29 +17218,42 @@ window.renderFiscalLedgerPage = function () {
         }
     }
 
-    // Render T-Account Lists (Dr = Expenses / Cr = Income)
+    // Render T-Account Lists (Dr = Expenses / Cr = Income) synced with search & filters
     const drListEl = document.getElementById('fiscal-tacc-dr-list');
     const crListEl = document.getElementById('fiscal-tacc-cr-list');
     const drTotalEl = document.getElementById('fiscal-tacc-dr-total');
     const crTotalEl = document.getElementById('fiscal-tacc-cr-total');
 
-    const drEntries = transactions.filter(t => t.type !== 'cr' && t.type !== 'inflow' && t.type !== 'income');
-    const crEntries = transactions.filter(t => t.type === 'cr' || t.type === 'inflow' || t.type === 'income');
+    const drEntries = filteredTxs.filter(t => t.type !== 'cr' && t.type !== 'inflow' && t.type !== 'income');
+    const crEntries = filteredTxs.filter(t => t.type === 'cr' || t.type === 'inflow' || t.type === 'income');
 
-    if (drTotalEl) drTotalEl.textContent = `৳${totalOutflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (crTotalEl) crTotalEl.textContent = `৳${totalInflow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const filteredDrTotal = drEntries.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    const filteredCrTotal = crEntries.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+    if (drTotalEl) drTotalEl.textContent = `৳${filteredDrTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (crTotalEl) crTotalEl.textContent = `৳${filteredCrTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     if (drListEl) {
         if (drEntries.length === 0) {
-            drListEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">No debit (expense) entries recorded.</div>`;
+            drListEl.innerHTML = `<div class="text-xs text-slate-400 dark:text-slate-500 text-center py-4 font-semibold">No debit (expense) entries recorded.</div>`;
         } else {
             drListEl.innerHTML = drEntries.map(tx => `
-                <div class="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-rose-200 dark:border-rose-900/40 shadow-2xs">
-                    <div>
-                        <div class="font-black text-xs text-slate-900 dark:text-white">${tx.head || getCategoryLabel(tx.category)}</div>
-                        <div class="text-[10px] text-slate-400 font-semibold">${tx.date} • ${getCategoryLabel(tx.category)}</div>
+                <div class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-xl border border-rose-200 dark:border-rose-900/40 shadow-2xs group">
+                    <div class="min-w-0 flex-1 pr-2">
+                        <div class="font-black text-xs text-slate-900 dark:text-white truncate">${tx.head || getCategoryLabel(tx.category)}</div>
+                        <div class="text-[10px] text-slate-400 font-semibold truncate">${tx.date} • ${getCategoryLabel(tx.category)}</div>
                     </div>
-                    <span class="font-black text-xs text-rose-600 dark:text-rose-400">-৳${parseFloat(tx.amount || 0).toFixed(2)}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="font-black text-xs text-rose-600 dark:text-rose-400">-৳${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <div class="flex items-center gap-1 border-l border-slate-100 dark:border-slate-700/60 pl-1.5">
+                            <button onclick="window.openFiscalTxModal('${tx.id}')" class="p-1 text-slate-400 hover:text-teal-600 rounded transition-colors" title="Edit Entry">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                            <button onclick="window.deleteFiscalTransaction('${tx.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="Delete Entry">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
@@ -17211,15 +17261,25 @@ window.renderFiscalLedgerPage = function () {
 
     if (crListEl) {
         if (crEntries.length === 0) {
-            crListEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-4">No credit (income) entries recorded.</div>`;
+            crListEl.innerHTML = `<div class="text-xs text-slate-400 dark:text-slate-500 text-center py-4 font-semibold">No credit (income) entries recorded.</div>`;
         } else {
             crListEl.innerHTML = crEntries.map(tx => `
-                <div class="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-emerald-200 dark:border-emerald-900/40 shadow-2xs">
-                    <div>
-                        <div class="font-black text-xs text-slate-900 dark:text-white">${tx.head || getCategoryLabel(tx.category)}</div>
-                        <div class="text-[10px] text-slate-400 font-semibold">${tx.date} • ${getCategoryLabel(tx.category)}</div>
+                <div class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-xl border border-emerald-200 dark:border-emerald-900/40 shadow-2xs group">
+                    <div class="min-w-0 flex-1 pr-2">
+                        <div class="font-black text-xs text-slate-900 dark:text-white truncate">${tx.head || getCategoryLabel(tx.category)}</div>
+                        <div class="text-[10px] text-slate-400 font-semibold truncate">${tx.date} • ${getCategoryLabel(tx.category)}</div>
                     </div>
-                    <span class="font-black text-xs text-emerald-600 dark:text-emerald-400">+৳${parseFloat(tx.amount || 0).toFixed(2)}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="font-black text-xs text-emerald-600 dark:text-emerald-400">+৳${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <div class="flex items-center gap-1 border-l border-slate-100 dark:border-slate-700/60 pl-1.5">
+                            <button onclick="window.openFiscalTxModal('${tx.id}')" class="p-1 text-slate-400 hover:text-teal-600 rounded transition-colors" title="Edit Entry">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                            <button onclick="window.deleteFiscalTransaction('${tx.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="Delete Entry">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
