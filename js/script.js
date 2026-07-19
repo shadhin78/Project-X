@@ -5774,15 +5774,29 @@ window.renderSubjectTrendCircle = function () {
     const container = document.getElementById('subject-trend-circle-container');
     if (!container) return;
 
+    // Ensure trend data is ready
+    if (!window.lastSubjectTrendData || !window.lastTrendMonths) {
+        if (typeof renderTrendCharts === 'function') renderTrendCharts();
+    }
+
     let subjectName = window.activeSingleSubjectTrend;
 
     // Pick first subject as default if none is active/selected
     if (!subjectName) {
-        for (const track of window.tracks) {
-            if (syllabusStructure[track.id] && syllabusStructure[track.id].length > 0) {
-                subjectName = syllabusStructure[track.id][0].subject;
+        if (Array.isArray(window.tracks)) {
+            for (const track of window.tracks) {
+                if (syllabusStructure && syllabusStructure[track.id] && syllabusStructure[track.id].length > 0) {
+                    subjectName = syllabusStructure[track.id][0].subject;
+                    window.activeSingleSubjectTrend = subjectName;
+                    break;
+                }
+            }
+        }
+        if (!subjectName) {
+            const allSubs = window.getAllSubjects ? window.getAllSubjects() : [];
+            if (allSubs.length > 0) {
+                subjectName = allSubs[0].subject;
                 window.activeSingleSubjectTrend = subjectName;
-                break;
             }
         }
     }
@@ -5799,10 +5813,25 @@ window.renderSubjectTrendCircle = function () {
     // Find subject info
     let subjectObj = null;
     let trackId = null;
-    for (const track of window.tracks) {
-        if (syllabusStructure[track.id]) {
-            const found = syllabusStructure[track.id].find(s => s.subject === subjectName);
-            if (found) { subjectObj = found; trackId = track.id; break; }
+    if (Array.isArray(window.tracks)) {
+        for (const track of window.tracks) {
+            if (syllabusStructure && syllabusStructure[track.id]) {
+                const found = syllabusStructure[track.id].find(s => s.subject === subjectName);
+                if (found) { subjectObj = found; trackId = track.id; break; }
+            }
+        }
+    }
+    if (!subjectObj && window.getAllSubjects) {
+        const allSubs = window.getAllSubjects();
+        const found = allSubs.find(s => s.subject === subjectName);
+        if (found) {
+            subjectObj = found;
+            for (const tid in syllabusStructure) {
+                if (syllabusStructure[tid] && syllabusStructure[tid].some(s => s.subject === subjectName)) {
+                    trackId = tid;
+                    break;
+                }
+            }
         }
     }
 
@@ -5838,7 +5867,7 @@ window.renderSubjectTrendCircle = function () {
     else { statusColor = 'text-slate-400'; statusText = 'Not Started'; statusEmoji = '📋'; }
 
     // Initialize selectedSubjectsTrend with current subject if not set
-    if (!window.selectedSubjectsTrend) {
+    if (!window.selectedSubjectsTrend || window.selectedSubjectsTrend.length === 0) {
         window.selectedSubjectsTrend = subjectName ? [subjectName] : [];
     }
     // Ensure the active subject is always selected
@@ -9737,6 +9766,7 @@ window.openModal = function (modalId, typeKey = null) {
             resizeAndUpdate(window.subjectWiseChartInstance);
         }
         if (modalId === 'pace-candle-modal') resizeAndUpdate(window.paceCandleChartInstance);
+        if (modalId === 'subject-trend-modal') resizeAndUpdate(window.subjectTrendLineChartInstance);
     }, 320);
 };
 
@@ -9992,6 +10022,9 @@ window.fireConfetti = function () {
 window.openSubjectTrendModal = function () {
     window.activeSingleSubjectTrend = null;
     window.subjectTrendChartStyle = window.subjectTrendChartStyle || 'circle';
+    if (!window.lastSubjectTrendData || !window.lastTrendMonths) {
+        if (typeof renderTrendCharts === 'function') renderTrendCharts();
+    }
     openModal('subject-trend-modal');
     window.renderSubjectTrendCircle();
     window.setSubjectTrendChartStyle(window.subjectTrendChartStyle);
@@ -9999,6 +10032,9 @@ window.openSubjectTrendModal = function () {
 window.openSingleSubjectTrendModal = function (subjectName) {
     window.activeSingleSubjectTrend = subjectName;
     window.subjectTrendChartStyle = window.subjectTrendChartStyle || 'circle';
+    if (!window.lastSubjectTrendData || !window.lastTrendMonths) {
+        if (typeof renderTrendCharts === 'function') renderTrendCharts();
+    }
     openModal('subject-trend-modal');
     window.renderSubjectTrendCircle();
     window.setSubjectTrendChartStyle(window.subjectTrendChartStyle);
@@ -10014,6 +10050,8 @@ window.setSubjectTrendChartStyle = function (style) {
     const inactiveClass = 'flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all text-slate-400 hover:text-white hover:bg-slate-700';
 
     if (style === 'line') {
+        safeSetText('stm-title', 'Subject Completion Trends');
+        safeSetText('stm-desc', 'Detailed month-by-month progression for all subjects');
         if (circleContainer) circleContainer.classList.add('hidden');
         if (lineContainer) lineContainer.classList.remove('hidden');
         if (circleBtn) circleBtn.className = inactiveClass;
@@ -10021,10 +10059,14 @@ window.setSubjectTrendChartStyle = function (style) {
         // Re-render the line chart since the container was hidden and may need a resize
         if (window.subjectTrendLineChartInstance) {
             window.subjectTrendLineChartInstance.resize();
+            window.subjectTrendLineChartInstance.update();
         }
         // Sync global button state
         if (window.updateGlobalBtnStyle) window.updateGlobalBtnStyle();
     } else {
+        const activeSub = window.activeSingleSubjectTrend || 'Subject';
+        safeSetText('stm-title', `${activeSub}`);
+        safeSetText('stm-desc', 'Chapter completion analysis');
         if (circleContainer) circleContainer.classList.remove('hidden');
         if (lineContainer) lineContainer.classList.add('hidden');
         if (circleBtn) circleBtn.className = activeClass;
