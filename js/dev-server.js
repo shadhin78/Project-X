@@ -96,5 +96,13 @@ const server = http.createServer((req, res) => {
 
 const PORT = 3000;
 server.listen(PORT, () => {
-  console.log(`Local development server running at http://localhost:${PORT}`);
+  console.log(`\n  ┌─────────────────────────────────────────────────────┐`);
+  console.log(`  │  Project X Dev Server running at:                  │`);
+  console.log(`  │  → http://localhost:${PORT}                          │`);
+  console.log(`  │                                                     │`);
+  console.log(`  │  ⚠  Use ONLY this URL for local development.       │`);
+  console.log(`  │     Other ports (5000, 5500, etc.) lack /api/config │`);
+  console.log(`  │     and will cause Firebase config resolution       │`);
+  console.log(`  │     to fall back to .env or hardcoded values.       │`);
+  console.log(`  └─────────────────────────────────────────────────────┘\n`);
 });
