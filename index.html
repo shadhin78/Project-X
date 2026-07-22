@@ -165,6 +165,16 @@
                             </svg>
                             Spectra Pulse
                         </button>
+                        <button id="btn-nav-fiscal-ledger"
+                            onclick="window.switchPage('fiscal-ledger'); window.closeMobileSidebar()"
+                            class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 12v-2m-9 1V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z">
+                                </path>
+                            </svg>
+                            Fiscal Ledger
+                        </button>
                         <button id="btn-nav-timer" onclick="window.switchPage('timer'); window.closeMobileSidebar()"
                             class="w-full text-left border-2 px-4 py-3 rounded-2xl font-black text-xs transition-all duration-300 hover:translate-x-1.5 hover:shadow-md active:scale-98 flex items-center gap-3">
                             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -534,6 +544,85 @@
                                 <div id="db-target-status-label"
                                     class="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-1 truncate">
                                     --</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fiscal Ledger Summary Card -->
+                    <div id="dashboard-fiscal-section"
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
+                        <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                            <div class="flex items-center space-x-2">
+                                <div
+                                    class="p-1.5 bg-teal-50 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400 rounded-lg shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3
+                                        class="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 truncate">
+                                        Fiscal Ledger</h3>
+                                    <span
+                                        class="text-[8px] text-slate-400 uppercase tracking-wider block font-black truncate">Realtime Overview</span>
+                                </div>
+                            </div>
+                            <button onclick="window.switchPage('fiscal-ledger')"
+                                class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition-all active:scale-95 shrink-0"
+                                title="Go to Fiscal Ledger">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Core Fiscal Metrics Layout -->
+                        <div class="flex-1 flex flex-col justify-between pt-1">
+                            <!-- Top Metric: Net Liquid Capital -->
+                            <div class="bg-slate-50 dark:bg-slate-900/40 border border-slate-100/80 dark:border-slate-800/80 p-2.5 rounded-2xl">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">Net Liquid Capital</span>
+                                    <span id="db-fiscal-status-badge"
+                                        class="px-2 py-0.5 text-[8px] font-black uppercase rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Surplus</span>
+                                </div>
+                                <div id="db-fiscal-net-liquid" class="text-lg md:text-xl font-black text-slate-800 dark:text-white mt-1 tracking-tight truncate">
+                                    ৳0.00
+                                </div>
+                                <span class="block text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate mt-0.5" title="Remaining Budget + Liquid Cash Remain">
+                                    Remaining Budget + Liquid Cash
+                                </span>
+                            </div>
+
+                            <!-- Bottom Row: Cash Inflow & Cash Outflow -->
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <!-- Total Cash Inflow -->
+                                <div class="bg-slate-50 dark:bg-slate-900/40 border border-slate-100/80 dark:border-slate-800/80 p-2 rounded-xl flex flex-col justify-between leading-tight min-h-0">
+                                    <div>
+                                        <span class="block text-[8px] font-black uppercase tracking-wider text-slate-400 leading-none">Total Cash Inflow</span>
+                                        <div id="db-fiscal-total-inflow" class="text-xs md:text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+                                            ৳0.00
+                                        </div>
+                                    </div>
+                                    <span class="block text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate mt-1">
+                                        Capital &amp; Allowance In
+                                    </span>
+                                </div>
+
+                                <!-- Total Cash Outflow -->
+                                <div class="bg-slate-50 dark:bg-slate-900/40 border border-slate-100/80 dark:border-slate-800/80 p-2 rounded-xl flex flex-col justify-between leading-tight min-h-0">
+                                    <div>
+                                        <span class="block text-[8px] font-black uppercase tracking-wider text-slate-400 leading-none">Total Cash Outflow</span>
+                                        <div id="db-fiscal-total-outflow" class="text-xs md:text-sm font-black text-rose-600 dark:text-rose-400 mt-1 truncate">
+                                            ৳0.00
+                                        </div>
+                                    </div>
+                                    <span class="block text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate mt-1">
+                                        Total Operating Expenses
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2510,6 +2599,660 @@
                     </details>
                 </div>
             </div>
+
+            <div id="page-fiscal-ledger" class="hidden">
+                <div
+                    class="mt-4 sm:mt-8 md:mt-12 bg-white dark:bg-slate-800 p-3.5 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col scroll-mt-24 md:scroll-mt-32">
+                    <!-- Top Header Bar -->
+                    <div
+                        class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-5 md:mb-8 border-b border-slate-100 dark:border-slate-700 pb-4 sm:pb-6">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 sm:p-3 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-2xl border border-teal-100 dark:border-teal-800/50 shadow-sm shrink-0">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 12v-2m-9 1V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-base sm:text-lg md:text-xl font-black dark:text-white tracking-tight truncate">Fiscal Ledger</h3>
+                                </div>
+                                <p class="text-[10px] sm:text-xs text-slate-500 font-bold tracking-wide truncate">Cash Flow Statement, Budget Variance & Savings Vaults</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                            <button onclick="window.openFiscalTxModal()"
+                                class="w-full sm:w-auto bg-gradient-to-r from-emerald-500 via-teal-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs uppercase tracking-wider sm:tracking-widest px-4 py-3 sm:py-2.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-teal-500/25 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap min-h-[44px] sm:min-h-[42px] border border-teal-400/30 group">
+                                <div class="p-1 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                            d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </div>
+                                <span class="drop-shadow-xs">Log Cash</span>
+                            </button>
+                            <div class="grid grid-cols-2 sm:flex sm:flex-nowrap gap-2 w-full sm:w-auto">
+                                <button onclick="window.openFiscalBudgetModal()"
+                                    class="w-full sm:w-auto bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-700 dark:to-slate-800 hover:from-slate-900 hover:to-slate-950 text-white font-black text-xs uppercase tracking-wider sm:tracking-widest px-3.5 sm:px-4 py-2.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap min-h-[42px] border border-slate-700/50 group">
+                                    <div class="p-1 rounded-lg bg-white/10 backdrop-blur-xs flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                        <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M9 7h6m-6 4h6m-6 4h6M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    <span>Set Budget</span>
+                                </button>
+                                <button onclick="window.openFiscalVaultModal()"
+                                    class="w-full sm:w-auto bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black text-xs uppercase tracking-wider sm:tracking-widest px-3.5 sm:px-4 py-2.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-indigo-500/25 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap min-h-[42px] border border-indigo-400/30 group">
+                                    <div class="p-1 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    <span>New Vault</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Executive Treasury KPI Cards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-5 md:mb-8">
+                        <div
+                            class="bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-950/30 dark:to-emerald-950/30 p-3 sm:p-5 rounded-2xl border border-teal-200/60 dark:border-teal-800/50 shadow-sm flex flex-col justify-between min-w-0">
+                            <div class="flex items-center justify-between gap-1 mb-1.5 sm:mb-3">
+                                <span
+                                    class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-300 truncate">Net Liquid Capital</span>
+                                <span id="fiscal-kpi-net-badge"
+                                    class="px-1.5 py-0.5 text-[7px] sm:text-[9px] font-extrabold uppercase rounded-md bg-teal-200 dark:bg-teal-900/50 text-teal-800 dark:text-teal-200 shrink-0">Surplus</span>
+                            </div>
+                            <div id="fiscal-kpi-net"
+                                class="text-base sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                ৳0.00</div>
+                            <p class="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1 truncate" title="Remaining Budget + Liquid Cash Remain">Remaining Budget + Liquid Cash</p>
+                        </div>
+                        <div
+                            class="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between min-w-0">
+                            <div class="flex items-center justify-between gap-1 mb-1.5 sm:mb-3">
+                                <span
+                                    class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 truncate">Total Cash Inflow</span>
+                                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                        d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                                </svg>
+                            </div>
+                            <div id="fiscal-kpi-inflow"
+                                class="text-base sm:text-2xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
+                                ৳0.00</div>
+                            <p class="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1 truncate">Capital & Allowance In</p>
+                        </div>
+                        <div
+                            class="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between min-w-0">
+                            <div class="flex items-center justify-between gap-1 mb-1.5 sm:mb-3">
+                                <span
+                                    class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 truncate">Total Cash Outflow</span>
+                                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                        d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>
+                                </svg>
+                            </div>
+                            <div id="fiscal-kpi-outflow"
+                                class="text-base sm:text-2xl md:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight truncate">
+                                ৳0.00</div>
+                            <p class="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1 truncate">Total Operating Expenses</p>
+                        </div>
+                        <div
+                            class="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm flex flex-col justify-between min-w-0">
+                            <div class="flex items-center justify-between gap-1 mb-1.5 sm:mb-3">
+                                <span
+                                    class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 truncate">Hold / Savings Vaults</span>
+                                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div id="fiscal-kpi-vaults"
+                                class="text-base sm:text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight truncate">
+                                ৳0.00</div>
+                            <p class="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1 truncate">Sum of All Vaults</p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <div
+                        class="flex border-b border-slate-200 dark:border-slate-700 mb-5 gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-1.5 snap-x">
+                        <button id="fiscal-tab-btn-ledger" onclick="window.switchFiscalTab('ledger')"
+                            class="snap-start px-3.5 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-wider border-b-2 border-teal-600 text-teal-600 dark:text-teal-400 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                                </path>
+                            </svg>
+                            <span>Cash Flow Ledger</span>
+                        </button>
+                        <button id="fiscal-tab-btn-budget" onclick="window.switchFiscalTab('budget')"
+                            class="snap-start px-3.5 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                </path>
+                            </svg>
+                            <span>Budget & Variance</span>
+                        </button>
+                        <button id="fiscal-tab-btn-vaults" onclick="window.switchFiscalTab('vaults')"
+                            class="snap-start px-3.5 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+                                </path>
+                            </svg>
+                            <span>Savings Vaults</span>
+                        </button>
+                        <button id="fiscal-tab-btn-analytics" onclick="window.switchFiscalTab('analytics')"
+                            class="snap-start px-3.5 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z">
+                                </path>
+                            </svg>
+                            <span>Visual Analytics</span>
+                        </button>
+                        <button id="fiscal-tab-btn-accounting" onclick="window.switchFiscalTab('accounting')"
+                            class="snap-start px-3.5 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M9 7h6m-6 4h6m-6 4h6M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                </path>
+                            </svg>
+                            <span>Double-Entry Matrix</span>
+                        </button>
+                        <button id="fiscal-tab-btn-database" onclick="window.switchFiscalTab('database')"
+                            class="snap-start px-3.5 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-black uppercase tracking-wider border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8-4m0 5c0 2.21 3.582 4 8 4s8-1.79 8-4">
+                                </path>
+                            </svg>
+                            <span>Database Log</span>
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: CASH FLOW LEDGER -->
+                    <div id="fiscal-pane-ledger" class="space-y-4 sm:space-y-6">
+                        <!-- Toolbar Controls -->
+                        <div
+                            class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 w-full">
+                                <div class="relative flex-1 w-full min-w-0">
+                                    <input type="text" id="fiscal-search-input"
+                                        onkeyup="window.renderFiscalLedgerPage()" placeholder="Search transactions..."
+                                        class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                </div>
+                                <select id="fiscal-filter-type" onchange="window.renderFiscalLedgerPage()"
+                                    class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 focus:outline-none">
+                                    <option value="ALL">All Flow Types</option>
+                                    <option value="inflow">Inflow Only (+CR / Income)</option>
+                                    <option value="outflow">Outflow Only (-DR / Expense)</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-end gap-2 shrink-0">
+                                <div
+                                    class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-1 flex items-center w-full sm:w-auto">
+                                    <button id="fiscal-view-table-btn" onclick="window.setFiscalLedgerView('table')"
+                                        class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-sm transition-all">List
+                                        View</button>
+                                    <button id="fiscal-view-taccount-btn"
+                                        onclick="window.setFiscalLedgerView('taccount')"
+                                        class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all">T-Accounts
+                                        (Dr/Cr)</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cash Flow List Container (Desktop Table + Mobile Cards) -->
+                        <div id="fiscal-list-container" class="space-y-4">
+                            <!-- Table Container (Desktop / Tablet) -->
+                            <div id="fiscal-table-container"
+                                class="hidden md:block overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr
+                                            class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                                            <th class="py-3.5 px-4">Date</th>
+                                            <th class="py-3.5 px-4">Entry Title & Allocation</th>
+                                            <th class="py-3.5 px-4">Flow Type</th>
+                                            <th class="py-3.5 px-4 text-right">Amount</th>
+                                            <th class="py-3.5 px-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fiscal-tx-table-body"
+                                        class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                                        <!-- Populated dynamically via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Mobile Transaction Cards Container (Realme 8 / Mobile Phones) -->
+                            <div id="fiscal-tx-mobile-cards" class="block md:hidden space-y-2.5">
+                                <!-- Populated dynamically via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Double-Entry T-Account Matrix View Container -->
+                        <div id="fiscal-taccount-container" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Debit Column (Expenses & Outflows) -->
+                            <div
+                                class="bg-rose-50/40 dark:bg-rose-950/20 border-2 border-rose-300 dark:border-rose-800/60 rounded-2xl p-5 shadow-sm">
+                                <div
+                                    class="flex items-center justify-between border-b-2 border-rose-400 dark:border-rose-700 pb-3 mb-4">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="px-2.5 py-1 text-xs font-black bg-rose-600 text-white rounded-lg">Dr.</span>
+                                        <h4
+                                            class="font-black text-rose-800 dark:text-rose-300 uppercase tracking-wider text-xs">
+                                            Debit Entries (Cash Outflows & Expenses)</h4>
+                                    </div>
+                                    <span id="fiscal-tacc-dr-total"
+                                        class="font-black text-rose-700 dark:text-rose-400 text-sm">$0.00</span>
+                                </div>
+                                <div id="fiscal-tacc-dr-list"
+                                    class="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                                    <!-- Dynamic Dr list -->
+                                </div>
+                            </div>
+
+                            <!-- Credit Column (Income & Inflows) -->
+                            <div
+                                class="bg-emerald-50/40 dark:bg-emerald-950/20 border-2 border-emerald-300 dark:border-emerald-800/60 rounded-2xl p-5 shadow-sm">
+                                <div
+                                    class="flex items-center justify-between border-b-2 border-emerald-400 dark:border-emerald-700 pb-3 mb-4">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="px-2.5 py-1 text-xs font-black bg-emerald-600 text-white rounded-lg">Cr.</span>
+                                        <h4
+                                            class="font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider text-xs">
+                                            Credit Entries (Cash Inflows & Income)</h4>
+                                    </div>
+                                    <span id="fiscal-tacc-cr-total"
+                                        class="font-black text-emerald-700 dark:text-emerald-400 text-sm">$0.00</span>
+                                </div>
+                                <div id="fiscal-tacc-cr-list"
+                                    class="space-y-2.5 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                                    <!-- Dynamic Cr list -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: BUDGET & VARIANCE ANALYSIS -->
+                    <div id="fiscal-pane-budget" class="hidden space-y-6">
+                        <div
+                            class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                            <div>
+                                <h4 class="font-black text-sm dark:text-white uppercase tracking-wider">Expense Source
+                                    Budgeting & Variance Analysis</h4>
+                                <p class="text-xs text-slate-500 font-medium">Comparing monthly budgeted target
+                                    allocations against actual real-time cash outflows.</p>
+                            </div>
+                            <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                                <button onclick="window.openVaultToBudgetTransferModal()"
+                                    class="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-95">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                    </svg>
+                                    <span>Fund Budget</span>
+                                </button>
+                                <button onclick="window.openFiscalBudgetModal()"
+                                    class="flex-1 sm:flex-initial bg-teal-600 hover:bg-teal-700 text-white font-black text-[10px] uppercase tracking-widest px-3.5 py-2 rounded-xl transition-all shadow-sm text-center">Add
+                                    Budget</button>
+                            </div>
+                        </div>
+                        <div id="fiscal-budget-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: CASH SAVINGS & HOLD VAULTS ("WHERE & WHERE SAVED") -->
+                    <div id="fiscal-pane-vaults" class="hidden space-y-6">
+                        <div
+                            class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                            <div>
+                                <h4 class="font-black text-sm dark:text-white uppercase tracking-wider">Cash Savings &
+                                    Capital Reserve Vaults</h4>
+                                <p class="text-xs text-slate-500 font-medium">Track exactly where your money is held,
+                                    saved, or locked (Bank Accounts, Sinking Funds, Emergency Reserves).</p>
+                            </div>
+                            <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                                <button onclick="window.openVaultTransferModal()"
+                                    class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-95">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                    </svg>
+                                    <span>Transfer Cash</span>
+                                </button>
+                                <button onclick="window.openFiscalVaultModal()"
+                                    class="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest px-3.5 py-2 rounded-xl transition-all shadow-sm text-center">+
+                                    Create Vault</button>
+                            </div>
+                        </div>
+                        <div id="fiscal-vaults-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: VISUAL ANALYTICS -->
+                    <div id="fiscal-pane-analytics" class="hidden space-y-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div
+                                class="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col">
+                                <h4 class="font-black text-xs uppercase tracking-widest text-slate-500 mb-4">Cash Inflow
+                                    vs Outflow Trend</h4>
+                                <div class="h-64 w-full relative">
+                                    <canvas id="fiscalTrendChart"></canvas>
+                                </div>
+                            </div>
+                            <div
+                                class="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col">
+                                <h4 class="font-black text-xs uppercase tracking-widest text-slate-500 mb-4">Budget vs
+                                    Actual Variance Comparison</h4>
+                                <div class="h-64 w-full relative">
+                                    <canvas id="fiscalBudgetChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col">
+                            <h4 class="font-black text-xs uppercase tracking-widest text-slate-500 mb-4">Capital Vault
+                                Reserves Asset Distribution</h4>
+                            <div class="h-64 w-full relative flex items-center justify-center">
+                                <canvas id="fiscalVaultChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: DOUBLE-ENTRY ACCOUNTING PROCESS CYCLE MATRIX -->
+                    <div id="fiscal-pane-accounting" class="hidden space-y-8">
+                        <!-- Top Banner: Fundamental Accounting Equation Proof -->
+                        <div
+                            class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 md:p-8 rounded-3xl border border-indigo-500/30 shadow-xl">
+                            <div
+                                class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none">
+                            </div>
+                            <div
+                                class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                                <div>
+                                    <div
+                                        class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[10px] font-black uppercase tracking-widest mb-3">
+                                        <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+                                        <span>Mathematical Dual-Entry Architecture</span>
+                                    </div>
+                                    <h3 class="text-xl md:text-2xl font-black tracking-tight text-white">Full Double-Entry Accounting Cycle</h3>
+                                    <p class="text-xs text-slate-300 font-medium mt-1 max-w-2xl">
+                                        Automated end-to-end recording pipeline operating under the fundamental accounting equation: <span class="font-mono text-teal-300 font-bold">Assets (A) = Liabilities (L) + Owner's Equity (OE)</span>.
+                                    </p>
+                                </div>
+
+                                <!-- Equation Proof Box -->
+                                <div
+                                    class="bg-slate-800/80 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-indigo-400/20 shadow-lg min-w-[280px]">
+                                    <div
+                                        class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center justify-between">
+                                        <span>Accounting Equation Proof</span>
+                                        <span id="accounting-eq-status"
+                                            class="px-2 py-0.5 text-[9px] font-extrabold uppercase rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">Verified</span>
+                                    </div>
+                                    <div class="font-mono text-xs md:text-sm font-bold space-y-1 text-slate-200">
+                                        <div class="flex justify-between items-center"><span class="text-teal-400">Assets (A):</span> <span id="accounting-eq-assets">৳0.00</span></div>
+                                        <div class="text-slate-400 text-[10px] text-center font-serif italic">=</div>
+                                        <div class="flex justify-between items-center"><span class="text-amber-400">Liabilities (L):</span> <span id="accounting-eq-liab">৳0.00</span></div>
+                                        <div class="flex justify-between items-center"><span class="text-indigo-400">+ Owner's Equity (OE):</span> <span id="accounting-eq-equity">৳0.00</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 13-Stage Visual Workflow Stepper (Wrapped, No Side Scroll) -->
+                            <div class="mt-8 pt-6 border-t border-slate-700/60">
+                                <div
+                                    class="text-xs font-black uppercase tracking-wider text-indigo-300 mb-4 flex items-center justify-between">
+                                    <span class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                                            </path>
+                                        </svg>
+                                        Accounting Process Cycle Pipeline (13 Sequential Stages)
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-normal">Click any stage to jump</span>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                    <button onclick="window.jumpToAccountingStage(1)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">1</span>
+                                        <span>Transaction</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(2)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">2</span>
+                                        <span>Analyze Transaction</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(3)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-teal-900/60 hover:bg-teal-600 text-teal-200 hover:text-white font-bold transition-all border border-teal-500/40 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-teal-500/30 text-teal-300 text-[10px] flex items-center justify-center font-black">3</span>
+                                        <span>Math for A = L + OE</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(4)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">4</span>
+                                        <span>Identify Accounts</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(5)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">5</span>
+                                        <span>Journal Entry</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(6)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">6</span>
+                                        <span>Ledger (T-Accounts)</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(7)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">7</span>
+                                        <span>Trial Balance</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(8)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">8</span>
+                                        <span>Adjusting Entries</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(9)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">9</span>
+                                        <span>Income Statement</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(10)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">10</span>
+                                        <span>Statement of Owner's Equity</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(11)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">11</span>
+                                        <span>Balance Sheet</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(12)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">12</span>
+                                        <span>Closing Entries</span>
+                                    </button>
+                                    <span class="text-slate-500 font-bold">→</span>
+
+                                    <button onclick="window.jumpToAccountingStage(13)"
+                                        class="stage-nav-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white font-bold transition-all border border-slate-700 flex items-center gap-1.5 text-[11px]">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-black">13</span>
+                                        <span>Post-Closing Trial Balance</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STAGE SECTIONS CONTAINER -->
+                        <div id="accounting-stages-wrapper" class="space-y-8">
+                        </div>
+                    </div>
+
+                    <!-- TAB 6: DATABASE LOG & ALL MOVEMENT RECORDS -->
+                    <div id="fiscal-pane-database" class="hidden space-y-4 sm:space-y-6">
+                        <!-- Toolbar & Filtering Controls -->
+                        <div
+                            class="bg-slate-50 dark:bg-slate-900/50 p-3.5 sm:p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 space-y-3.5">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-black text-xs sm:text-sm dark:text-white uppercase tracking-wider">Database Filters & Date Range</h4>
+                                <button onclick="window.resetFiscalDbFilters()" class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 hover:underline">Reset Filters</button>
+                            </div>
+
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                                <!-- Date Presets -->
+                                <div class="space-y-1 col-span-2 sm:col-span-1">
+                                    <label class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">Date Range Preset</label>
+                                    <select id="fiscal-db-date-preset" onchange="window.applyFiscalDbDatePreset(this.value)" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                        <option value="ALL">All Time</option>
+                                        <option value="TODAY">Today Only</option>
+                                        <option value="THIS_WEEK">This Week</option>
+                                        <option value="THIS_MONTH" selected>This Month</option>
+                                        <option value="LAST_MONTH">Last Month</option>
+                                        <option value="THIS_YEAR">This Year</option>
+                                    </select>
+                                </div>
+
+                                <!-- Start Date -->
+                                <div class="space-y-1">
+                                    <label class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">Start Date</label>
+                                    <input type="date" id="fiscal-db-start-date" onchange="window.renderFiscalDatabaseTab()" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                </div>
+
+                                <!-- End Date -->
+                                <div class="space-y-1">
+                                    <label class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">End Date</label>
+                                    <input type="date" id="fiscal-db-end-date" onchange="window.renderFiscalDatabaseTab()" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                </div>
+
+                                <!-- Flow / Movement Type Filter -->
+                                <div class="space-y-1">
+                                    <label class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">Movement Type</label>
+                                    <select id="fiscal-db-filter-type" onchange="window.renderFiscalDatabaseTab()" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                        <option value="ALL">All Movement Types</option>
+                                        <option value="inflow">Cashflow Inflow (+CR)</option>
+                                        <option value="outflow">Cashflow Outflow (-DR)</option>
+                                        <option value="budget_set">Budget Set & Limit Adds</option>
+                                        <option value="budget_fund">Budget Fund Transfers</option>
+                                        <option value="vault_transfer">Vault-to-Vault Transfers</option>
+                                        <option value="deposit_withdrawal">Vault Deposits & Withdrawals</option>
+                                        <option value="auto_topup">Auto Top-Up Deficits</option>
+                                    </select>
+                                </div>
+
+                                <!-- Category Filter -->
+                                <div class="space-y-1 col-span-2 sm:col-span-1">
+                                    <label class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400">Category / Account</label>
+                                    <select id="fiscal-db-filter-category" onchange="window.renderFiscalDatabaseTab()" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                        <option value="ALL">All Categories</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Search Input -->
+                            <div class="relative pt-1">
+                                <input type="text" id="fiscal-db-search-input" onkeyup="window.renderFiscalDatabaseTab()" placeholder="Search movements by title, category, ref ID, or amount..." class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 pl-9">
+                                <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                        </div>
+
+                        <!-- Summary KPI Metrics for Filtered Selection -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
+                            <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm min-w-0">
+                                <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 truncate">Total Movements</div>
+                                <div id="fiscal-db-kpi-count" class="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate">0</div>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm min-w-0">
+                                <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1 truncate">Filtered Inflow</div>
+                                <div id="fiscal-db-kpi-inflow" class="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 truncate">৳0.00</div>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm min-w-0">
+                                <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-1 truncate">Filtered Outflow</div>
+                                <div id="fiscal-db-kpi-outflow" class="text-lg sm:text-xl font-black text-rose-600 dark:text-rose-400 truncate">৳0.00</div>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm min-w-0">
+                                <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 truncate">Net Range Movement</div>
+                                <div id="fiscal-db-kpi-net" class="text-lg sm:text-xl font-black text-teal-600 dark:text-teal-400 truncate">৳0.00</div>
+                            </div>
+                        </div>
+
+                        <!-- Movements Table Container (Desktop / Tablet) -->
+                        <div class="hidden md:block overflow-x-auto custom-scrollbar border border-slate-200/60 dark:border-slate-700/60 rounded-2xl">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 dark:bg-slate-900/80 text-slate-500 font-black uppercase tracking-widest text-[9px] border-b border-slate-200 dark:border-slate-700">
+                                        <th class="py-3.5 px-4">Ref ID</th>
+                                        <th class="py-3.5 px-4">Date</th>
+                                        <th class="py-3.5 px-4">Movement Title & Details</th>
+                                        <th class="py-3.5 px-4">Category / Account</th>
+                                        <th class="py-3.5 px-4">Flow Type</th>
+                                        <th class="py-3.5 px-4 text-right">Amount</th>
+                                        <th class="py-3.5 px-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fiscal-db-table-body" class="divide-y divide-slate-100 dark:divide-slate-700/50 font-medium">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Mobile Database Cards Container (Realme 8 / Mobile Phones) -->
+                        <div id="fiscal-db-mobile-cards" class="block md:hidden space-y-2.5">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+<!-- Fiscal Modals -->
+            <!-- Fiscal Transaction Modal -->
 
 
 
@@ -5407,6 +6150,666 @@
 
             </div>
         </div>
+
+<div id="fiscal-tx-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-tx-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-tx-modal')"></div>
+                <div id="fiscal-tx-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 12v-2m-9 1V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 id="fiscal-tx-modal-title" class="text-lg sm:text-xl font-black dark:text-white">Log Cash Flow Entry</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Record double-entry cash inflow or outflow</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-tx-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <form onsubmit="window.saveFiscalTransaction(event)" class="flex flex-col flex-1 min-h-0">
+                        <div class="space-y-4 overflow-y-auto max-h-[60vh] sm:max-h-[70vh] pr-1 custom-scrollbar my-1 flex-1">
+                            <input type="hidden" id="fiscal-tx-id">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label
+                                        class="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</label>
+                                    <input type="date" id="fiscal-tx-date" required
+                                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label
+                                        class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transaction
+                                        Flow (DR / CR)</label>
+                                    <input type="hidden" id="fiscal-tx-type" value="dr">
+                                    <div
+                                        class="flex gap-2 p-1 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                                        <button type="button" id="fiscal-tx-btn-dr" onclick="window.setFiscalTxType('dr')"
+                                            class="flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all bg-rose-600 text-white shadow active:scale-95">
+                                            - DR (Expense)
+                                        </button>
+                                        <button type="button" id="fiscal-tx-btn-cr" onclick="window.setFiscalTxType('cr')"
+                                            class="flex-1 py-2 px-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                                            + CR (Income)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Name /
+                                        Entry Title</label>
+                                    <input type="text" id="fiscal-tx-head" placeholder="e.g. Course Fee, Rent, Tutoring"
+                                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label id="fiscal-tx-category-label"
+                                        class="text-[10px] font-black uppercase tracking-widest text-slate-400">Expense Source (Budget / Vault)</label>
+                                    <select id="fiscal-tx-category"
+                                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                        <!-- Populated dynamically via setFiscalTxType() -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount (৳
+                                    BDT) <span class="text-rose-500 font-black">*</span></label>
+                                <input type="number" step="0.01" min="0.01" id="fiscal-tx-amount" placeholder="0.00"
+                                    required
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            </div>
+
+                            <!-- Notice Banner for Auto Liquid Source Top-Up -->
+                            <div class="p-3 bg-teal-500/10 dark:bg-teal-950/40 rounded-xl border border-teal-500/20 flex items-center gap-2.5">
+                                <svg class="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                <p class="text-[10px] font-bold text-teal-800 dark:text-teal-300 leading-tight">
+                                    <span class="font-black">Auto Liquid Coverage:</span> If an expense exceeds remaining budget, deficit automatically transfers from your primary Liquid Source Vault into the budget.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-700/60 shrink-0 mt-auto">
+                            <button type="button" onclick="closeModal('fiscal-tx-modal')"
+                                class="w-1/3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-slate-200 transition-all">Cancel</button>
+                            <button type="submit"
+                                class="w-2/3 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all shadow-md active:scale-95">Save
+                                Entry</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Fiscal Budget Modal -->
+            <div id="fiscal-budget-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-budget-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-budget-modal')"></div>
+                <div id="fiscal-budget-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 id="fiscal-bgt-modal-title" class="text-lg sm:text-xl font-black dark:text-white">Set Category Budget</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Define monthly target expense limits</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-budget-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <form onsubmit="window.saveFiscalBudget(event)" class="flex flex-col flex-1 min-h-0">
+                        <div class="space-y-4 overflow-y-auto max-h-[60vh] sm:max-h-[70vh] pr-1 custom-scrollbar my-1 flex-1">
+                            <input type="hidden" id="fiscal-bgt-id">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Name of
+                                    Budget For</label>
+                                <input type="text" id="fiscal-bgt-category"
+                                    placeholder="e.g. Tuition, Housing, Living Expenses" required
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount (৳
+                                    BDT)</label>
+                                <input type="number" step="1" min="1" id="fiscal-bgt-amount" placeholder="5000" required
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Source from
+                                    Vault (Dr. Vault -> Cr. Budget)</label>
+                                <select id="fiscal-bgt-vault"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                    <option value="">None / General Operating Cash</option>
+                                    <!-- Dynamically populated via openFiscalBudgetModal() -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-700/60 shrink-0 mt-auto">
+                            <button type="button" onclick="closeModal('fiscal-budget-modal')"
+                                class="w-1/3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-slate-200 transition-all">Cancel</button>
+                            <button type="submit"
+                                class="w-2/3 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all shadow-md active:scale-95">Set
+                                & Fund Budget</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Fiscal Vault Modal -->
+            <div id="fiscal-vault-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-vault-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-vault-modal')"></div>
+                <div id="fiscal-vault-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 id="fiscal-vlt-modal-title" class="text-lg sm:text-xl font-black dark:text-white">Create Savings / Hold Vault</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Specify reserve vault name & account location</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-vault-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <form onsubmit="window.saveFiscalVault(event)" class="flex flex-col flex-1 min-h-0">
+                        <div class="space-y-4 overflow-y-auto max-h-[60vh] sm:max-h-[70vh] pr-1 custom-scrollbar my-1 flex-1">
+                            <input type="hidden" id="fiscal-vlt-id">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Vault Name
+                                    <span class="text-rose-500 font-black">*</span></label>
+                                <input type="text" id="fiscal-vlt-name" placeholder="e.g. Emergency Reserve / Savings Fund"
+                                    required
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Storage
+                                    Location / Account</label>
+                                <input type="text" id="fiscal-vlt-location" placeholder="e.g. Prime Bank AC #401 / Bkash"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Currently
+                                        Saved / Held (৳ BDT)</label>
+                                    <input type="number" step="0.01" min="0" id="fiscal-vlt-current" placeholder="0.00"
+                                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Target
+                                        Goal Amount (৳ BDT)</label>
+                                    <input type="number" step="0.01" min="0" id="fiscal-vlt-target" placeholder="e.g. 10000"
+                                        class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-700/60 shrink-0 mt-auto">
+                            <button type="button" onclick="closeModal('fiscal-vault-modal')"
+                                class="w-1/3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-slate-200 transition-all">Cancel</button>
+                            <button type="submit"
+                                class="w-2/3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all shadow-md active:scale-95">Save
+                                Vault</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Fiscal Deposit Modal -->
+            <div id="fiscal-deposit-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-deposit-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-deposit-modal')"></div>
+                <div id="fiscal-deposit-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 id="fiscal-dep-modal-title" class="text-lg sm:text-xl font-black dark:text-white">Vault Transfer</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Deposit or withdraw vault capital</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-deposit-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <form onsubmit="window.processFiscalTransfer(event)" class="flex flex-col flex-1 min-h-0">
+                        <div class="space-y-4 overflow-y-auto max-h-[50vh] sm:max-h-[65vh] pr-1 custom-scrollbar my-1 flex-1">
+                            <input type="hidden" id="fiscal-dep-vlt-id">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer Action</label>
+                                <select id="fiscal-dep-type"
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                    <option value="deposit">Deposit Capital Into Vault (+)</option>
+                                    <option value="withdraw">Withdraw Capital From Vault (-)</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer Amount (৳ BDT)</label>
+                                <input type="number" step="0.01" min="0.01" id="fiscal-dep-amount" placeholder="1000.00"
+                                    required
+                                    class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-700/60 shrink-0 mt-auto">
+                            <button type="button" onclick="closeModal('fiscal-deposit-modal')"
+                                class="w-1/3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-slate-200 transition-all">Cancel</button>
+                            <button type="submit"
+                                class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all shadow-md active:scale-95">Confirm Transfer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Vault-to-Vault Money Transfer Modal -->
+            <div id="fiscal-vault-transfer-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-vault-transfer-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-vault-transfer-modal')"></div>
+                <div id="fiscal-vault-transfer-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-lg sm:text-xl font-black dark:text-white">Transfer Money Between Vaults</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Move capital directly from sender vault to receiver vault</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-vault-transfer-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <form onsubmit="window.executeVaultToVaultTransfer(event)" class="flex flex-col flex-1 min-h-0">
+                        <div class="space-y-4 overflow-y-auto max-h-[48vh] sm:max-h-[65vh] pr-1 custom-scrollbar my-1 flex-1">
+                            <!-- Side-by-side Sender & Receiver Vaults Grid -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 relative">
+                                <!-- Sender Vault (Left) -->
+                                <div
+                                    class="bg-rose-50/60 dark:bg-rose-950/20 p-3.5 sm:p-4 rounded-2xl border border-rose-200/60 dark:border-rose-900/40 flex flex-col gap-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <span
+                                            class="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                                    d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>
+                                            </svg>
+                                            Sender Vault (From)
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-[10px] font-black uppercase text-slate-400">Select Sender</label>
+                                        <select id="fiscal-xfer-sender-vlt" onchange="window.updateVaultTransferPreview()"
+                                            required
+                                            class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 sm:p-3 text-xs font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                            <!-- Populated via JS -->
+                                        </select>
+                                    </div>
+                                    <div
+                                        class="bg-white/80 dark:bg-slate-900/60 p-2.5 sm:p-3 rounded-xl border border-rose-100 dark:border-rose-900/30 flex flex-col gap-0.5">
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase">Current Balance</span>
+                                        <div id="fiscal-xfer-sender-curr"
+                                            class="text-sm sm:text-base font-black text-rose-600 dark:text-rose-400">৳0.00</div>
+                                        <div id="fiscal-xfer-sender-after" class="text-[9px] font-bold text-slate-500">
+                                            After Transfer: ৳0.00</div>
+                                    </div>
+                                </div>
+
+                                <!-- Receiver Vault (Right) -->
+                                <div
+                                    class="bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5 sm:p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-900/40 flex flex-col gap-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <span
+                                            class="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                                    d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                                            </svg>
+                                            Receiver Vault (To)
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-[10px] font-black uppercase text-slate-400">Select Receiver</label>
+                                        <select id="fiscal-xfer-receiver-vlt" onchange="window.updateVaultTransferPreview()"
+                                            required
+                                            class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 sm:p-3 text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                            <!-- Populated via JS -->
+                                        </select>
+                                    </div>
+                                    <div
+                                        class="bg-white/80 dark:bg-slate-900/60 p-2.5 sm:p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30 flex flex-col gap-0.5">
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase">Current Balance</span>
+                                        <div id="fiscal-xfer-receiver-curr"
+                                            class="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400">৳0.00</div>
+                                        <div id="fiscal-xfer-receiver-after" class="text-[9px] font-bold text-slate-500">
+                                            After Transfer: ৳0.00</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Transfer Amount Field -->
+                            <div
+                                class="flex flex-col gap-1 bg-slate-50 dark:bg-slate-900/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer
+                                    Amount (৳ BDT) <span class="text-rose-500 font-black">*</span></label>
+                                <input type="number" step="0.01" min="0.01" id="fiscal-xfer-amount"
+                                    oninput="window.updateVaultTransferPreview()"
+                                    placeholder="Enter amount to transfer (e.g. 5000.00)" required
+                                    class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-700/60 shrink-0 mt-auto">
+                            <button type="button" onclick="closeModal('fiscal-vault-transfer-modal')"
+                                class="w-1/3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3.5 rounded-xl hover:bg-slate-200 transition-all">Cancel</button>
+                            <button type="submit"
+                                class="w-2/3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                                <span>Confirm Transfer</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Vault-to-Budget Money Transfer Modal -->
+            <div id="fiscal-vault-to-budget-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-vault-to-budget-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-vault-to-budget-modal')"></div>
+                <div id="fiscal-vault-to-budget-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-xl border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-3 sm:pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-xl">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-lg sm:text-xl font-black dark:text-white">Fund Budget from Vault</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Transfer cash from savings vault into category budget limit</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-vault-to-budget-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <form onsubmit="window.executeVaultToBudgetTransfer(event)" class="flex flex-col flex-1 min-h-0">
+                        <div class="space-y-4 overflow-y-auto max-h-[48vh] sm:max-h-[65vh] pr-1 custom-scrollbar my-1 flex-1">
+                            <!-- Transfer Direction Action Toggle -->
+                            <div
+                                class="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer
+                                    Action</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <button type="button" id="fiscal-v2b-dir-add"
+                                        onclick="window.setVaultToBudgetDirection('add')"
+                                        class="py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border bg-teal-600 text-white border-teal-600 shadow-sm">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span>Add to Budget from Vault</span>
+                                    </button>
+                                    <button type="button" id="fiscal-v2b-dir-remove"
+                                        onclick="window.setVaultToBudgetDirection('remove')"
+                                        class="py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M20 12H4"></path>
+                                        </svg>
+                                        <span>Remove from Budget to Vault</span>
+                                    </button>
+                                </div>
+                                <input type="hidden" id="fiscal-v2b-direction" value="add">
+                            </div>
+
+                        <!-- Side-by-side Sender Vault & Receiver Budget Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+                            <!-- Sender Vault (Left) -->
+                            <div
+                                class="bg-rose-50/60 dark:bg-rose-950/20 p-4 rounded-2xl border border-rose-200/60 dark:border-rose-900/40 flex flex-col gap-3">
+                                <div class="flex items-center justify-between">
+                                    <span id="fiscal-v2b-sender-header"
+                                        class="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                                d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>
+                                        </svg>
+                                        Sender Vault / Savings (From)
+                                    </span>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label id="fiscal-v2b-sender-label"
+                                        class="text-[10px] font-black uppercase text-slate-400">Select Vault</label>
+                                    <select id="fiscal-v2b-sender-vlt" onchange="window.updateVaultToBudgetPreview()"
+                                        required
+                                        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                        <!-- Populated via JS -->
+                                    </select>
+                                </div>
+                                <div
+                                    class="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-rose-100 dark:border-rose-900/30 flex flex-col gap-1">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase">Current Vault
+                                        Balance</span>
+                                    <div id="fiscal-v2b-sender-curr"
+                                        class="text-base font-black text-rose-600 dark:text-rose-400">৳0.00</div>
+                                    <div id="fiscal-v2b-sender-after" class="text-[10px] font-bold text-slate-500">After
+                                        Transfer: ৳0.00</div>
+                                </div>
+                            </div>
+
+                            <!-- Receiver Budget (Right) -->
+                            <div
+                                class="bg-teal-50/60 dark:bg-teal-950/20 p-4 rounded-2xl border border-teal-200/60 dark:border-teal-900/40 flex flex-col gap-3">
+                                <div class="flex items-center justify-between">
+                                    <span id="fiscal-v2b-receiver-header"
+                                        class="text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                                d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                                        </svg>
+                                        Receiver Budget (To)
+                                    </span>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label id="fiscal-v2b-receiver-label"
+                                        class="text-[10px] font-black uppercase text-slate-400">Select Budget</label>
+                                    <select id="fiscal-v2b-receiver-bgt" onchange="window.updateVaultToBudgetPreview()"
+                                        required
+                                        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                        <!-- Populated via JS -->
+                                    </select>
+                                </div>
+                                <div
+                                    class="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-teal-100 dark:border-teal-900/30 flex flex-col gap-1">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase">Current Target
+                                        Budget</span>
+                                    <div id="fiscal-v2b-receiver-curr"
+                                        class="text-base font-black text-teal-600 dark:text-teal-400">৳0.00</div>
+                                    <div id="fiscal-v2b-receiver-after" class="text-[10px] font-bold text-slate-500">New
+                                        Budget Limit: ৳0.00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Transfer Amount Field -->
+                        <div
+                            class="flex flex-col gap-1 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                            <label id="fiscal-v2b-amount-label"
+                                class="text-[10px] font-black uppercase tracking-widest text-slate-400">Funding Amount
+                                (৳ BDT) <span class="text-rose-500 font-black">*</span></label>
+                            <input type="number" step="0.01" min="0.01" id="fiscal-v2b-amount"
+                                oninput="window.updateVaultToBudgetPreview()"
+                                placeholder="Enter amount to transfer into budget (e.g. 2000.00)" required
+                                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                        </div>
+
+                        <div class="flex gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-700/60 shrink-0 mt-auto">
+                            <button type="button" onclick="closeModal('fiscal-vault-to-budget-modal')"
+                                class="w-1/3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3.5 rounded-xl hover:bg-slate-200 transition-all">Cancel</button>
+                            <button type="submit" id="fiscal-v2b-submit-btn"
+                                class="w-2/3 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                                <span id="fiscal-v2b-submit-text">Confirm Budget Funding</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Fiscal Delete Confirmation Modal -->
+            <div id="fiscal-delete-modal"
+                class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all duration-300">
+                <div id="fiscal-delete-backdrop"
+                    class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl transition-opacity duration-300 opacity-0"
+                    onclick="closeModal('fiscal-delete-modal')"></div>
+                <div id="fiscal-delete-content"
+                    class="fiscal-bottom-sheet relative bg-white dark:bg-slate-800 p-5 sm:p-6 md:p-8 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md border border-slate-200/50 dark:border-slate-700/50 z-10 flex flex-col max-h-[90vh] overflow-y-auto custom-scrollbar scale-95 opacity-0 translate-y-4 transition-all duration-300">
+                    <div
+                        class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div
+                                class="p-2.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 id="fiscal-del-modal-title" class="text-xl font-black dark:text-white">Confirm
+                                    Deletion</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                                    Permanent accounting entry removal</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('fiscal-delete-modal')"
+                            class="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl hover:rotate-90 transition-transform active:scale-95"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg></button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div
+                            class="p-4 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/50 dark:border-rose-900/40 rounded-2xl">
+                            <p id="fiscal-del-modal-msg"
+                                class="text-xs text-slate-700 dark:text-slate-300 font-semibold leading-relaxed">Are you
+                                sure you want to delete this record?</p>
+                            <div id="fiscal-del-item-preview"
+                                class="mt-2 text-xs font-black text-rose-600 dark:text-rose-400"></div>
+                        </div>
+
+                        <div class="flex gap-3 pt-2">
+                            <button type="button" onclick="closeModal('fiscal-delete-modal')"
+                                class="w-1/2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-slate-200 transition-all">Keep
+                                Record</button>
+                            <button type="button" onclick="window.executeFiscalDelete()"
+                                class="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg>
+                                <span>Delete Record</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
 </body>
 

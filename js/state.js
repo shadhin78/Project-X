@@ -104,7 +104,8 @@ window.AppState = {
     PLAN_START_DATE: initPlanStartDate,
     PLAN_END_DATE: initPlanEndDate,
     showSync: false,
-    serverTimeOffset: 0
+    serverTimeOffset: 0,
+    fiscalLedger: { transactions: [], budgets: [], vaults: [] }
 };
 
 // Define transparent properties on window to alias AppState keys
@@ -123,7 +124,8 @@ const stateKeys = [
     'trendDatasetVisibility', 'dashboardConfig', 'passedItems', 'revisionData',
     'currentGhmTab', 'subjectColors', 'twColors', 'customActions', 'paceGoals',
     'globalStartDate', 'globalEndDate', 'dynamicLineColors', 'isInitialLoad',
-    'currentFilter', 'PLAN_START_DATE', 'PLAN_END_DATE', 'showSync', 'serverTimeOffset'
+    'currentFilter', 'PLAN_START_DATE', 'PLAN_END_DATE', 'showSync', 'serverTimeOffset',
+    'fiscalLedger'
 ];
 
 stateKeys.forEach(key => {

@@ -223,7 +223,8 @@ window.FirebaseService = {
                 dailyTargetsDatabase: window.dailyTargetsDatabase || {},
                 scheduleBlocks: window.scheduleBlocks || [],
                 scheduleBlocks2: window.scheduleBlocks2 || [],
-                scheduleGroups: window.scheduleGroups || []
+                scheduleGroups: window.scheduleGroups || [],
+                fiscalLedger: AppState.fiscalLedger || { transactions: [], budgets: [], vaults: [] }
             };
             window.appState = payload;
 
@@ -333,6 +334,7 @@ window.FirebaseService = {
                 if (data.scheduleBlocks) window.scheduleBlocks = data.scheduleBlocks;
                 if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
                 if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
+                if (data.fiscalLedger) AppState.fiscalLedger = data.fiscalLedger;
 
                 window.ensureConfigDefaults();
                 window.migrateLegacyData();
