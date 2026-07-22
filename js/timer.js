@@ -2017,6 +2017,7 @@
         });
 
         safeSetText('timer-stat-today', getDurationString(secondsToday));
+        safeSetText('dash-timer-today-focus', getDurationString(secondsToday));
         safeSetText('timer-stat-week', getDurationString(secondsWeek));
         safeSetText('timer-stat-month', getDurationString(secondsMonth));
 

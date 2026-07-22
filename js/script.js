@@ -1634,7 +1634,30 @@ window.updateActiveScheduleSlot = function () {
                     </div>
                 `;
     } else {
-        // Empty Focus Timer card (clickable navigation to timer page)
+        // Calculate Today's Focus duration from timer logs
+        const timerLogsList = (window.AppState && window.AppState.timerLogs) ? window.AppState.timerLogs : (window.timerLogs || []);
+        const todayDateObj = new Date();
+        todayDateObj.setHours(0, 0, 0, 0);
+        const todayStartTimestamp = todayDateObj.getTime();
+
+        let todayFocusSeconds = 0;
+        if (Array.isArray(timerLogsList)) {
+            timerLogsList.forEach(log => {
+                if (!log || !log.date) return;
+                const logDateMs = new Date(log.date).getTime();
+                const dur = parseInt(log.duration || 0, 10);
+                if (!isNaN(logDateMs) && logDateMs >= todayStartTimestamp && !isNaN(dur)) {
+                    todayFocusSeconds += dur;
+                }
+            });
+        }
+
+        const tHrs = Math.floor(todayFocusSeconds / 3600);
+        const tMins = Math.floor((todayFocusSeconds % 3600) / 60);
+        const tSecs = todayFocusSeconds % 60;
+        const todayFocusClockText = `${String(tHrs).padStart(2, '0')}:${String(tMins).padStart(2, '0')}:${String(tSecs).padStart(2, '0')}`;
+
+        // Empty Focus Timer card displaying Today's Focus (clickable navigation to timer page)
         dashTimerHtml = `
                     <div class="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl shadow-sm flex flex-col overflow-hidden h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
                         <div class="p-4 pb-2 border-b border-slate-100 dark:border-slate-700 select-none flex justify-between items-center">
@@ -1646,13 +1669,19 @@ window.updateActiveScheduleSlot = function () {
                             </span>
                         </div>
                         
-                        <div class="bg-slate-50/40 dark:bg-slate-900/20 flex flex-col items-center justify-center text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98 flex-1 rounded-b-[22px] rounded-t-none p-5"
+                        <div class="bg-slate-50/40 dark:bg-slate-900/20 flex flex-col items-center justify-between text-center transition-all cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-900/40 select-none active:scale-98 flex-1 rounded-b-[22px] rounded-t-none p-4"
                              onclick="window.switchPage('timer')">
-                            <div class="flex items-center gap-2.5">
-                                <span class="text-2xl">⏱️</span>
-                                <h4 class="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h4>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">⏱️</span>
+                                <h4 class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Focus Timer</h4>
                             </div>
-                            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mt-2.5">No active timer session.<br>Tap to start focusing &rarr;</p>
+                            
+                            <div class="w-full bg-white dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700/70 rounded-2xl py-2 px-3 shadow-xs flex flex-col items-center justify-center">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Today's Focus</span>
+                                <span id="dash-timer-today-focus" class="text-xl font-black font-mono tracking-wider text-slate-800 dark:text-white tabular-nums mt-0.5">${todayFocusClockText}</span>
+                            </div>
+
+                            <p class="text-[11px] font-bold text-slate-400 dark:text-slate-500">No active timer session.<br>Tap to start focusing &rarr;</p>
                         </div>
                     </div>
                 `;
