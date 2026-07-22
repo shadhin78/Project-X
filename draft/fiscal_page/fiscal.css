@@ -1,0 +1,24 @@
+/* ===== Fiscal Mobile Optimization Styles ===== */
+@media (max-width: 639px) {
+    .fiscal-bottom-sheet {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        max-height: 88vh !important;
+        animation: fiscalBottomSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+}
+
+@keyframes fiscalBottomSheetSlideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0.8;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

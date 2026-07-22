@@ -81,13 +81,7 @@ window.AppState = {
 
     passedItems: { programs: [], subjects: [] },
     revisionData: { active: [], progress: {} },
-    currentGhmTab: 'timeline',
 
-    fiscalLedger: {
-        transactions: [],
-        budgets: [],
-        vaults: []
-    },
 
     subjectColors: {},
     twColors: {
@@ -126,7 +120,7 @@ const stateKeys = [
     'activeSingleSubjectTrend', 'chartVisibility', 'latestChartStats', 'editingTask',
     'editingPaceId', 'trendTimeFilter', 'subjectTimeLinks', 'subjectDetailsState',
     'currentDadbTab', 'hasShownCongrats', 'successResults', 'editingResultId',
-    'trendDatasetVisibility', 'dashboardConfig', 'passedItems', 'revisionData', 'fiscalLedger',
+    'trendDatasetVisibility', 'dashboardConfig', 'passedItems', 'revisionData',
     'currentGhmTab', 'subjectColors', 'twColors', 'customActions', 'paceGoals',
     'globalStartDate', 'globalEndDate', 'dynamicLineColors', 'isInitialLoad',
     'currentFilter', 'PLAN_START_DATE', 'PLAN_END_DATE', 'showSync', 'serverTimeOffset'
