@@ -2127,6 +2127,278 @@
             }
             window.spectraFocusAnalyticsChartInstance = new Chart(ctx2.getContext('2d'), chartConfig);
         }
+
+        if (window.renderSpectraFocusHeatmap) {
+            window.renderSpectraFocusHeatmap();
+        }
+    };
+
+    window.spectraHeatmapRange = window.spectraHeatmapRange || 365;
+
+    window.setSpectraHeatmapRange = function (days) {
+        window.spectraHeatmapRange = days;
+        const btn30 = document.getElementById('spectra-hm-btn-30');
+        const btn90 = document.getElementById('spectra-hm-btn-90');
+        const btn180 = document.getElementById('spectra-hm-btn-180');
+        const btn365 = document.getElementById('spectra-hm-btn-365');
+
+        const activeClass = "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all bg-indigo-600 text-white shadow shadow-indigo-500/20";
+        const inactiveClass = "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+
+        if (btn30) btn30.className = days === 30 ? activeClass : inactiveClass;
+        if (btn90) btn90.className = days === 90 ? activeClass : inactiveClass;
+        if (btn180) btn180.className = days === 180 ? activeClass : inactiveClass;
+        if (btn365) btn365.className = days === 365 ? activeClass : inactiveClass;
+
+        window.renderSpectraFocusHeatmap();
+    };
+
+    window.renderSpectraFocusHeatmap = function () {
+        const gridEl = document.getElementById('spectra-focus-heatmap-grid');
+        if (!gridEl) return;
+
+        const rangeDays = window.spectraHeatmapRange || 365;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 1. Build date map of focus seconds
+        const dailySecondsMap = {};
+
+        if (AppState.timerLogs && Array.isArray(AppState.timerLogs)) {
+            AppState.timerLogs.forEach(log => {
+                if (!log.date) return;
+                const d = new Date(log.date);
+                if (isNaN(d.getTime())) return;
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                const dur = parseInt(log.duration || 0, 10);
+                dailySecondsMap[key] = (dailySecondsMap[key] || 0) + dur;
+            });
+        }
+
+        // Include current active running timer if any
+        if (AppState.activeTimerState) {
+            let activeMs = 0;
+            if (AppState.activeTimerState.timerStates) {
+                Object.values(AppState.activeTimerState.timerStates).forEach(store => {
+                    let ms = store.elapsedBeforeStart || 0;
+                    if (store.isRunning && store.startTime) {
+                        ms += (window.getServerTime() - parseStartTime(store.startTime));
+                    }
+                    activeMs += ms;
+                });
+            } else {
+                activeMs = AppState.activeTimerState.elapsedBeforeStart || 0;
+                if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                    activeMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
+                }
+            }
+            const activeSec = Math.floor(activeMs / 1000);
+            if (activeSec > 0) {
+                const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                dailySecondsMap[todayKey] = (dailySecondsMap[todayKey] || 0) + activeSec;
+            }
+        }
+
+        // 2. Generate date list starting from a Sunday for grid alignment
+        const endDate = new Date(today);
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - (rangeDays - 1));
+
+        // Align start date to Sunday (day 0)
+        const dayOfWeek = startDate.getDay();
+        if (dayOfWeek !== 0) {
+            startDate.setDate(startDate.getDate() - dayOfWeek);
+        }
+
+        const weeks = [];
+        let currentWeek = [];
+        let curr = new Date(startDate);
+
+        let activeDaysCount = 0;
+        let redCount = 0;
+        let greenCount = 0;
+        let goldCount = 0;
+        let gemCount = 0;
+
+        while (curr <= endDate || currentWeek.length > 0) {
+            const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
+            const isFuture = curr > endDate;
+            const sec = !isFuture ? (dailySecondsMap[key] || 0) : 0;
+            const hours = parseFloat((sec / 3600).toFixed(2));
+
+            if (!isFuture) {
+                if (hours > 0) activeDaysCount++;
+                if (hours > 0 && hours < 4.0) redCount++;
+                else if (hours >= 4.0 && hours < 6.0) greenCount++;
+                else if (hours >= 6.0 && hours < 8.0) goldCount++;
+                else if (hours >= 8.0) gemCount++;
+            }
+
+            currentWeek.push({
+                date: new Date(curr),
+                dateKey: key,
+                hours: hours,
+                seconds: sec,
+                isFuture: isFuture
+            });
+
+            if (currentWeek.length === 7) {
+                weeks.push(currentWeek);
+                currentWeek = [];
+            }
+
+            curr.setDate(curr.getDate() + 1);
+            if (isFuture && currentWeek.length === 0) break;
+        }
+
+        // Calculate Current Streak
+        let streak = 0;
+        let checkDate = new Date(today);
+        while (true) {
+            const k = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+            const s = dailySecondsMap[k] || 0;
+            if (s > 0) {
+                streak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                if (checkDate.getTime() === today.getTime()) {
+                    checkDate.setDate(checkDate.getDate() - 1);
+                    continue;
+                }
+                break;
+            }
+        }
+
+        // Update Stat Counters in UI
+        const elActive = document.getElementById('spectra-hm-stat-active-days');
+        const elStreak = document.getElementById('spectra-hm-stat-streak');
+        const elRed = document.getElementById('spectra-hm-stat-red');
+        const elGreen = document.getElementById('spectra-hm-stat-green');
+        const elGold = document.getElementById('spectra-hm-stat-gold');
+        const elGem = document.getElementById('spectra-hm-stat-gem');
+
+        if (elActive) elActive.innerText = activeDaysCount;
+        if (elStreak) elStreak.innerText = `${streak} days 🔥`;
+        if (elRed) elRed.innerText = redCount;
+        if (elGreen) elGreen.innerText = greenCount;
+        if (elGold) elGold.innerText = goldCount;
+        if (elGem) elGem.innerText = gemCount;
+
+        // 3. Render GitHub Grid (Month Labels + Day Rows)
+        let monthLabelsHtml = '<div class="flex items-center text-[10px] font-extrabold text-slate-400 dark:text-slate-500 mb-1 pl-7 gap-1">';
+        let prevMonth = -1;
+
+        weeks.forEach((wk) => {
+            const firstDayOfWeek = wk[0].date;
+            const month = firstDayOfWeek.getMonth();
+            if (month !== prevMonth) {
+                const monthName = firstDayOfWeek.toLocaleDateString(undefined, { month: 'short' });
+                monthLabelsHtml += `<span class="shrink-0 text-center" style="width: 14px;">${monthName}</span>`;
+                prevMonth = month;
+            } else {
+                monthLabelsHtml += `<span class="shrink-0" style="width: 14px;"></span>`;
+            }
+        });
+        monthLabelsHtml += '</div>';
+
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let gridRowsHtml = '';
+
+        for (let d = 0; d < 7; d++) {
+            const dayLabel = (d === 1 || d === 3 || d === 5) ? dayNames[d] : '';
+            gridRowsHtml += `<div class="flex items-center gap-1">`;
+            gridRowsHtml += `<span class="w-6 text-[9px] font-bold text-slate-400 dark:text-slate-500 shrink-0 text-right pr-1">${dayLabel}</span>`;
+            gridRowsHtml += `<div class="flex items-center gap-1">`;
+
+            weeks.forEach((wk) => {
+                const dayObj = wk[d];
+                if (!dayObj) {
+                    gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] opacity-0 pointer-events-none shrink-0"></div>`;
+                    return;
+                }
+
+                if (dayObj.isFuture) {
+                    gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200/30 dark:border-slate-800/30 opacity-40 shrink-0"></div>`;
+                    return;
+                }
+
+                const hrs = dayObj.hours;
+                let bgClass = "bg-slate-100 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 opacity-70";
+                let tierText = "No Focus (0h)";
+                let badgeClass = "bg-slate-500/20 text-slate-400 border border-slate-500/30";
+
+                if (hrs > 0 && hrs < 4.0) {
+                    bgClass = "bg-rose-500 text-white border border-rose-400 dark:bg-rose-600 dark:border-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.45)] spectra-heatmap-box";
+                    tierText = "🔴 Below 4h Focus";
+                    badgeClass = "bg-rose-500/20 text-rose-400 border border-rose-500/40";
+                } else if (hrs >= 4.0 && hrs < 6.0) {
+                    bgClass = "bg-emerald-500 text-white border border-emerald-400 dark:bg-emerald-600 dark:border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)] spectra-heatmap-box";
+                    tierText = "🟢 Target Met (≥ 4h)";
+                    badgeClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+                } else if (hrs >= 6.0 && hrs < 8.0) {
+                    bgClass = "bg-amber-400 text-amber-950 border border-amber-300 dark:bg-amber-500 dark:border-amber-400 animate-gold-pulse spectra-heatmap-box";
+                    tierText = "🟡 Glowing Golden Focus (≥ 6h)";
+                    badgeClass = "bg-amber-500/20 text-amber-400 border border-amber-500/40";
+                } else if (hrs >= 8.0) {
+                    bgClass = "bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-indigo-500 text-white border border-fuchsia-300 dark:border-fuchsia-400 animate-gem-shimmer spectra-heatmap-box";
+                    tierText = "💎 Precious Gem Master Focus (≥ 8h)";
+                    badgeClass = "bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/40";
+                }
+
+                const formattedDate = dayObj.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                const formattedTime = formatHoursToHrMin(hrs);
+
+                gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] ${bgClass} shrink-0"
+                    data-date="${formattedDate}"
+                    data-time="${formattedTime}"
+                    data-tier="${tierText}"
+                    data-badge="${badgeClass}"
+                    onmouseenter="window.showSpectraHeatmapTooltip(event, this)"
+                    onmousemove="window.moveSpectraHeatmapTooltip(event)"
+                    onmouseleave="window.hideSpectraHeatmapTooltip()">
+                </div>`;
+            });
+
+            gridRowsHtml += `</div></div>`;
+        }
+
+        gridEl.innerHTML = monthLabelsHtml + gridRowsHtml;
+    };
+
+    window.showSpectraHeatmapTooltip = function (e, el) {
+        const tooltip = document.getElementById('spectra-focus-heatmap-tooltip');
+        if (!tooltip) return;
+
+        const date = el.getAttribute('data-date');
+        const time = el.getAttribute('data-time');
+        const tier = el.getAttribute('data-tier');
+        const badgeClass = el.getAttribute('data-badge');
+
+        tooltip.innerHTML = `
+            <div class="text-[10px] text-slate-400 uppercase tracking-widest font-black">${date}</div>
+            <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-xs sm:text-sm font-black text-white">${time}</span>
+                <span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${badgeClass}">${tier}</span>
+            </div>
+        `;
+
+        tooltip.classList.remove('hidden');
+        window.moveSpectraHeatmapTooltip(e);
+    };
+
+    window.moveSpectraHeatmapTooltip = function (e) {
+        const tooltip = document.getElementById('spectra-focus-heatmap-tooltip');
+        if (!tooltip || tooltip.classList.contains('hidden')) return;
+
+        const x = e.clientX + 12;
+        const y = e.clientY - 40;
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+    };
+
+    window.hideSpectraHeatmapTooltip = function () {
+        const tooltip = document.getElementById('spectra-focus-heatmap-tooltip');
+        if (tooltip) tooltip.classList.add('hidden');
     };
 
     window.renderTimerPage = function () {

@@ -16663,6 +16663,7 @@ window.switchPage = function (pageId) {
         if (pageId === 'spectra-analytics') {
             if (window.renderSpectraCircleChart) setTimeout(window.renderSpectraCircleChart, 50);
             if (window.renderTimerAnalyticsChart) setTimeout(window.renderTimerAnalyticsChart, 50);
+            if (window.renderSpectraFocusHeatmap) setTimeout(window.renderSpectraFocusHeatmap, 50);
         }
         } else if (pageId === 'subjects') {
         setTimeout(() => {
