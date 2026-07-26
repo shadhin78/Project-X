@@ -1177,11 +1177,11 @@
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8 items-start">
                     <!-- Left Column: Active Timer/Stopwatch Panel -->
                     <div id="timer-active-panel"
-                        class="xl:col-span-2 rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[400px] transition-all duration-300">
+                        class="xl:col-span-2 rounded-3xl p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center text-center relative overflow-hidden transition-all duration-300 bg-slate-900/80 border border-slate-800/80 shadow-lg backdrop-blur-md">
 
                         <!-- Fullscreen Toggle Button -->
                         <button onclick="window.toggleTimerFullscreen()" id="timer-btn-fullscreen"
-                            class="absolute top-4 right-4 z-20 p-2.5 bg-slate-100/50 hover:bg-slate-200/80 dark:bg-slate-800/40 dark:hover:bg-slate-700/60 rounded-xl transition-all active:scale-95 text-slate-600 dark:text-slate-300"
+                            class="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 p-2.5 bg-slate-800/80 hover:bg-slate-700/90 rounded-xl transition-all active:scale-95 text-slate-300 shadow-md touch-action-manipulation"
                             title="Toggle Fullscreen">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
@@ -1190,16 +1190,16 @@
                             </svg>
                         </button>
 
-                        <div class="relative z-10 w-full max-w-md flex flex-col items-center gap-6">
+                        <div class="relative z-10 w-full max-w-md flex flex-col items-center gap-4 sm:gap-6">
                             <!-- Toggle Tabs -->
                             <div id="timer-mode-switcher"
-                                class="flex bg-slate-100 dark:bg-slate-900/60 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 shadow-inner w-full justify-between backdrop-blur-md">
+                                class="flex bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800/80 shadow-inner w-full justify-between backdrop-blur-md">
                                 <button onclick="window.setTimerMode('stopwatch')" id="tm-mode-stopwatch"
-                                    class="w-1/3 py-2.5 text-[10px] sm:text-xs font-black rounded-xl transition-all bg-blue-600 text-white shadow">STOPWATCH</button>
+                                    class="w-1/3 py-2.5 text-[10px] sm:text-xs font-black rounded-xl transition-all bg-blue-600 text-white shadow touch-action-manipulation">STOPWATCH</button>
                                 <button onclick="window.setTimerMode('timer')" id="tm-mode-timer"
-                                    class="w-1/3 py-2.5 text-[10px] sm:text-xs font-black rounded-xl transition-all text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800/80">TIMER</button>
+                                    class="w-1/3 py-2.5 text-[10px] sm:text-xs font-black rounded-xl transition-all text-slate-400 hover:bg-slate-800/80 touch-action-manipulation">TIMER</button>
                                 <button onclick="window.setTimerMode('alarm')" id="tm-mode-alarm"
-                                    class="w-1/3 py-2.5 text-[10px] sm:text-xs font-black rounded-xl transition-all text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800/80">ALARM
+                                    class="w-1/3 py-2.5 text-[10px] sm:text-xs font-black rounded-xl transition-all text-slate-400 hover:bg-slate-800/80 touch-action-manipulation">ALARM
                                     RANGE</button>
                             </div>
 
@@ -1208,7 +1208,7 @@
                                 <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Track
                                     Time Against:</label>
                                 <select id="timer-subject-select"
-                                    class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs sm:text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-bold w-full cursor-pointer shadow-sm outline-none">
+                                    class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500 font-bold w-full cursor-pointer shadow-sm outline-none touch-action-manipulation">
                                     <option value="General Study">General Study</option>
                                     <!-- Options populated dynamically from tracks/programs/subjects -->
                                 </select>
@@ -1216,16 +1216,16 @@
 
                             <!-- Alarm / Range Mode Controls (Visible only in alarm mode) -->
                             <div id="timer-alarm-container"
-                                class="hidden flex-col gap-4 w-full text-left bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-800/80">
+                                class="hidden flex-col gap-4 w-full text-left bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
                                 <div class="flex items-center justify-between">
                                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Alarm
                                         Range Configuration</span>
                                     <label class="flex items-center gap-1.5 cursor-pointer select-none">
                                         <input type="checkbox" id="timer-alarm-use-current"
-                                            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                            class="rounded border-slate-700 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 bg-slate-900"
                                             checked onchange="window.toggleAlarmUseCurrent()" />
                                         <span
-                                            class="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Use
+                                            class="text-[9px] font-black uppercase tracking-wider text-slate-400">Use
                                             Current Time</span>
                                     </label>
                                 </div>
@@ -1235,7 +1235,7 @@
                                             class="text-[9px] font-black uppercase tracking-wider text-slate-400">Start
                                             Time</label>
                                         <input type="time" id="timer-alarm-start"
-                                            class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white font-bold outline-none w-full shadow-sm"
+                                            class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white font-bold outline-none w-full shadow-sm touch-action-manipulation"
                                             disabled />
                                     </div>
                                     <div class="flex flex-col gap-1.5">
@@ -1243,61 +1243,80 @@
                                             class="text-[9px] font-black uppercase tracking-wider text-slate-400">End
                                             Time</label>
                                         <input type="time" id="timer-alarm-end"
-                                            class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white font-bold outline-none w-full shadow-sm" />
+                                            class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white font-bold outline-none w-full shadow-sm touch-action-manipulation" />
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Big Clock Display -->
+                            <!-- Big Chronograph Clock Display (Flat Responsive Design) -->
                             <div id="timer-clock-container"
-                                class="relative flex items-center justify-center w-64 h-64 md:w-72 md:h-72 transition-all duration-500">
-                                <!-- Glowing outer ring SVG -->
-                                <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="46" stroke="rgba(148, 163, 184, 0.1)" stroke-width="4"
-                                        fill="none" />
-                                    <circle id="timer-progress-ring" cx="50" cy="50" r="46" stroke="#3b82f6"
-                                        stroke-width="4" fill="none" stroke-dasharray="289" stroke-dashoffset="0"
-                                        stroke-linecap="round"
-                                        class="transition-all duration-300 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                class="relative flex items-center justify-center w-60 h-60 xs:w-72 xs:h-72 sm:w-80 sm:h-80 md:w-96 md:h-96 transition-all duration-500 select-none rounded-full bg-transparent my-1 sm:my-2">
+                                <svg id="chronograph-svg" class="w-full h-full overflow-visible" viewBox="0 0 300 300">
+                                    <!-- Main Dial Ticks (60 ticks painted directly on background) -->
+                                    <g id="chrono-ticks-container"></g>
+
+                                    <!-- Main Dial Numbers (5, 10, ..., 60) -->
+                                    <g id="chrono-numbers-container"></g>
+
+                                    <!-- Sub-dial (30-Minute Accumulator at 6 o'clock: CX=150, CY=205, R=38) -->
+                                    <g id="chrono-subdial-group">
+                                        <circle cx="150" cy="205" r="38" fill="none" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.5" class="text-slate-400 dark:text-slate-600" />
+                                        <g id="chrono-subdial-ticks"></g>
+                                        <g id="chrono-subdial-numbers"></g>
+                                        <!-- Subdial Needle -->
+                                        <line id="chrono-subdial-hand" x1="150" y1="205" x2="150" y2="175" stroke="var(--chrono-subdial-hand)" stroke-width="2" stroke-linecap="round" style="transform-origin: 150px 205px; transform: rotate(0deg);" />
+                                        <circle cx="150" cy="205" r="2.5" fill="var(--chrono-subdial-hand)" />
+                                    </g>
+
+                                    <!-- Center Axle Pivot Dot -->
+                                    <circle cx="150" cy="150" r="6" fill="var(--chrono-center-hub-outer)" />
+                                    <circle cx="150" cy="150" r="3" fill="var(--chrono-center-hub-inner)" />
+
+                                    <!-- Electric Blue Sweep Hand Needle -->
+                                    <line id="chrono-main-hand" x1="150" y1="150" x2="150" y2="22" stroke="var(--chrono-main-hand)" stroke-width="2.5" stroke-linecap="round" style="transform-origin: 150px 150px; transform: rotate(0deg);" />
                                 </svg>
-                                <div class="flex flex-col items-center justify-center z-10">
-                                    <span id="timer-clock-text"
-                                        class="text-4xl md:text-5xl font-black text-slate-800 dark:text-white font-mono tracking-wider drop-shadow-sm">00:00:00</span>
-                                    <span id="timer-status-text"
-                                        class="text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-2">READY</span>
+                            </div>
+
+                            <!-- Digital Time & Status Display (Outside Below Clock) -->
+                            <div id="timer-digital-display-container" class="flex flex-col items-center justify-center my-1 select-none">
+                                <div id="timer-clock-text-split" class="font-mono text-3xl xs:text-4xl sm:text-5xl md:text-6xl font-black tracking-tight drop-shadow-md leading-none flex items-baseline">
+                                    <span id="timer-clock-hhmm" class="text-slate-900 dark:text-white transition-colors duration-300">00:</span><span id="timer-clock-ssms" class="text-blue-600 dark:text-blue-500 transition-colors duration-300">00.00</span>
                                 </div>
+                                <!-- Hidden fallback element for existing text selectors -->
+                                <span id="timer-clock-text" class="hidden">00:00:00</span>
+                                <span id="timer-status-text" class="text-[9px] sm:text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-1.5 sm:mt-2">READY</span>
                             </div>
 
                             <!-- Preset Timers (Visible only in timer mode) -->
-                            <div id="timer-presets-container" class="hidden flex-wrap justify-center gap-2 w-full">
+                            <div id="timer-presets-container" class="hidden flex-wrap justify-center gap-1.5 sm:gap-2 w-full max-w-md my-1">
                                 <button onclick="window.setTimerPreset(15)"
-                                    class="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-blue-500 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all border border-slate-200/50 dark:border-slate-800">15
+                                    class="flex-1 min-w-[65px] py-2 px-2 bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase transition-all border border-slate-700/60 active:scale-95 touch-action-manipulation shadow-sm">15
                                     Min</button>
                                 <button onclick="window.setTimerPreset(25)"
-                                    class="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-blue-500 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all border border-slate-200/50 dark:border-slate-800">25
-                                    Min (Pomo)</button>
+                                    class="flex-1 min-w-[75px] py-2 px-2 bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase transition-all border border-slate-700/60 active:scale-95 touch-action-manipulation shadow-sm">25
+                                    Min</button>
                                 <button onclick="window.setTimerPreset(45)"
-                                    class="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-blue-500 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all border border-slate-200/50 dark:border-slate-800">45
+                                    class="flex-1 min-w-[65px] py-2 px-2 bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase transition-all border border-slate-700/60 active:scale-95 touch-action-manipulation shadow-sm">45
                                     Min</button>
                                 <button onclick="window.setTimerPreset(60)"
-                                    class="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-blue-500 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all border border-slate-200/50 dark:border-slate-800">60
+                                    class="flex-1 min-w-[65px] py-2 px-2 bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase transition-all border border-slate-700/60 active:scale-95 touch-action-manipulation shadow-sm">60
                                     Min</button>
                                 <button onclick="window.promptCustomTimer()"
-                                    class="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-blue-500 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all border border-slate-200/50 dark:border-slate-800">Custom</button>
+                                    class="flex-1 min-w-[65px] py-2 px-2 bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase transition-all border border-slate-700/60 active:scale-95 touch-action-manipulation shadow-sm">Custom</button>
                             </div>
 
                             <!-- Control Buttons -->
-                            <div class="flex gap-4 w-full justify-center mt-2">
+                            <div class="flex gap-2 sm:gap-4 w-full max-w-md justify-center items-center mt-2 sm:mt-3">
                                 <button id="timer-btn-reset" onclick="window.resetTimerClick()"
-                                    class="px-6 py-3 bg-slate-100 dark:bg-slate-900/60 hover:bg-slate-200 dark:hover:bg-slate-800/80 border border-slate-200/50 dark:border-slate-800/80 text-[10px] font-black uppercase tracking-widest rounded-2xl active:scale-95 transition-all text-slate-600 dark:text-slate-300">
+                                    class="flex-1 py-3 sm:py-3.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-2xl active:scale-95 transition-all text-slate-300 touch-action-manipulation min-h-[44px]">
                                     RESET
                                 </button>
                                 <button id="timer-btn-toggle" onclick="window.toggleTimerClick()"
-                                    class="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md active:scale-95 transition-all">
+                                    class="flex-[1.4] py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]">
                                     START
                                 </button>
                                 <button id="timer-btn-save" onclick="window.saveTimerSession()" disabled
-                                    class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:pointer-events-none text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md active:scale-95 transition-all">
+                                    class="flex-1 py-3 sm:py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:pointer-events-none text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]">
                                     SAVE
                                 </button>
                             </div>

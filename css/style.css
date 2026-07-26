@@ -550,4 +550,91 @@ select optgroup {
         transform: translateY(0);
         opacity: 1;
     }
-}
+}
+
+/* ===== Chronograph Clock Flat "Painted On Wall" Theme Styling ===== */
+:root {
+    --chrono-tick-major: #0f172a;
+    --chrono-tick-minor: #64748b;
+    --chrono-text-number: #0f172a;
+
+    --chrono-subdial-tick-major: #0f172a;
+    --chrono-subdial-tick-minor: #94a3b8;
+    --chrono-subdial-text: #0f172a;
+    --chrono-subdial-hand: #0f172a;
+
+    --chrono-center-hub-outer: #0f172a;
+    --chrono-center-hub-inner: #2563eb;
+    --chrono-main-hand: #2563eb;
+    --chrono-main-hand-glow: rgba(37, 99, 235, 0.4);
+
+    --chrono-digital-hhmm: #0f172a;
+    --chrono-digital-ssms: #2563eb;
+}
+
+.dark, body.dark, html.dark {
+    --chrono-tick-major: #ffffff;
+    --chrono-tick-minor: #94a3b8;
+    --chrono-text-number: #ffffff;
+
+    --chrono-subdial-tick-major: #ffffff;
+    --chrono-subdial-tick-minor: #64748b;
+    --chrono-subdial-text: #ffffff;
+    --chrono-subdial-hand: #ffffff;
+
+    --chrono-center-hub-outer: #ffffff;
+    --chrono-center-hub-inner: #3b82f6;
+    --chrono-main-hand: #3b82f6;
+    --chrono-main-hand-glow: rgba(59, 130, 246, 0.7);
+
+    --chrono-digital-hhmm: #ffffff;
+    --chrono-digital-ssms: #3b82f6;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --chrono-tick-major: #ffffff;
+        --chrono-tick-minor: #94a3b8;
+        --chrono-text-number: #ffffff;
+
+        --chrono-subdial-tick-major: #ffffff;
+        --chrono-subdial-tick-minor: #64748b;
+        --chrono-subdial-text: #ffffff;
+        --chrono-subdial-hand: #ffffff;
+
+        --chrono-center-hub-outer: #ffffff;
+        --chrono-center-hub-inner: #3b82f6;
+        --chrono-main-hand: #3b82f6;
+        --chrono-main-hand-glow: rgba(59, 130, 246, 0.7);
+
+        --chrono-digital-hhmm: #ffffff;
+        --chrono-digital-ssms: #3b82f6;
+    }
+}
+
+#timer-clock-container {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#chrono-main-hand {
+    stroke: var(--chrono-main-hand);
+    filter: drop-shadow(0 0 5px var(--chrono-main-hand-glow));
+    will-change: transform;
+}
+
+#chrono-subdial-hand {
+    stroke: var(--chrono-subdial-hand);
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
+    will-change: transform;
+}
+
+#timer-clock-text-split span {
+    font-variant-numeric: tabular-nums;
+}
+
+
+
+
+

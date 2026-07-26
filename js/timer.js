@@ -80,6 +80,67 @@
         }
     }
 
+    function initChronographDial() {
+        const ticksContainer = document.getElementById('chrono-ticks-container');
+        const numbersContainer = document.getElementById('chrono-numbers-container');
+        const subdialTicksContainer = document.getElementById('chrono-subdial-ticks');
+        const subdialNumbersContainer = document.getElementById('chrono-subdial-numbers');
+
+        if (!ticksContainer || !numbersContainer || !subdialTicksContainer || !subdialNumbersContainer) return;
+        if (ticksContainer.childElementCount > 0) return; // Already initialized
+
+        // 1. Generate 60 Main Dial Ticks
+        let ticksHTML = '';
+        for (let i = 0; i < 60; i++) {
+            const angle = i * 6;
+            const isMajor = (i % 5 === 0);
+            if (isMajor) {
+                ticksHTML += `<line id="chrono-tick-${i}" x1="150" y1="12" x2="150" y2="24" stroke="var(--chrono-tick-major)" stroke-width="2.5" stroke-linecap="round" style="transform-origin: 150px 150px; transform: rotate(${angle}deg);" />`;
+            } else {
+                ticksHTML += `<line id="chrono-tick-${i}" x1="150" y1="12" x2="150" y2="18" stroke="var(--chrono-tick-minor)" stroke-width="1.2" stroke-opacity="0.6" stroke-linecap="round" style="transform-origin: 150px 150px; transform: rotate(${angle}deg);" />`;
+            }
+        }
+        ticksContainer.innerHTML = ticksHTML;
+
+        // 2. Generate 12 Main Dial Numbers (60, 5, 10, ..., 55)
+        let numbersHTML = '';
+        const mainRadius = 118;
+        for (let i = 0; i < 12; i++) {
+            const angleRad = (i * 30) * (Math.PI / 180);
+            const nx = (150 + mainRadius * Math.sin(angleRad)).toFixed(2);
+            const ny = (150 - mainRadius * Math.cos(angleRad)).toFixed(2);
+            const tickIndex = i * 5;
+            const numText = (i === 0) ? '60' : (i * 5).toString();
+            numbersHTML += `<text id="chrono-num-${tickIndex}" x="${nx}" y="${ny}" fill="var(--chrono-text-number)" font-size="13" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle" dominant-baseline="central">${numText}</text>`;
+        }
+        numbersContainer.innerHTML = numbersHTML;
+
+        // 3. Generate 30 Subdial Ticks (Center: 150, 205, R: 38)
+        let subTicksHTML = '';
+        for (let j = 0; j < 30; j++) {
+            const subAngle = j * 12;
+            const isMajor = (j % 5 === 0);
+            if (isMajor) {
+                subTicksHTML += `<line x1="150" y1="170" x2="150" y2="176" stroke="var(--chrono-subdial-tick-major)" stroke-width="1.8" stroke-linecap="round" style="transform-origin: 150px 205px; transform: rotate(${subAngle}deg);" />`;
+            } else {
+                subTicksHTML += `<line x1="150" y1="170" x2="150" y2="173" stroke="var(--chrono-subdial-tick-minor)" stroke-width="1" stroke-linecap="round" style="transform-origin: 150px 205px; transform: rotate(${subAngle}deg);" />`;
+            }
+        }
+        subdialTicksContainer.innerHTML = subTicksHTML;
+
+        // 4. Generate 6 Subdial Numbers (30, 5, 10, 15, 20, 25)
+        let subNumbersHTML = '';
+        const subRadius = 26;
+        for (let k = 0; k < 6; k++) {
+            const subRad = (k * 60) * (Math.PI / 180);
+            const snx = (150 + subRadius * Math.sin(subRad)).toFixed(2);
+            const sny = (205 - subRadius * Math.cos(subRad)).toFixed(2);
+            const subNumText = (k === 0) ? '30' : (k * 5).toString();
+            subNumbersHTML += `<text x="${snx}" y="${sny}" fill="var(--chrono-subdial-text)" font-size="8" font-weight="700" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle" dominant-baseline="central">${subNumText}</text>`;
+        }
+        subdialNumbersContainer.innerHTML = subNumbersHTML;
+    }
+
     function tickTimer() {
         if (!AppState.activeTimerState) return;
 
@@ -126,7 +187,7 @@
             }
         }
 
-        updateTimerUI(displaySeconds);
+        updateTimerUI(displaySeconds, elapsedMs);
 
         if (!isAnyTimerRunning()) {
             if (AppState.timerInterval) {
@@ -136,40 +197,129 @@
         }
     }
 
-    function updateTimerUI(displaySeconds) {
-        const hrs = Math.floor(displaySeconds / 3600);
-        const mins = Math.floor((displaySeconds % 3600) / 60);
-        const secs = displaySeconds % 60;
-        const clockText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        safeSetText('timer-clock-text', clockText);
+    function updateTimerUI(displaySeconds, elapsedMs) {
+        initChronographDial();
 
-        const progressRing = document.getElementById('timer-progress-ring');
-        if (progressRing) {
-            if (AppState.activeTimerState.mode === 'stopwatch') {
-                const progress = (displaySeconds % 60) / 60;
-                const offset = 289 - (progress * 289);
-                progressRing.setAttribute('stroke-dashoffset', offset);
-            } else {
-                const target = AppState.activeTimerState.targetDuration || 1;
-                const progress = Math.min(1, displaySeconds / target);
-                const offset = 289 - (progress * 289);
-                progressRing.setAttribute('stroke-dashoffset', offset);
+        if (typeof elapsedMs !== 'number') {
+            elapsedMs = displaySeconds * 1000;
+        }
+
+        const mode = AppState.activeTimerState.mode || 'stopwatch';
+
+        // Main Sweep Hand Needle - ALWAYS rotates FORWARD / Clockwise
+        const totalSecsWithFraction = elapsedMs / 1000;
+        const mainHandDeg = (totalSecsWithFraction % 60) * 6;
+        const mainHand = document.getElementById('chrono-main-hand');
+        if (mainHand) {
+            mainHand.style.transform = `rotate(${mainHandDeg}deg)`;
+        }
+
+        // Subdial Hand Needle - ALWAYS rotates FORWARD / Clockwise
+        const subdialDeg = ((totalSecsWithFraction % 1800) / 1800) * 360;
+        const subdialHand = document.getElementById('chrono-subdial-hand');
+        if (subdialHand) {
+            subdialHand.style.transform = `rotate(${subdialDeg}deg)`;
+        }
+
+        // Edge Tick Marks & Radial Numbers Countdown Color Updating
+        if (mode !== 'stopwatch') {
+            const targetMs = Math.max(1000, (AppState.activeTimerState.targetDuration || 1) * 1000);
+            const progressRatio = Math.min(1, Math.max(0, elapsedMs / targetMs));
+            const elapsedTicksCount = Math.floor(progressRatio * 60);
+
+            for (let i = 0; i < 60; i++) {
+                const tickElem = document.getElementById(`chrono-tick-${i}`);
+                if (tickElem) {
+                    const isMajor = (i % 5 === 0);
+                    if (i >= elapsedTicksCount) {
+                        // Remaining time: HIGHLIGHTED in Electric Blue
+                        tickElem.setAttribute('stroke', 'var(--chrono-main-hand)');
+                        tickElem.setAttribute('stroke-opacity', '1');
+                    } else {
+                        // Elapsed time: DECREASED / DIMMED
+                        tickElem.setAttribute('stroke', isMajor ? 'var(--chrono-tick-major)' : 'var(--chrono-tick-minor)');
+                        tickElem.setAttribute('stroke-opacity', '0.2');
+                    }
+                }
+
+                if (i % 5 === 0) {
+                    const numElem = document.getElementById(`chrono-num-${i}`);
+                    if (numElem) {
+                        if (i >= elapsedTicksCount) {
+                            // Remaining time number: HIGHLIGHTED in Electric Blue
+                            numElem.setAttribute('fill', 'var(--chrono-main-hand)');
+                            numElem.setAttribute('fill-opacity', '1');
+                        } else {
+                            // Elapsed time number: DECREASED / DIMMED
+                            numElem.setAttribute('fill', 'var(--chrono-text-number)');
+                            numElem.setAttribute('fill-opacity', '0.25');
+                        }
+                    }
+                }
+            }
+        } else {
+            // Stopwatch Mode: Restore standard full opacity for all ticks & numbers
+            for (let i = 0; i < 60; i++) {
+                const tickElem = document.getElementById(`chrono-tick-${i}`);
+                if (tickElem) {
+                    const isMajor = (i % 5 === 0);
+                    tickElem.setAttribute('stroke', isMajor ? 'var(--chrono-tick-major)' : 'var(--chrono-tick-minor)');
+                    tickElem.setAttribute('stroke-opacity', isMajor ? '1' : '0.6');
+                }
+                if (i % 5 === 0) {
+                    const numElem = document.getElementById(`chrono-num-${i}`);
+                    if (numElem) {
+                        numElem.setAttribute('fill', 'var(--chrono-text-number)');
+                        numElem.setAttribute('fill-opacity', '1');
+                    }
+                }
             }
         }
 
+        // Split-color digital readout calculation
+        let renderMs = elapsedMs;
+        if (mode !== 'stopwatch') {
+            const targetMs = (AppState.activeTimerState.targetDuration || 0) * 1000;
+            renderMs = Math.max(0, targetMs - elapsedMs);
+        }
+
+        const totalSecs = Math.floor(renderMs / 1000);
+        const hrs = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = totalSecs % 60;
+        const hundredths = Math.floor((renderMs % 1000) / 10);
+
+        let hhmmText = '';
+        let ssmsText = '';
+
+        if (hrs > 0) {
+            hhmmText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:`;
+            ssmsText = `${String(secs).padStart(2, '0')}`;
+        } else {
+            hhmmText = `${String(mins).padStart(2, '0')}:`;
+            ssmsText = `${String(secs).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
+        }
+
+        safeSetText('timer-clock-hhmm', hhmmText);
+        safeSetText('timer-clock-ssms', ssmsText);
+
+        const clockText = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        safeSetText('timer-clock-text', clockText);
+
+        // Status text update
         const statusText = document.getElementById('timer-status-text');
         if (statusText) {
             if (AppState.activeTimerState.isRunning) {
                 statusText.textContent = 'FOCUSING';
-                statusText.className = 'text-[8px] font-bold uppercase tracking-widest text-emerald-500 mt-2';
+                statusText.className = 'text-[9px] sm:text-xs font-bold uppercase tracking-widest text-emerald-400 mt-1.5 sm:mt-2';
             } else {
-                let elapsedMs = AppState.activeTimerState.elapsedBeforeStart || 0;
-                if (elapsedMs > 0) {
+                let activeElapsed = AppState.activeTimerState.elapsedBeforeStart || 0;
+                if (activeElapsed > 0) {
                     statusText.textContent = 'PAUSED';
-                    statusText.className = 'text-[8px] font-bold uppercase tracking-widest text-amber-500 mt-2';
+                    statusText.className = 'text-[9px] sm:text-xs font-bold uppercase tracking-widest text-amber-400 mt-1.5 sm:mt-2';
                 } else {
                     statusText.textContent = 'READY';
-                    statusText.className = 'text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-2';
+                    statusText.className = 'text-[9px] sm:text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-1.5 sm:mt-2';
                 }
             }
         }
@@ -178,10 +328,10 @@
         if (toggleBtn) {
             if (AppState.activeTimerState.isRunning) {
                 toggleBtn.textContent = 'PAUSE';
-                toggleBtn.className = 'px-10 py-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md active:scale-95 transition-all';
+                toggleBtn.className = 'flex-[1.4] py-3 sm:py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]';
             } else {
                 toggleBtn.textContent = 'START';
-                toggleBtn.className = 'px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md active:scale-95 transition-all';
+                toggleBtn.className = 'flex-[1.4] py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]';
             }
         }
 
@@ -818,7 +968,7 @@
         tickTimer();
 
         if (isAnyTimerRunning()) {
-            AppState.timerInterval = setInterval(tickTimer, 200);
+            AppState.timerInterval = setInterval(tickTimer, 40);
         }
     };
 
@@ -1976,6 +2126,7 @@
     window.renderTimerPage = function () {
         if (!AppState.timerLogs) AppState.timerLogs = [];
 
+        initChronographDial();
         populateTimerSubjects();
 
         const now = new Date();
