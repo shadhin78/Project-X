@@ -16660,8 +16660,9 @@ window.switchPage = function (pageId) {
         // Resize and repaint again after entry transition completes (400ms animation) to prevent GPU caching/blank canvas bugs
         setTimeout(resizeAndUpdateAll, 420);
 
-        if (pageId === 'spectra-analytics' && window.renderSpectraCircleChart) {
-            setTimeout(window.renderSpectraCircleChart, 50);
+        if (pageId === 'spectra-analytics') {
+            if (window.renderSpectraCircleChart) setTimeout(window.renderSpectraCircleChart, 50);
+            if (window.renderTimerAnalyticsChart) setTimeout(window.renderTimerAnalyticsChart, 50);
         }
         } else if (pageId === 'subjects') {
         setTimeout(() => {

@@ -1254,110 +1254,67 @@
         const style = window.timerAnalyticsChartStyle || 'combo';
         const grouping = window.timerAnalyticsGrouping || 'daily';
 
+        const activeClass = "shrink-0 px-2 sm:px-2.5 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
+        const inactiveClass = "shrink-0 px-2 sm:px-2.5 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+        const disabledClass = "shrink-0 px-2 sm:px-2.5 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
+
         // 1. Sync timeframe buttons styling
         [1, 7, 30, 180].forEach(d => {
             const btn = document.getElementById(`tar-btn-${d}`);
-            if (btn) {
-                if (d === range) {
-                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
-                } else {
-                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
-                }
-            }
+            const spectraBtn = document.getElementById(`spectra-tar-btn-${d}`);
+            if (btn) btn.className = d === range ? activeClass : inactiveClass;
+            if (spectraBtn) spectraBtn.className = d === range ? activeClass : inactiveClass;
         });
 
         // 2. Manage Grouping buttons based on selected Range
-        const hourlyBtn = document.getElementById('tag-btn-hourly');
-        const dailyBtn = document.getElementById('tag-btn-daily');
-        const weeklyBtn = document.getElementById('tag-btn-weekly');
-        const monthlyBtn = document.getElementById('tag-btn-monthly');
-
-        const disabledClass = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed";
-
         if (range === 1) {
-            // Force hourly grouping for Today
             window.timerAnalyticsGrouping = 'hourly';
-            if (hourlyBtn) hourlyBtn.removeAttribute('disabled');
-            if (dailyBtn) {
-                dailyBtn.setAttribute('disabled', 'true');
-                dailyBtn.className = disabledClass;
-            }
-            if (weeklyBtn) {
-                weeklyBtn.setAttribute('disabled', 'true');
-                weeklyBtn.className = disabledClass;
-            }
-            if (monthlyBtn) {
-                monthlyBtn.setAttribute('disabled', 'true');
-                monthlyBtn.className = disabledClass;
-            }
         } else if (range === 7) {
-            // Force daily grouping for 7 days
-            if (window.timerAnalyticsGrouping === 'hourly') {
-                window.timerAnalyticsGrouping = 'daily';
-            }
-            if (hourlyBtn) {
-                hourlyBtn.setAttribute('disabled', 'true');
-                hourlyBtn.className = disabledClass;
-            }
-            if (dailyBtn) dailyBtn.removeAttribute('disabled');
-            if (weeklyBtn) {
-                weeklyBtn.setAttribute('disabled', 'true');
-                weeklyBtn.className = disabledClass;
-            }
-            if (monthlyBtn) {
-                monthlyBtn.setAttribute('disabled', 'true');
-                monthlyBtn.className = disabledClass;
-            }
+            if (window.timerAnalyticsGrouping === 'hourly') window.timerAnalyticsGrouping = 'daily';
         } else if (range === 30) {
-            if (window.timerAnalyticsGrouping === 'hourly' || window.timerAnalyticsGrouping === 'monthly') {
-                window.timerAnalyticsGrouping = 'daily';
-            }
-            if (hourlyBtn) {
-                hourlyBtn.setAttribute('disabled', 'true');
-                hourlyBtn.className = disabledClass;
-            }
-            if (dailyBtn) dailyBtn.removeAttribute('disabled');
-            if (weeklyBtn) weeklyBtn.removeAttribute('disabled');
-            if (monthlyBtn) {
-                monthlyBtn.setAttribute('disabled', 'true');
-                monthlyBtn.className = disabledClass;
-            }
+            if (window.timerAnalyticsGrouping === 'hourly' || window.timerAnalyticsGrouping === 'monthly') window.timerAnalyticsGrouping = 'daily';
         } else {
-            // 180 days: all options allowed except hourly
-            if (window.timerAnalyticsGrouping === 'hourly') {
-                window.timerAnalyticsGrouping = 'daily';
-            }
-            if (hourlyBtn) {
-                hourlyBtn.setAttribute('disabled', 'true');
-                hourlyBtn.className = disabledClass;
-            }
-            if (dailyBtn) dailyBtn.removeAttribute('disabled');
-            if (weeklyBtn) weeklyBtn.removeAttribute('disabled');
-            if (monthlyBtn) monthlyBtn.removeAttribute('disabled');
+            if (window.timerAnalyticsGrouping === 'hourly') window.timerAnalyticsGrouping = 'daily';
         }
 
-        const activeGrouping = window.timerAnalyticsGrouping;
+        const currentGrouping = window.timerAnalyticsGrouping;
+
         ['hourly', 'daily', 'weekly', 'monthly'].forEach(g => {
             const btn = document.getElementById(`tag-btn-${g}`);
-            if (btn) {
-                if (btn.hasAttribute('disabled')) return; // already styled above
-                if (g === activeGrouping) {
-                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
+            const spectraBtn = document.getElementById(`spectra-tag-btn-${g}`);
+            let isDisabled = false;
+
+            if (range === 1 && g !== 'hourly') isDisabled = true;
+            else if (range === 7 && g !== 'daily') isDisabled = true;
+            else if (range === 30 && (g === 'monthly' || g === 'hourly')) isDisabled = true;
+            else if (range === 180 && g === 'hourly') isDisabled = true;
+
+            [btn, spectraBtn].forEach(b => {
+                if (!b) return;
+                if (isDisabled) {
+                    b.setAttribute('disabled', 'true');
+                    b.className = disabledClass;
                 } else {
-                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
+                    b.removeAttribute('disabled');
+                    b.className = g === currentGrouping ? activeClass : inactiveClass;
                 }
-            }
+            });
         });
 
         // 3. Sync Chart Style buttons styling
         ['combo', 'bar', 'line'].forEach(s => {
             const btn = document.getElementById(`tas-btn-${s}`);
-            if (btn) {
-                if (s === style) {
-                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/30 dark:border-slate-700/30";
-                } else {
-                    btn.className = "shrink-0 px-2 py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200";
-                }
+            const spectraBtn = document.getElementById(`spectra-tas-btn-${s}`);
+            if (btn) btn.className = s === style ? activeClass : inactiveClass;
+            if (spectraBtn) spectraBtn.className = s === style ? activeClass : inactiveClass;
+        });
+
+        // Sync Target Input values
+        const targetVal = window.dailyFocusHoursTarget || 4.0;
+        ['timer-target-input', 'spectra-timer-target-input'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input && parseFloat(input.value) !== targetVal) {
+                input.value = targetVal;
             }
         });
     };
@@ -1648,50 +1605,58 @@
                 }
             });
 
-            // Update Stats UI
-            const avgDisplay = document.getElementById('timer-average-focus');
-            if (avgDisplay) {
-                avgDisplay.innerText = formatHoursToHrMin(avgActual);
-            }
+            // Update Stats UI (both Modal and Spectra Pulse page)
+            const avgVal = formatHoursToHrMin(avgActual);
+            const avgTargetVal = formatHoursToHrMin(avgTarget);
+            const totalVal = formatHoursToHrMin(sumActual);
+            const rateStr = `${successRate}%`;
+            const subtitleStr = `${successDays} of ${range} days`;
+            const peakValStr = peakDay.actual > 0 && peakDay.date ? formatHoursToHrMin(peakDay.actual) : "0 min";
+            const peakDateStr = peakDay.actual > 0 && peakDay.date ? peakDay.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "No Data";
 
-            const avgTargetDisplay = document.getElementById('timer-average-target');
-            if (avgTargetDisplay) {
-                avgTargetDisplay.innerText = formatHoursToHrMin(avgTarget);
-            }
+            ['timer-average-focus', 'spectra-timer-average-focus'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = avgVal;
+            });
 
-            const totalDisplay = document.getElementById('timer-total-focus');
-            if (totalDisplay) {
-                totalDisplay.innerText = formatHoursToHrMin(sumActual);
-            }
+            ['timer-average-target', 'spectra-timer-average-target'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = avgTargetVal;
+            });
 
-            const successDisplay = document.getElementById('timer-success-rate');
-            if (successDisplay) {
-                successDisplay.innerText = `${successRate}%`;
-                if (successRate >= 75) {
-                    successDisplay.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
-                } else if (successRate >= 40) {
-                    successDisplay.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
-                } else {
-                    successDisplay.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
+            ['timer-total-focus', 'spectra-timer-total-focus'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = totalVal;
+            });
+
+            ['timer-success-rate', 'spectra-timer-success-rate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.innerText = rateStr;
+                    if (successRate >= 75) {
+                        el.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
+                    } else if (successRate >= 40) {
+                        el.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
+                    } else {
+                        el.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
+                    }
                 }
-            }
+            });
 
-            const successSubtitle = document.getElementById('timer-success-rate-subtitle');
-            if (successSubtitle) {
-                successSubtitle.innerText = `${successDays} of ${range} days`;
-            }
+            ['timer-success-rate-subtitle', 'spectra-timer-success-rate-subtitle'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = subtitleStr;
+            });
 
-            const peakValueDisplay = document.getElementById('timer-peak-value');
-            const peakDateDisplay = document.getElementById('timer-peak-date');
-            if (peakValueDisplay && peakDateDisplay) {
-                if (peakDay.actual > 0 && peakDay.date) {
-                    peakValueDisplay.innerText = formatHoursToHrMin(peakDay.actual);
-                    peakDateDisplay.innerText = peakDay.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                } else {
-                    peakValueDisplay.innerText = "0 min";
-                    peakDateDisplay.innerText = "No Data";
-                }
-            }
+            ['timer-peak-value', 'spectra-timer-peak-value'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = peakValStr;
+            });
+
+            ['timer-peak-date', 'spectra-timer-peak-date'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = peakDateStr;
+            });
 
             // 3. Perform Data Aggregation for Chart
             if (grouping === 'weekly') {
@@ -1997,7 +1962,7 @@
             }
         };
 
-        window.timerAnalyticsChartInstance = new Chart(canvasCtx, {
+        const chartConfig = {
             data: {
                 labels: chartLabels,
                 datasets: datasets
@@ -2145,7 +2110,23 @@
                     }
                 }
             ]
-        });
+        };
+
+        const ctx1 = document.getElementById('timerAnalyticsChart');
+        if (ctx1) {
+            if (window.timerAnalyticsChartInstance) {
+                window.timerAnalyticsChartInstance.destroy();
+            }
+            window.timerAnalyticsChartInstance = new Chart(ctx1.getContext('2d'), chartConfig);
+        }
+
+        const ctx2 = document.getElementById('spectraFocusAnalyticsChart');
+        if (ctx2) {
+            if (window.spectraFocusAnalyticsChartInstance) {
+                window.spectraFocusAnalyticsChartInstance.destroy();
+            }
+            window.spectraFocusAnalyticsChartInstance = new Chart(ctx2.getContext('2d'), chartConfig);
+        }
     };
 
     window.renderTimerPage = function () {

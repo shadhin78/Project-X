@@ -1023,6 +1023,174 @@
                     </div>
                 </div>
 
+                <!-- Embedded Focus Analytics Section (Spectra Pulse Page) -->
+                <div class="bg-white dark:bg-slate-800 p-5 sm:p-7 md:p-8 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm overflow-hidden mb-6 md:mb-8 flex flex-col">
+                    <!-- Header Row -->
+                    <div class="flex justify-between items-center mb-5 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Focus Analytics</h2>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Daywise focus hours compared to target</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 my-2">
+                        <!-- Controls Selector Row -->
+                        <div class="flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-between gap-2 sm:gap-3 px-1 pb-3 border-b border-slate-200 dark:border-slate-700 shrink-0 w-full">
+                            <!-- Timeframe Selector -->
+                            <div class="flex shrink-0 bg-slate-100 dark:bg-slate-900/60 p-0.5 sm:p-1 rounded-xl border border-slate-200/40 dark:border-slate-800/40">
+                                <button onclick="window.setTimerAnalyticsRange(1)" id="spectra-tar-btn-1"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">1D</span><span class="hidden sm:inline">Today</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsRange(7)" id="spectra-tar-btn-7"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">7D</span><span class="hidden sm:inline">7 Days</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsRange(30)" id="spectra-tar-btn-30"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">30D</span><span class="hidden sm:inline">30 Days</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsRange(180)" id="spectra-tar-btn-180"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">6M</span><span class="hidden sm:inline">6 Months</span>
+                                </button>
+                            </div>
+                            <!-- Grouping Selector -->
+                            <div class="flex shrink-0 bg-slate-100 dark:bg-slate-900/60 p-0.5 sm:p-1 rounded-xl border border-slate-200/40 dark:border-slate-800/40">
+                                <button onclick="window.setTimerAnalyticsGrouping('hourly')" id="spectra-tag-btn-hourly"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Hour</span><span class="hidden sm:inline">Hourly</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsGrouping('daily')" id="spectra-tag-btn-daily"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Day</span><span class="hidden sm:inline">Daily</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsGrouping('weekly')" id="spectra-tag-btn-weekly"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Week</span><span class="hidden sm:inline">Weekly</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsGrouping('monthly')" id="spectra-tag-btn-monthly"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Month</span><span class="hidden sm:inline">Monthly</span>
+                                </button>
+                            </div>
+                            <!-- Chart Style Selector -->
+                            <div class="flex shrink-0 bg-slate-100 dark:bg-slate-900/60 p-0.5 sm:p-1 rounded-xl border border-slate-200/40 dark:border-slate-800/40">
+                                <button onclick="window.setTimerAnalyticsChartStyle('combo')" id="spectra-tas-btn-combo"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Combo</span><span class="hidden sm:inline">Combo</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsChartStyle('bar')" id="spectra-tas-btn-bar"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Bar</span><span class="hidden sm:inline">Bar</span>
+                                </button>
+                                <button onclick="window.setTimerAnalyticsChartStyle('line')" id="spectra-tas-btn-line"
+                                    class="shrink-0 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200">
+                                    <span class="inline sm:hidden">Line</span><span class="hidden sm:inline">Line/Area</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Line Chart Container -->
+                        <div class="relative w-full h-[330px] bg-slate-50 dark:bg-slate-900/20 p-4 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-inner backdrop-blur-sm">
+                            <canvas id="spectraFocusAnalyticsChart"></canvas>
+                        </div>
+
+                        <!-- Config/Stats Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                            <!-- Daily Focus Target Config -->
+                            <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Focus Target</label>
+                                </div>
+                                <div class="shrink-0 w-20">
+                                    <input type="number" id="spectra-timer-target-input" value="4" min="0.1" step="0.1"
+                                        onchange="window.updateDailyFocusHoursTarget(this.value)"
+                                        class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 text-center text-base md:text-lg font-black focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner dark:text-white" />
+                                </div>
+                            </div>
+
+                            <!-- Average Focus Hours Display -->
+                            <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Focus</label>
+                                </div>
+                                <div class="shrink-0 w-20 text-center">
+                                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-1 shadow-inner w-full flex justify-center">
+                                        <span id="spectra-timer-average-focus"
+                                            class="text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400">0.00h</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Peak Day Display (Highest) -->
+                            <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <div class="flex-1 flex flex-col">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Highest Focus</label>
+                                    <span id="spectra-timer-peak-date"
+                                        class="text-[8px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400 mt-0.5 leading-none">No Data</span>
+                                </div>
+                                <div class="shrink-0 w-24 text-center">
+                                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                        <span id="spectra-timer-peak-value"
+                                            class="text-base md:text-lg font-black text-rose-600 dark:text-rose-400">0.00h</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Total Focus Hours -->
+                            <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Focus</label>
+                                </div>
+                                <div class="shrink-0 w-24 text-center">
+                                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                        <span id="spectra-timer-total-focus"
+                                            class="text-base md:text-lg font-black text-indigo-600 dark:text-indigo-400">0 min</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Average Focus Target -->
+                            <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Target</label>
+                                </div>
+                                <div class="shrink-0 w-24 text-center">
+                                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                        <span id="spectra-timer-average-target"
+                                            class="text-base md:text-lg font-black text-rose-500 dark:text-rose-400">0 min</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Goal Met / Success Rate -->
+                            <div class="sm:col-span-2 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Success Rate</label>
+                                    <span id="spectra-timer-success-rate-subtitle"
+                                        class="text-[9px] font-bold text-slate-400 dark:text-slate-500 block mt-0.5">0 of 0 days</span>
+                                </div>
+                                <div class="shrink-0 w-24 text-center">
+                                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-3 shadow-inner w-full flex justify-center">
+                                        <span id="spectra-timer-success-rate"
+                                            class="text-base md:text-lg font-black text-amber-600 dark:text-amber-400">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Charts and Custom Filter Panel -->
                 <div
                     class="bg-white dark:bg-slate-800 p-3 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm overflow-hidden">
@@ -5428,7 +5596,7 @@
                 class="fixed inset-0 bg-slate-900/80 backdrop-blur-xl opacity-0 transition-opacity duration-300"
                 onclick="closeModal('timer-analytics-modal')"></div>
             <div id="tam-content"
-                class="relative bg-white dark:bg-slate-800 p-5 sm:p-7 md:p-8 rounded-3xl shadow-2xl w-full max-w-4xl border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-4 z-10 flex flex-col">
+                class="relative bg-white dark:bg-slate-800 p-5 sm:p-7 md:p-8 rounded-3xl shadow-2xl w-full max-w-[95vw] lg:max-w-[92vw] xl:max-w-[1400px] 2xl:max-w-[1550px] border border-slate-200/50 dark:border-slate-700/50 transform scale-95 opacity-0 translate-y-4 transition-all duration-300 mx-2 sm:mx-4 z-10 flex flex-col">
                 <div
                     class="flex justify-between items-center mb-5 sm:mb-6 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
                     <div class="flex items-center space-x-3">
