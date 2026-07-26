@@ -1402,6 +1402,7 @@
         safeStorage.setItem('timerAnalyticsRange', days);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
+        if (window.FirebaseService) window.FirebaseService.saveToCloud();
     };
 
     window.setTimerAnalyticsGrouping = function (grouping) {
@@ -1415,6 +1416,7 @@
         safeStorage.setItem('timerAnalyticsGrouping', grouping);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
+        if (window.FirebaseService) window.FirebaseService.saveToCloud();
     };
 
     window.setTimerAnalyticsChartStyle = function (style) {
@@ -1422,6 +1424,7 @@
         safeStorage.setItem('timerAnalyticsChartStyle', style);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
+        if (window.FirebaseService) window.FirebaseService.saveToCloud();
     };
 
     window.renderTimerAnalyticsChart = function () {
@@ -2340,19 +2343,21 @@
                     tierText = "🟡 Glowing Golden Focus (≥ 6h)";
                     badgeClass = "bg-amber-500/20 text-amber-400 border border-amber-500/40";
                 } else if (hrs >= 8.0) {
-                    bgClass = "bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-indigo-500 text-white border border-fuchsia-300 dark:border-fuchsia-400 animate-gem-shimmer spectra-heatmap-box";
-                    tierText = "💎 Precious Gem Master Focus (≥ 8h)";
-                    badgeClass = "bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/40";
+                    bgClass = "bg-gradient-to-tr from-cyan-400 via-sky-300 via-fuchsia-400 to-indigo-500 text-white border border-cyan-300 dark:border-cyan-400 animate-diamond-shimmer spectra-heatmap-box";
+                    tierText = "💎 Valuable Diamond Focus (≥ 8h)";
+                    badgeClass = "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40";
                 }
 
                 const formattedDate = dayObj.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
                 const formattedTime = formatHoursToHrMin(hrs);
 
-                gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] ${bgClass} shrink-0"
+                gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] ${bgClass} shrink-0 cursor-pointer"
                     data-date="${formattedDate}"
+                    data-datekey="${dayObj.dateKey}"
                     data-time="${formattedTime}"
                     data-tier="${tierText}"
                     data-badge="${badgeClass}"
+                    onclick="window.showSpectraHeatmapDayDetail('${dayObj.dateKey}')"
                     onmouseenter="window.showSpectraHeatmapTooltip(event, this)"
                     onmousemove="window.moveSpectraHeatmapTooltip(event)"
                     onmouseleave="window.hideSpectraHeatmapTooltip()">
@@ -2363,6 +2368,200 @@
         }
 
         gridEl.innerHTML = monthLabelsHtml + gridRowsHtml;
+
+        // Auto-populate Side Note panel with Today's details on render
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        window.showSpectraHeatmapDayDetail(todayKey, false);
+    };
+
+    window.showSpectraHeatmapDayDetail = function (dateKey, openModal = false) {
+        if (!dateKey) return;
+
+        // Update selected box purple stroke glow
+        const allBoxes = document.querySelectorAll('#spectra-focus-heatmap-grid [data-datekey]');
+        allBoxes.forEach(b => b.classList.remove('spectra-heatmap-selected'));
+
+        const targetBox = document.querySelector(`#spectra-focus-heatmap-grid [data-datekey="${dateKey}"]`);
+        if (targetBox) {
+            targetBox.classList.add('spectra-heatmap-selected');
+        }
+
+        const [y, m, d] = dateKey.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const dateStr = dateObj.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const dayOfWeekStr = dateObj.toLocaleDateString(undefined, { weekday: 'long' });
+        const shortDateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+        // Filter timer logs for this dateKey
+        const dayLogs = [];
+        let totalSec = 0;
+        if (AppState.timerLogs && Array.isArray(AppState.timerLogs)) {
+            AppState.timerLogs.forEach(log => {
+                if (!log.date) return;
+                const logD = new Date(log.date);
+                if (isNaN(logD.getTime())) return;
+                const k = `${logD.getFullYear()}-${String(logD.getMonth() + 1).padStart(2, '0')}-${String(logD.getDate()).padStart(2, '0')}`;
+                if (k === dateKey) {
+                    dayLogs.push(log);
+                    totalSec += parseInt(log.duration || 0, 10);
+                }
+            });
+        }
+
+        // Active timer addition if today
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        if (dateKey === todayKey && AppState.activeTimerState) {
+            let activeMs = 0;
+            if (AppState.activeTimerState.timerStates) {
+                Object.values(AppState.activeTimerState.timerStates).forEach(store => {
+                    let ms = store.elapsedBeforeStart || 0;
+                    if (store.isRunning && store.startTime) {
+                        ms += (window.getServerTime() - parseStartTime(store.startTime));
+                    }
+                    activeMs += ms;
+                });
+            } else {
+                activeMs = AppState.activeTimerState.elapsedBeforeStart || 0;
+                if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                    activeMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
+                }
+            }
+            const activeSec = Math.floor(activeMs / 1000);
+            if (activeSec > 0) {
+                totalSec += activeSec;
+                dayLogs.push({
+                    subjectName: AppState.activeTimerState.subjectName || "Active Session",
+                    duration: activeSec,
+                    date: new Date().toISOString(),
+                    active: true
+                });
+            }
+        }
+
+        const hrs = parseFloat((totalSec / 3600).toFixed(2));
+        const formattedTime = formatHoursToHrMin(hrs);
+
+        const target = window.getDailyFocusHoursTargetForDate ? window.getDailyFocusHoursTargetForDate(dateObj) : (window.dailyFocusHoursTarget || 4.0);
+        const targetPct = target > 0 ? Math.round((hrs / target) * 100) : 0;
+
+        let tierText = "No Focus (0h)";
+        let badgeClass = "bg-slate-500/20 text-slate-400 border border-slate-500/30";
+
+        if (hrs > 0 && hrs < 4.0) {
+            tierText = "🔴 Below 4h Focus";
+            badgeClass = "bg-rose-500/20 text-rose-400 border border-rose-500/40";
+        } else if (hrs >= 4.0 && hrs < 6.0) {
+            tierText = "🟢 Target Met (≥ 4h)";
+            badgeClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+        } else if (hrs >= 6.0 && hrs < 8.0) {
+            tierText = "🟡 Glowing Golden Focus (≥ 6h)";
+            badgeClass = "bg-amber-500/20 text-amber-400 border border-amber-500/40";
+        } else if (hrs >= 8.0) {
+            tierText = "💎 Valuable Diamond Focus (≥ 8h)";
+            badgeClass = "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40";
+        }
+
+        // 1. Populate Right Side Note Card Panel (Next to Tier Legend)
+        const elSnDay = document.getElementById('spectra-sn-day-name');
+        const elSnDate = document.getElementById('spectra-sn-date');
+        const elSnBadge = document.getElementById('spectra-sn-tier-badge');
+        const elSnTime = document.getElementById('spectra-sn-focus-time');
+        const elSnTarget = document.getElementById('spectra-sn-target-pct');
+        const elSnSubjects = document.getElementById('spectra-sn-subjects-list');
+
+        if (elSnDay) elSnDay.innerText = dayOfWeekStr;
+        if (elSnDate) elSnDate.innerText = shortDateStr;
+        if (elSnBadge) {
+            elSnBadge.innerText = tierText;
+            elSnBadge.className = `px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${badgeClass}`;
+            elSnBadge.classList.remove('hidden');
+        }
+        if (elSnTime) elSnTime.innerText = formattedTime;
+        if (elSnTarget) elSnTarget.innerText = `${targetPct}%`;
+
+        // Group subjects
+        const subjectMap = {};
+        dayLogs.forEach(log => {
+            const subj = log.subjectName || log.subject || "General Focus";
+            const dur = parseInt(log.duration || 0, 10);
+            subjectMap[subj] = (subjectMap[subj] || 0) + dur;
+        });
+
+        if (elSnSubjects) {
+            const subjectEntries = Object.entries(subjectMap);
+            if (subjectEntries.length === 0) {
+                elSnSubjects.innerHTML = `<span class="text-[10px] text-slate-400 italic">No focus sessions recorded for this day.</span>`;
+            } else {
+                let subjHtml = '';
+                subjectEntries.forEach(([subjName, sec]) => {
+                    const durStr = formatHoursToHrMin(sec / 3600);
+                    subjHtml += `<span class="px-2 py-0.5 text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 rounded-lg border border-indigo-500/20 flex items-center gap-1">${subjName}: <span class="font-bold text-indigo-700 dark:text-indigo-200">${durStr}</span></span>`;
+                });
+                elSnSubjects.innerHTML = subjHtml;
+            }
+        }
+
+        // 2. Populate Optional Modal (if requested)
+        const modal = document.getElementById('spectra-heatmap-day-modal');
+        if (modal) {
+            const elDate = document.getElementById('spectra-hm-modal-date');
+            const elBadge = document.getElementById('spectra-hm-modal-tier-badge');
+            const elTime = document.getElementById('spectra-hm-modal-time');
+            const elPct = document.getElementById('spectra-hm-modal-target-pct');
+            const elCount = document.getElementById('spectra-hm-modal-session-count');
+            const elList = document.getElementById('spectra-hm-modal-sessions-list');
+
+            if (elDate) elDate.innerText = dateStr;
+            if (elBadge) {
+                elBadge.innerText = tierText;
+                elBadge.className = `inline-block mt-0.5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md ${badgeClass}`;
+            }
+            if (elTime) elTime.innerText = formattedTime;
+            if (elPct) {
+                elPct.innerText = `${targetPct}%`;
+                elPct.className = `text-lg font-black ${targetPct >= 100 ? 'text-emerald-500 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}`;
+            }
+            if (elCount) elCount.innerText = `${dayLogs.length} session${dayLogs.length === 1 ? '' : 's'}`;
+
+            if (elList) {
+                if (dayLogs.length === 0) {
+                    elList.innerHTML = `<div class="text-xs text-slate-400 dark:text-slate-500 italic text-center py-4">No focus sessions recorded on this day.</div>`;
+                } else {
+                    let html = '';
+                    dayLogs.forEach(log => {
+                        const durSec = parseInt(log.duration || 0, 10);
+                        const durStr = formatHoursToHrMin(durSec / 3600);
+                        const subj = log.subjectName || log.subject || "General Focus";
+                        const isNow = log.active ? true : false;
+                        const logTimeStr = isNow ? "Active Now" : new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        html += `
+                            <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/40 dark:border-slate-700/40">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-2 h-2 rounded-full ${isNow ? 'bg-emerald-500 animate-ping' : 'bg-indigo-500'}"></div>
+                                    <span class="text-xs font-black text-slate-700 dark:text-slate-200">${subj}</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-bold text-slate-400">${logTimeStr}</span>
+                                    <span class="px-2 py-0.5 text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-md border border-indigo-500/20">${durStr}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    elList.innerHTML = html;
+                }
+            }
+
+            if (openModal) {
+                modal.classList.remove('hidden');
+            }
+        }
+    };
+
+    window.closeSpectraHeatmapDayModal = function () {
+        const modal = document.getElementById('spectra-heatmap-day-modal');
+        if (modal) modal.classList.add('hidden');
     };
 
     window.showSpectraHeatmapTooltip = function (e, el) {
@@ -3103,6 +3302,17 @@
                 const targetInput = document.getElementById('timer-target-input');
                 if (targetInput && document.activeElement !== targetInput) {
                     targetInput.value = window.dailyFocusHoursTarget || 4.0;
+                }
+            }
+
+            // Real-time synchronization for Spectra Pulse page Focus Analytics & Heatmap
+            const spectraPage = document.getElementById('page-spectra-analytics');
+            if (spectraPage && !spectraPage.classList.contains('hidden')) {
+                if (typeof window.renderTimerAnalyticsChart === 'function') {
+                    window.renderTimerAnalyticsChart();
+                }
+                if (typeof window.renderSpectraFocusHeatmap === 'function') {
+                    window.renderSpectraFocusHeatmap();
                 }
             }
         },

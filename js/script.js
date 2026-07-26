@@ -2993,6 +2993,20 @@ function renderUI() {
         window.TimerService.updateDisplay();
         window.TimerService.restore();
     }
+
+    // Real-time sync: Refresh Spectra Pulse Focus Analytics & Heatmap on cross-device data updates
+    const spectraPage = document.getElementById('page-spectra-analytics');
+    if (spectraPage && !spectraPage.classList.contains('hidden')) {
+        if (typeof window.renderTimerAnalyticsChart === 'function') {
+            setTimeout(window.renderTimerAnalyticsChart, 60);
+        }
+        if (typeof window.renderSpectraFocusHeatmap === 'function') {
+            setTimeout(window.renderSpectraFocusHeatmap, 80);
+        }
+        if (typeof window.renderSpectraCircleChart === 'function') {
+            setTimeout(window.renderSpectraCircleChart, 60);
+        }
+    }
 }
 
 function setupFocusTodayButton() {

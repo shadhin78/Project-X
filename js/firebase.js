@@ -217,6 +217,9 @@ window.FirebaseService = {
                 dailyFocusHoursTarget: window.dailyFocusHoursTarget || 4.0,
                 dailyFocusHoursTargetDate: window.dailyFocusHoursTargetDate || "",
                 dailyFocusHoursTargetHistory: window.dailyFocusHoursTargetHistory || [],
+                timerAnalyticsRange: window.timerAnalyticsRange || 180,
+                timerAnalyticsGrouping: window.timerAnalyticsGrouping || 'daily',
+                timerAnalyticsChartStyle: window.timerAnalyticsChartStyle || 'combo',
                 subjectFocusTargets: window.subjectFocusTargets || {},
                 dashboardConfig: window.dashboardConfig,
                 weeklyTargetsDatabase: window.weeklyTargetsDatabase || {},
@@ -326,6 +329,18 @@ window.FirebaseService = {
                 if (data.dailyFocusHoursTarget !== undefined) window.dailyFocusHoursTarget = data.dailyFocusHoursTarget;
                 if (data.dailyFocusHoursTargetDate !== undefined) window.dailyFocusHoursTargetDate = data.dailyFocusHoursTargetDate;
                 if (data.dailyFocusHoursTargetHistory !== undefined) window.dailyFocusHoursTargetHistory = data.dailyFocusHoursTargetHistory;
+                if (data.timerAnalyticsRange !== undefined) {
+                    window.timerAnalyticsRange = data.timerAnalyticsRange;
+                    if (window.safeStorage) safeStorage.setItem('timerAnalyticsRange', data.timerAnalyticsRange);
+                }
+                if (data.timerAnalyticsGrouping !== undefined) {
+                    window.timerAnalyticsGrouping = data.timerAnalyticsGrouping;
+                    if (window.safeStorage) safeStorage.setItem('timerAnalyticsGrouping', data.timerAnalyticsGrouping);
+                }
+                if (data.timerAnalyticsChartStyle !== undefined) {
+                    window.timerAnalyticsChartStyle = data.timerAnalyticsChartStyle;
+                    if (window.safeStorage) safeStorage.setItem('timerAnalyticsChartStyle', data.timerAnalyticsChartStyle);
+                }
                 if (data.subjectFocusTargets) window.subjectFocusTargets = data.subjectFocusTargets;
                 if (data.activeTimerState) window.activeTimerState = data.activeTimerState;
                 if (data.dashboardConfig) window.dashboardConfig = data.dashboardConfig;
