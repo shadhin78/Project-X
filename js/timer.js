@@ -325,14 +325,29 @@
         }
 
         const toggleBtn = document.getElementById('timer-btn-toggle');
+        const fsToggleBtn = document.getElementById('timer-fs-btn-toggle');
+        const isRunning = AppState.activeTimerState.isRunning;
+        let activeElapsed = AppState.activeTimerState.elapsedBeforeStart || 0;
+
+        let btnText = 'START';
+        let btnBgClass = 'bg-blue-600 hover:bg-blue-700';
+
+        if (isRunning) {
+            btnText = 'PAUSE';
+            btnBgClass = 'bg-amber-500 hover:bg-amber-600';
+        } else if (activeElapsed > 0) {
+            btnText = 'RESUME';
+            btnBgClass = 'bg-blue-600 hover:bg-blue-700';
+        }
+
         if (toggleBtn) {
-            if (AppState.activeTimerState.isRunning) {
-                toggleBtn.textContent = 'PAUSE';
-                toggleBtn.className = 'flex-[1.4] py-3 sm:py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]';
-            } else {
-                toggleBtn.textContent = 'START';
-                toggleBtn.className = 'flex-[1.4] py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]';
-            }
+            toggleBtn.textContent = btnText;
+            toggleBtn.className = `flex-[1.4] py-3 sm:py-3.5 ${btnBgClass} text-white font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all touch-action-manipulation min-h-[44px]`;
+        }
+
+        if (fsToggleBtn) {
+            fsToggleBtn.textContent = btnText;
+            fsToggleBtn.className = `px-4 py-2 sm:px-5 sm:py-2.5 ${btnBgClass} text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all touch-action-manipulation flex items-center justify-center min-h-[40px]`;
         }
 
         // Update dashboard Focus Timer card in real-time if it exists
@@ -536,13 +551,7 @@
         // Populate modal subject selector first
         const select = document.getElementById('modal-target-subject');
         if (select) {
-            let optionsHtml = `<option value="General Study">General Study</option>`;
-            const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
-            const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
-            uniqueSubjects.forEach(sub => {
-                optionsHtml += `<option value="${sub}">${sub}</option>`;
-            });
-            select.innerHTML = optionsHtml;
+            select.innerHTML = buildProgramWiseSubjectOptionsHtml();
 
             if (prefilledSubject) {
                 select.value = prefilledSubject;
@@ -674,36 +683,52 @@
         );
     };
 
-    function populateTimerSubjects() {
-        const select = document.getElementById('timer-subject-select');
-        if (!select) return;
-
-        const currentValue = select.value;
+    function buildProgramWiseSubjectOptionsHtml() {
         let optionsHtml = `<option value="General Study">General Study</option>`;
-
         const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
-        const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
 
-        uniqueSubjects.forEach(sub => {
-            optionsHtml += `<option value="${sub}">${sub}</option>`;
+        // Group subjects program-wise
+        const programMap = {};
+        subjects.forEach(s => {
+            if (!s || !s.subject) return;
+            const prog = s.program || 'General';
+            if (!programMap[prog]) {
+                programMap[prog] = new Set();
+            }
+            programMap[prog].add(s.subject);
         });
 
-        select.innerHTML = optionsHtml;
+        const programNames = Object.keys(programMap).sort();
 
-        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
-            select.value = currentValue;
-        } else if (AppState.activeTimerState && AppState.activeTimerState.selectedSubject) {
-            select.value = AppState.activeTimerState.selectedSubject;
-        }
-
-        const modalSelect = document.getElementById('modal-target-subject');
-        if (modalSelect) {
-            const currentVal = modalSelect.value;
-            modalSelect.innerHTML = optionsHtml;
-            if (currentVal && Array.from(modalSelect.options).some(opt => opt.value === currentVal)) {
-                modalSelect.value = currentVal;
+        programNames.forEach(prog => {
+            const subList = Array.from(programMap[prog]).sort();
+            if (subList.length > 0) {
+                optionsHtml += `<optgroup label="🎓 ${prog}">`;
+                subList.forEach(sub => {
+                    optionsHtml += `<option value="${sub}">${sub}</option>`;
+                });
+                optionsHtml += `</optgroup>`;
             }
-        }
+        });
+
+        return optionsHtml;
+    }
+
+    function populateTimerSubjects() {
+        const optionsHtml = buildProgramWiseSubjectOptionsHtml();
+
+        ['timer-subject-select', 'modal-target-subject', 'atsm-subject', 'etsm-subject'].forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                const currentValue = select.value;
+                select.innerHTML = optionsHtml;
+                if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                    select.value = currentValue;
+                } else if (id === 'timer-subject-select' && AppState.activeTimerState && AppState.activeTimerState.selectedSubject) {
+                    select.value = AppState.activeTimerState.selectedSubject;
+                }
+            }
+        });
     }
 
     function getDurationString(totalSeconds) {
@@ -754,7 +779,7 @@
                 window._timerFsOriginalParent = null;
                 window._timerFsOriginalNext = null;
             }
-        }, 300);
+        }, 200);
     };
 
     // --- MULTI-MODE STATE PERSISTENCE HELPERS ---
@@ -2202,20 +2227,64 @@
             breakdownContainer.innerHTML = breakdownHtml;
         }
 
+        // ── Session History Filter & Scrollable Container Logic ──
+        if (typeof window.sessionHistoryFilter === 'undefined') {
+            window.sessionHistoryFilter = 'all';
+        }
+
         const historyTableBody = document.getElementById('timer-history-table-body');
+        const historyContainer = document.getElementById('timer-history-container');
+        const countBadge = document.getElementById('timer-history-count-badge');
+
         if (historyTableBody) {
             let historyHtml = '';
+            const now = new Date();
+            const filter = window.sessionHistoryFilter || 'all';
 
-            if (AppState.timerLogs.length === 0) {
+            const filteredLogs = (AppState.timerLogs || []).filter(log => {
+                if (!log || !log.date) return false;
+                const logDate = new Date(log.date);
+                if (isNaN(logDate.getTime())) return false;
+
+                if (filter === 'day') {
+                    return logDate.toDateString() === now.toDateString();
+                } else if (filter === 'week') {
+                    const diffTime = now.getTime() - logDate.getTime();
+                    const diffDays = diffTime / (1000 * 3600 * 24);
+                    return diffDays >= 0 && diffDays <= 7;
+                } else if (filter === 'month') {
+                    return logDate.getMonth() === now.getMonth() && logDate.getFullYear() === now.getFullYear();
+                }
+                return true; // 'all'
+            });
+
+            // Update badge text
+            if (countBadge) {
+                countBadge.textContent = filteredLogs.length > 20 ?
+                    `${filteredLogs.length} Sessions (Scrollable)` :
+                    `${filteredLogs.length} Sessions`;
+            }
+
+            // After 20 sessions, container becomes scrollable (15 sessions visible at once)
+            if (historyContainer) {
+                if (filteredLogs.length > 20) {
+                    historyContainer.classList.add('max-h-[670px]', 'overflow-y-auto', 'pr-1');
+                } else {
+                    historyContainer.classList.remove('max-h-[670px]', 'overflow-y-auto', 'pr-1');
+                }
+            }
+
+            if (filteredLogs.length === 0) {
+                const labelMap = { all: 'recorded yet', day: 'recorded today', week: 'recorded this week', month: 'recorded this month' };
                 historyHtml = `
                     <tr>
                         <td colspan="5" class="py-8 text-center text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-[10px]">
-                            No focus sessions recorded yet
+                            No focus sessions ${labelMap[filter] || 'found'}
                         </td>
                     </tr>
                 `;
             } else {
-                AppState.timerLogs.forEach(log => {
+                filteredLogs.forEach(log => {
                     const dateObj = new Date(log.date);
                     const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
                     const dayStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -2257,6 +2326,24 @@
                 });
             }
             historyTableBody.innerHTML = historyHtml;
+        }
+    };
+
+    window.sessionHistoryFilter = 'all';
+    window.setSessionHistoryFilter = function (filter) {
+        window.sessionHistoryFilter = filter;
+        ['all', 'day', 'week', 'month'].forEach(f => {
+            const btn = document.getElementById(`sh-filter-${f}`);
+            if (btn) {
+                if (f === filter) {
+                    btn.className = "px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all bg-blue-600 text-white shadow shadow-blue-500/20";
+                } else {
+                    btn.className = "px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all text-slate-500 hover:bg-slate-200/80 dark:text-slate-400 dark:hover:bg-slate-800";
+                }
+            }
+        });
+        if (window.TimerService && window.TimerService.updateDisplay) {
+            window.TimerService.updateDisplay();
         }
     };
 
@@ -2330,13 +2417,7 @@
 
         const subjectSelect = document.getElementById('atsm-subject');
         if (subjectSelect) {
-            let optionsHtml = `<option value="General Study">General Study</option>`;
-            const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
-            const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
-            uniqueSubjects.forEach(sub => {
-                optionsHtml += `<option value="${sub}">${sub}</option>`;
-            });
-            subjectSelect.innerHTML = optionsHtml;
+            subjectSelect.innerHTML = buildProgramWiseSubjectOptionsHtml();
         }
 
         openModal('add-timer-session-modal');
@@ -2472,13 +2553,7 @@
 
         const subjectSelect = document.getElementById('etsm-subject');
         if (subjectSelect) {
-            let optionsHtml = `<option value="General Study">General Study</option>`;
-            const subjects = window.getAllSubjects ? window.getAllSubjects() : [];
-            const uniqueSubjects = Array.from(new Set(subjects.map(s => s.subject))).filter(Boolean);
-            uniqueSubjects.forEach(sub => {
-                optionsHtml += `<option value="${sub}">${sub}</option>`;
-            });
-            subjectSelect.innerHTML = optionsHtml;
+            subjectSelect.innerHTML = buildProgramWiseSubjectOptionsHtml();
             subjectSelect.value = log.subject || 'General Study';
         }
 
