@@ -801,8 +801,115 @@ select optgroup {
     background: rgba(99, 102, 241, 0.6);
 }
 
+/* ==========================================
+   The 7 Officer Commitments Habit Radar Chart
+   ========================================== */
+#spectra-commitments-chart-wrapper svg {
+    width: 100%;
+    max-width: 720px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+    user-select: none;
+    touch-action: manipulation;
+}
 
+@media (max-width: 640px) {
+    #spectra-commitments-chart-wrapper svg {
+        max-width: 480px;
+    }
+}
 
+.commitment-cell {
+    transition: fill 0.18s ease, opacity 0.18s ease, stroke 0.18s ease, filter 0.18s ease;
+    cursor: default;
+}
 
+.commitment-checkbox-group rect,
+.commitment-checkbox-group path {
+    transition: fill 0.1s ease-out, stroke 0.1s ease-out;
+}
 
-
+.commitment-cell:hover {
+    opacity: 0.92;
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(99, 102, 241, 0.45));
+}
+
+/* Dynamic Dark/Light Theme Integration for Commitment Chart */
+.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive,
+html.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive,
+body.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive {
+    fill: rgba(15, 23, 42, 0.75) !important;
+    stroke: rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-cell-active,
+html.dark #spectra-commitments-chart-wrapper .commitment-cell-active,
+body.dark #spectra-commitments-chart-wrapper .commitment-cell-active {
+    fill: #6366f1 !important;
+    stroke: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-leader-line,
+html.dark #spectra-commitments-chart-wrapper .commitment-leader-line,
+body.dark #spectra-commitments-chart-wrapper .commitment-leader-line {
+    stroke: rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-label-text,
+html.dark #spectra-commitments-chart-wrapper .commitment-label-text,
+body.dark #spectra-commitments-chart-wrapper .commitment-label-text {
+    fill: #e2e8f0 !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-hub-circle,
+html.dark #spectra-commitments-chart-wrapper .commitment-hub-circle,
+body.dark #spectra-commitments-chart-wrapper .commitment-hub-circle {
+    fill: #0f172a !important;
+    stroke: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-hub-text-sub,
+html.dark #spectra-commitments-chart-wrapper .commitment-hub-text-sub,
+body.dark #spectra-commitments-chart-wrapper .commitment-hub-text-sub {
+    fill: #94a3b8 !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-hub-text-main,
+html.dark #spectra-commitments-chart-wrapper .commitment-hub-text-main,
+body.dark #spectra-commitments-chart-wrapper .commitment-hub-text-main {
+    fill: #f8fafc !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-hub-digit,
+html.dark #spectra-commitments-chart-wrapper .commitment-hub-digit,
+body.dark #spectra-commitments-chart-wrapper .commitment-hub-digit {
+    fill: #818cf8 !important;
+}
+
+.commitment-leader-line {
+    transition: stroke 0.2s ease;
+}
+
+.commitment-label-text {
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: fill 0.2s ease;
+}
+
+/* Center text responsive & crisp font */
+.commitment-center-title {
+    font-family: inherit;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.commitment-center-digit {
+    font-family: inherit;
+    font-weight: 900;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.3));
+}

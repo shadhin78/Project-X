@@ -3314,6 +3314,9 @@
                 if (typeof window.renderSpectraFocusHeatmap === 'function') {
                     window.renderSpectraFocusHeatmap();
                 }
+                if (typeof window.renderSpectraCommitmentsChart === 'function') {
+                    window.renderSpectraCommitmentsChart();
+                }
             }
         },
 

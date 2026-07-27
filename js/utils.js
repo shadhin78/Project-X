@@ -210,6 +210,15 @@ window.Utils = {
                 delete this.fallbackStore[key];
             }
         }
+    },
+    escapeHtml: function(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 };
 
@@ -227,4 +236,6 @@ window.mapCgpaToGrade = window.Utils.mapCgpaToGrade;
 window.formatCgpaMin2Dec = window.Utils.formatCgpaMin2Dec;
 window.validateAndFormatCgpa = window.Utils.validateAndFormatCgpa;
 window.safeStorage = window.Utils.storage;
+window.escapeHtml = window.Utils.escapeHtml;
+
 

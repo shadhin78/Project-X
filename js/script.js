@@ -2949,6 +2949,7 @@ function renderUI() {
     window.updateTrendsBar();
     renderDailyTracker();
     renderDailyLogs();
+    if (window.renderSpectraCommitmentsChart) window.renderSpectraCommitmentsChart();
     renderTrendCharts();
     window.renderResults();
     window.renderWeeklyTargets();
@@ -3005,6 +3006,9 @@ function renderUI() {
         }
         if (typeof window.renderSpectraCircleChart === 'function') {
             setTimeout(window.renderSpectraCircleChart, 60);
+        }
+        if (typeof window.renderSpectraCommitmentsChart === 'function') {
+            setTimeout(window.renderSpectraCommitmentsChart, 70);
         }
     }
 }
@@ -5801,6 +5805,619 @@ window.renderSpectraCircleChart = function () {
     if (legendSkipped) legendSkipped.textContent = data.skippedCount;
 };
 
+/* ==========================================
+   The 7 Officer Commitments Habit Radar Logic
+   ========================================== */
+function safeEscapeHtml(str) {
+    if (window.Utils && typeof window.Utils.escapeHtml === 'function') {
+        return window.Utils.escapeHtml(str);
+    }
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+window.getCommitmentLabels = function () {
+    if (Array.isArray(window.customActions) && window.customActions.length > 0) {
+        const sorted = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
+        const labels = sorted.slice(0, 7).map(a => (a.title || a.name || '').toUpperCase());
+        try {
+            localStorage.setItem('spectra_cached_custom_actions', JSON.stringify(sorted.slice(0, 7)));
+        } catch (e) { }
+        return labels;
+    }
+
+    try {
+        const cached = localStorage.getItem('spectra_cached_custom_actions');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.map(a => (a.title || a.name || '').toUpperCase());
+            }
+        }
+    } catch (e) { }
+
+    return [];
+};
+
+window.saveCommitmentLabelsData = function (labels) {
+    localStorage.setItem('spectra_commitments_labels', JSON.stringify(labels));
+};
+
+window.getCommitmentStorageKey = function (dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    return `spectra_commitments_${y}-${m}`;
+};
+
+window.getCommitmentMonthData = function (dateObj) {
+    const y = dateObj.getFullYear();
+    const m = dateObj.getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const result = {};
+
+    let sortedActions = Array.isArray(window.customActions) && window.customActions.length > 0
+        ? [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999)).slice(0, 7)
+        : [];
+
+    if (sortedActions.length === 0) {
+        try {
+            const cached = localStorage.getItem('spectra_cached_custom_actions');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    sortedActions = parsed;
+                }
+            }
+        } catch (e) { }
+    }
+
+    const tasksList = (typeof AppState !== 'undefined' && Array.isArray(AppState.tasks) && AppState.tasks.length > 0)
+        ? AppState.tasks
+        : (Array.isArray(window.tasks) ? window.tasks : []);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dayKey = String(d);
+        const cellDate = new Date(y, m, d);
+        const dFormatted = (typeof Utils !== 'undefined' && typeof Utils.formatDate === 'function')
+            ? Utils.formatDate(cellDate)
+            : null;
+        const dISO = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+        const task = tasksList.find(t => t.date === dFormatted || t.date === dISO);
+
+        if (task) {
+            if (!result[dayKey]) result[dayKey] = {};
+            sortedActions.forEach((act, hIdx) => {
+                if (task[act.id] !== undefined) {
+                    result[dayKey][hIdx] = !!task[act.id];
+                }
+            });
+        }
+    }
+
+    return result;
+};
+
+window.saveCommitmentMonthData = function (dateObj, data) {
+    const key = window.getCommitmentStorageKey(dateObj);
+    localStorage.setItem(key, JSON.stringify(data));
+};
+
+window.toggleCommitmentCell = function (dayNum, habitIndex) {
+    const activeDate = window.spectraCommitmentActiveDate || new Date();
+    const y = activeDate.getFullYear();
+    const m = activeDate.getMonth();
+    const cellDate = new Date(y, m, dayNum);
+    const dFormatted = (typeof Utils !== 'undefined' && typeof Utils.formatDate === 'function')
+        ? Utils.formatDate(cellDate)
+        : null;
+    const dISO = `${y}-${String(m + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
+    if (!Array.isArray(window.customActions)) {
+        window.customActions = [];
+    }
+
+    let sortedActions = [...window.customActions].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3) || (a.order ?? 999) - (b.order ?? 999));
+    
+    if (!sortedActions[habitIndex]) {
+        return;
+    }
+
+    const targetAction = sortedActions[habitIndex];
+
+    if (typeof AppState !== 'undefined') {
+        if (!Array.isArray(AppState.tasks)) AppState.tasks = [];
+        window.tasks = AppState.tasks;
+    } else if (!Array.isArray(window.tasks)) {
+        window.tasks = [];
+    }
+
+    const targetArray = (typeof AppState !== 'undefined' && Array.isArray(AppState.tasks)) ? AppState.tasks : window.tasks;
+
+    let task = targetArray.find(t => t.date === dFormatted || t.date === dISO);
+    if (!task) {
+        task = {
+            id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            date: dFormatted || dISO,
+            note: ''
+        };
+        window.customActions.forEach(a => { task[a.id] = false; });
+        targetArray.push(task);
+    }
+
+    task[targetAction.id] = !task[targetAction.id];
+
+    // Fast synchronous targeted updates (< 2ms execution time)
+    if (typeof window.renderSpectraCommitmentsChart === 'function') {
+        window.renderSpectraCommitmentsChart();
+    }
+    if (typeof window.renderDailyTracker === 'function') {
+        window.renderDailyTracker();
+    }
+    if (typeof window.renderDailyLogs === 'function') {
+        window.renderDailyLogs();
+    }
+
+    // Cloud Save
+    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+        window.FirebaseService.saveToCloud();
+    }
+
+    // Debounce non-critical heavy chart updates
+    if (window.commitmentClickDebounce) clearTimeout(window.commitmentClickDebounce);
+    window.commitmentClickDebounce = setTimeout(() => {
+        if (typeof renderTrendCharts === 'function') requestAnimationFrame(renderTrendCharts);
+        if (typeof updateMetrics === 'function') updateMetrics();
+    }, 350);
+};
+
+window.prevCommitmentMonth = function () {
+    if (!window.spectraCommitmentActiveDate) window.spectraCommitmentActiveDate = new Date();
+    window.spectraCommitmentActiveDate.setMonth(window.spectraCommitmentActiveDate.getMonth() - 1);
+    window.renderSpectraCommitmentsChart();
+};
+
+window.nextCommitmentMonth = function () {
+    if (!window.spectraCommitmentActiveDate) window.spectraCommitmentActiveDate = new Date();
+    window.spectraCommitmentActiveDate.setMonth(window.spectraCommitmentActiveDate.getMonth() + 1);
+    window.renderSpectraCommitmentsChart();
+};
+
+window.resetCommitmentMonth = function () {
+    window.spectraCommitmentActiveDate = new Date();
+    window.renderSpectraCommitmentsChart();
+};
+
+window.openCommitmentsModal = function () {
+    const modal = document.getElementById('spectra-commitments-modal');
+    const container = document.getElementById('spectra-commitments-inputs-container');
+    if (!modal || !container) return;
+    const labels = window.getCommitmentLabels();
+    container.innerHTML = labels.map((label, idx) => `
+        <div class="flex items-center gap-3">
+            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-xs font-black flex items-center justify-center shrink-0 border border-indigo-200 dark:border-indigo-800">${idx + 1}</span>
+            <input type="text" id="spectra-commitment-input-${idx}" value="${safeEscapeHtml(label)}" class="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 transition-all shadow-inner" placeholder="Commitment ${idx + 1}" />
+        </div>
+    `).join('');
+    modal.classList.remove('hidden');
+};
+
+window.closeCommitmentsModal = function () {
+    const modal = document.getElementById('spectra-commitments-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.resetCommitmentLabelsDefault = function () {
+    window.DEFAULT_COMMITMENT_LABELS.forEach((label, idx) => {
+        const inp = document.getElementById(`spectra-commitment-input-${idx}`);
+        if (inp) inp.value = label;
+    });
+};
+
+window.saveCommitmentLabels = function () {
+    const newLabels = [];
+    for (let i = 0; i < 7; i++) {
+        const inp = document.getElementById(`spectra-commitment-input-${i}`);
+        const val = inp ? inp.value.trim() : '';
+        newLabels.push(val || window.DEFAULT_COMMITMENT_LABELS[i]);
+    }
+
+    if (!Array.isArray(window.customActions)) {
+        window.customActions = [];
+    }
+
+    const sorted = [...window.customActions].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+    
+    for (let i = 0; i < 7; i++) {
+        const newTitle = newLabels[i];
+        if (sorted[i]) {
+            sorted[i].title = newTitle;
+        } else {
+            const newAct = {
+                id: 'act_' + Date.now() + '_' + i,
+                title: newTitle,
+                color: 'indigo',
+                priority: i + 1,
+                order: i + 1
+            };
+            window.customActions.push(newAct);
+        }
+    }
+
+    window.saveCommitmentLabelsData(newLabels);
+    window.closeCommitmentsModal();
+
+    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+        window.FirebaseService.saveToCloud();
+    }
+
+    if (typeof renderUI === 'function') {
+        renderUI();
+    } else {
+        window.renderSpectraCommitmentsChart();
+    }
+};
+
+window.renderSpectraCommitmentsChart = function () {
+    const wrapper = document.getElementById('spectra-commitments-chart-wrapper');
+    if (!wrapper) return;
+
+    const activeDate = window.spectraCommitmentActiveDate || new Date();
+    const year = activeDate.getFullYear();
+    const month = activeDate.getMonth();
+    const monthName = activeDate.toLocaleString('default', { month: 'long' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Update month label header
+    const monthLabel = document.getElementById('spectra-commitments-month-label');
+    if (monthLabel) monthLabel.textContent = `${monthName} ${year}`;
+
+    const labels = window.getCommitmentLabels();
+    const numHabits = labels.length;
+
+    if (numHabits === 0) {
+        safeSetText('spectra-commitments-pct', `0%`);
+        safeSetText('spectra-commitments-count', `0 / 0`);
+        safeSetText('spectra-commitments-streak', `0 Days 🔥`);
+        safeSetText('spectra-commitments-days-logged', `0 Days`);
+
+        wrapper.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-8 text-center my-6 bg-slate-50 dark:bg-slate-900/40 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 rounded-2xl mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h4 class="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">No Daily Actions Configured</h4>
+                <p class="text-xs text-slate-400 max-w-xs mb-1">Create your Daily Action Trackers on the Daily Actions page to populate your radar commitments chart.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const monthData = window.getCommitmentMonthData(activeDate);
+
+    // Stats calculations
+    let totalCells = daysInMonth * numHabits;
+    let fulfilledCount = 0;
+    let daysLoggedSet = new Set();
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dayKey = String(d);
+        if (monthData[dayKey]) {
+            let dayHasFulfilled = false;
+            for (let h = 0; h < numHabits; h++) {
+                if (monthData[dayKey][h]) {
+                    fulfilledCount++;
+                    dayHasFulfilled = true;
+                }
+            }
+            if (dayHasFulfilled) daysLoggedSet.add(d);
+        }
+    }
+
+    const pct = Math.round((fulfilledCount / totalCells) * 100);
+
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    // Calculate streak
+    let currentStreak = 0;
+    const checkStartDay = isCurrentMonth ? today.getDate() : daysInMonth;
+
+    for (let d = checkStartDay; d >= 1; d--) {
+        const dayKey = String(d);
+        let count = 0;
+        if (monthData[dayKey]) {
+            for (let h = 0; h < numHabits; h++) {
+                if (monthData[dayKey][h]) count++;
+            }
+        }
+        if (count > 0) {
+            currentStreak++;
+        } else if (d < checkStartDay) {
+            break;
+        }
+    }
+
+    // Update summary UI text elements safely
+    safeSetText('spectra-commitments-pct', `${pct}%`);
+    safeSetText('spectra-commitments-count', `${fulfilledCount} / ${totalCells}`);
+    safeSetText('spectra-commitments-streak', `${currentStreak} Days 🔥`);
+    safeSetText('spectra-commitments-days-logged', `${daysLoggedSet.size} Days`);
+
+    // SVG Geometry Parameters (Optimized for Mobile & PC Sizing)
+    const width = 580;
+    const height = 450;
+    const cx = 350;
+    const cy = 225;
+
+    const rOuter = 195;
+    const rInner = 68;
+    const ringStep = (rOuter - rInner) / numHabits;
+
+    // 270 degree arc: From 12 o'clock (-90 deg) clockwise to 9 o'clock (180 deg)
+    const startAngleDeg = -90;
+    const totalAngleDeg = 270;
+    const angleStepDeg = totalAngleDeg / daysInMonth;
+
+    let svgPaths = '';
+
+    // Theme-aware site colors
+    const isDarkMode = document.documentElement.classList.contains('dark') ||
+        document.body.classList.contains('dark') ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    const gridStroke = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : '#cbd5e1';
+    const textFill = isDarkMode ? '#e2e8f0' : '#1e293b';
+    const lineStroke = isDarkMode ? 'rgba(255, 255, 255, 0.2)' : '#64748b';
+    const cellFillActive = isDarkMode ? '#6366f1' : '#4f46e5'; // Primary Indigo Theme Color
+    const cellFillInactive = isDarkMode ? 'rgba(15, 23, 42, 0.75)' : '#ffffff';
+    const digit7Fill = isDarkMode ? '#818cf8' : '#4f46e5';
+
+    function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+        const angleInRadians = (angleInDegrees * Math.PI) / 180.0;
+        return {
+            x: centerX + radius * Math.cos(angleInRadians),
+            y: centerY + radius * Math.sin(angleInRadians)
+        };
+    }
+
+    // Generate Polar Grid Cells
+    for (let h = 0; h < numHabits; h++) {
+        const outerR = rOuter - h * ringStep;
+        const innerR = rOuter - (h + 1) * ringStep;
+
+        for (let d = 0; d < daysInMonth; d++) {
+            const dayNum = d + 1;
+            const a1 = startAngleDeg + d * angleStepDeg;
+            const a2 = startAngleDeg + (d + 1) * angleStepDeg;
+
+            const p1 = polarToCartesian(cx, cy, innerR, a1);
+            const p2 = polarToCartesian(cx, cy, outerR, a1);
+            const p3 = polarToCartesian(cx, cy, outerR, a2);
+            const p4 = polarToCartesian(cx, cy, innerR, a2);
+
+            const largeArcFlag = (a2 - a1) <= 180 ? '0' : '1';
+
+            const pathData = [
+                `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`,
+                `L ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`,
+                `A ${outerR.toFixed(2)} ${outerR.toFixed(2)} 0 ${largeArcFlag} 1 ${p3.x.toFixed(2)} ${p3.y.toFixed(2)}`,
+                `L ${p4.x.toFixed(2)} ${p4.y.toFixed(2)}`,
+                `A ${innerR.toFixed(2)} ${innerR.toFixed(2)} 0 ${largeArcFlag} 0 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`,
+                'Z'
+            ].join(' ');
+
+            const dayKey = String(dayNum);
+            const isCompleted = !!(monthData[dayKey] && monthData[dayKey][h]);
+            const fillColor = isCompleted ? cellFillActive : cellFillInactive;
+            const labelText = labels[h];
+            const cellClass = isCompleted ? 'commitment-cell commitment-cell-active' : 'commitment-cell commitment-cell-inactive';
+
+            svgPaths += `
+                <path d="${pathData}"
+                    fill="${fillColor}"
+                    stroke="${gridStroke}"
+                    stroke-width="1.1"
+                    class="${cellClass}"
+                    data-day="${dayNum}"
+                    data-habit="${h}"
+                    onmouseenter="window.showCommitmentTooltip(event, '${safeEscapeHtml(labelText)}', ${dayNum}, '${monthName} ${dayNum}, ${year}', ${isCompleted})"
+                    onmouseleave="window.hideCommitmentTooltip()"
+                />
+            `;
+        }
+    }
+
+    // Generate Left-Side Horizontal Leader Lines & Label Text aligned perfectly with rows
+    let leaderLinesSvg = '';
+    const lineXStart = 15;
+    const lineXEnd = cx;
+
+    // 1. Draw numHabits + 1 horizontal row boundary lines
+    for (let i = 0; i <= numHabits; i++) {
+        const lineY = cy - (rOuter - i * ringStep);
+        leaderLinesSvg += `
+            <line x1="${lineXStart}" y1="${lineY.toFixed(2)}" x2="${lineXEnd}" y2="${lineY.toFixed(2)}"
+                stroke="${lineStroke}" stroke-width="1.2" class="commitment-leader-line" />
+        `;
+    }
+
+    // 2. Draw habit checkboxes and task labels vertically centered inside each corresponding row band
+    for (let h = 0; h < numHabits; h++) {
+        const midY = cy - rOuter + (h + 0.5) * ringStep;
+        const habitLabel = labels[h];
+
+        if (isCurrentMonth) {
+            const targetDay = today.getDate();
+            const dayKey = String(targetDay);
+            const isTodayDone = !!(monthData[dayKey] && monthData[dayKey][h]);
+
+            const cbX = lineXStart;
+            const cbY = midY - 7;
+            const textX = lineXStart + 22;
+
+            const cbFill = isTodayDone ? '#10b981' : (isDarkMode ? 'rgba(15, 23, 42, 0.8)' : '#ffffff');
+            const cbStroke = isTodayDone ? '#10b981' : (isDarkMode ? '#475569' : '#94a3b8');
+
+            leaderLinesSvg += `
+                <g class="commitment-checkbox-group cursor-pointer select-none" onclick="window.toggleCommitmentCell(${targetDay}, ${h})">
+                    <!-- Interactive Checkbox Box for Today (${targetDay} ${monthName}) -->
+                    <rect x="${cbX}" y="${cbY.toFixed(2)}" width="14" height="14" rx="3.5"
+                        fill="${cbFill}" stroke="${cbStroke}" stroke-width="1.4" />
+
+                    ${isTodayDone ? `
+                        <!-- Checkmark Icon -->
+                        <path d="M ${(cbX + 3.5).toFixed(2)} ${(cbY + 7).toFixed(2)} L ${(cbX + 5.8).toFixed(2)} ${(cbY + 9.5).toFixed(2)} L ${(cbX + 10.5).toFixed(2)} ${(cbY + 4.5).toFixed(2)}"
+                            stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                    ` : ''}
+
+                    <!-- Task Name Label -->
+                    <text x="${textX}" y="${midY.toFixed(2)}"
+                        fill="${textFill}" class="commitment-label-text hover:opacity-80 transition-opacity" font-size="11" font-weight="800"
+                        letter-spacing="0.02em" dominant-baseline="central">
+                        ${safeEscapeHtml(habitLabel)}
+                    </text>
+                </g>
+            `;
+        } else {
+            // Past & Future Months: Render clean task label text without checkboxes
+            const textX = lineXStart;
+
+            leaderLinesSvg += `
+                <g class="commitment-checkbox-group select-none">
+                    <!-- Task Name Label -->
+                    <text x="${textX}" y="${midY.toFixed(2)}"
+                        fill="${textFill}" class="commitment-label-text" font-size="11" font-weight="800"
+                        letter-spacing="0.02em" dominant-baseline="central">
+                        ${safeEscapeHtml(habitLabel)}
+                    </text>
+                </g>
+            `;
+        }
+    }
+
+    // Outer Edge Day Numbers & Radial Tick Marks
+    let edgeDaysSvg = '';
+    const rDayText = rOuter + 14;
+
+    for (let d = 0; d < daysInMonth; d++) {
+        const dayNum = d + 1;
+        const aMid = startAngleDeg + (d + 0.5) * angleStepDeg;
+        const posText = polarToCartesian(cx, cy, rDayText, aMid);
+        const isToday = isCurrentMonth && dayNum === today.getDate();
+
+        // Tick mark at sector boundary line
+        const aStart = startAngleDeg + d * angleStepDeg;
+        const tickP1 = polarToCartesian(cx, cy, rOuter, aStart);
+        const tickP2 = polarToCartesian(cx, cy, rOuter + 4, aStart);
+
+        edgeDaysSvg += `
+            <line x1="${tickP1.x.toFixed(2)}" y1="${tickP1.y.toFixed(2)}" x2="${tickP2.x.toFixed(2)}" y2="${tickP2.y.toFixed(2)}"
+                stroke="${gridStroke}" stroke-width="1.1" />
+            <text x="${posText.x.toFixed(2)}" y="${posText.y.toFixed(2)}"
+                text-anchor="middle" dominant-baseline="central"
+                fill="${isToday ? '#10b981' : (isDarkMode ? '#94a3b8' : '#64748b')}"
+                font-size="${isToday ? '9.5' : '8'}"
+                font-weight="${isToday ? '900' : '700'}"
+                class="commitment-edge-day ${isToday ? 'commitment-today-text' : ''}">
+                ${dayNum}
+            </text>
+        `;
+    }
+
+    // Final sector end tick mark
+    const tickEnd1 = polarToCartesian(cx, cy, rOuter, startAngleDeg + totalAngleDeg);
+    const tickEnd2 = polarToCartesian(cx, cy, rOuter + 4, startAngleDeg + totalAngleDeg);
+    edgeDaysSvg += `
+        <line x1="${tickEnd1.x.toFixed(2)}" y1="${tickEnd1.y.toFixed(2)}" x2="${tickEnd2.x.toFixed(2)}" y2="${tickEnd2.y.toFixed(2)}"
+            stroke="${gridStroke}" stroke-width="1.1" />
+    `;
+
+    // Center Hub Rendering (The X Commitments)
+    const centerHubSvg = `
+        <circle cx="${cx}" cy="${cy}" r="${rInner}" fill="${isDarkMode ? '#0f172a' : '#ffffff'}" stroke="${gridStroke}" stroke-width="1.6" class="commitment-hub-circle" />
+
+        <text x="${cx}" y="${cy - 27}" text-anchor="middle" fill="${isDarkMode ? '#94a3b8' : '#64748b'}" font-size="9.5" font-weight="900" letter-spacing="3px" class="commitment-hub-text-sub">THE</text>
+
+        <text x="${cx}" y="${cy - 1}" text-anchor="middle" dominant-baseline="central" fill="${digit7Fill}" font-size="38" font-weight="900" class="commitment-hub-digit">X</text>
+
+        <text x="${cx}" y="${cy + 27}" text-anchor="middle" fill="${isDarkMode ? '#e2e8f0' : '#1e293b'}" font-size="8.5" font-weight="900" letter-spacing="2px" class="commitment-hub-text-main">COMMITMENTS</text>
+    `;
+
+    wrapper.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" style="width: 100%; max-width: 720px; height: auto;" class="mx-auto overflow-visible select-none">
+            <g id="commitment-grid-cells">
+                ${svgPaths}
+            </g>
+            <g id="commitment-leader-lines">
+                ${leaderLinesSvg}
+            </g>
+            <g id="commitment-edge-days">
+                ${edgeDaysSvg}
+            </g>
+            <g id="commitment-center-hub">
+                ${centerHubSvg}
+            </g>
+        </svg>
+    `;
+};
+
+window.showCommitmentTooltip = function (event, habitName, dayNum, formattedDate, isCompleted) {
+    let tooltip = document.getElementById('spectra-commitments-tooltip');
+    if (!tooltip) return;
+
+    if (tooltip.parentElement !== document.body) {
+        document.body.appendChild(tooltip);
+    }
+
+    const statusBadge = isCompleted
+        ? `<span class="text-emerald-400 font-extrabold flex items-center gap-1">✓ Completed</span>`
+        : `<span class="text-slate-400 font-bold">Not Logged</span>`;
+
+    tooltip.innerHTML = `
+        <div class="font-black text-white text-[12px] uppercase tracking-wide">${habitName}</div>
+        <div class="text-[10px] text-slate-300 font-bold mt-0.5">Day ${dayNum} &bull; ${formattedDate}</div>
+        <div class="text-[10px] mt-1 pt-1 border-t border-white/10 flex items-center justify-between gap-3">
+            <span>Status:</span>
+            ${statusBadge}
+        </div>
+    `;
+
+    tooltip.classList.remove('hidden');
+
+    const padding = 12;
+    const tooltipWidth = tooltip.offsetWidth || 180;
+    const tooltipHeight = tooltip.offsetHeight || 80;
+
+    let left = event.clientX + 16;
+    let top = event.clientY - Math.round(tooltipHeight / 2);
+
+    if (left + tooltipWidth > window.innerWidth - padding) {
+        left = event.clientX - tooltipWidth - 16;
+    }
+
+    if (top < padding) {
+        top = padding;
+    } else if (top + tooltipHeight > window.innerHeight - padding) {
+        top = window.innerHeight - tooltipHeight - padding;
+    }
+
+    tooltip.style.position = 'fixed';
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+    tooltip.style.zIndex = '99999';
+};
+
+window.hideCommitmentTooltip = function () {
+    const tooltip = document.getElementById('spectra-commitments-tooltip');
+    if (tooltip) tooltip.classList.add('hidden');
+};
+
 /**
  * Renders a subject-specific donut/ring circle chart in the subject trend modal.
  * Shows each chapter as an arc segment with color based on completion status.
@@ -6938,20 +7555,38 @@ window.renderDailyLogs = function () {
 
 window.setDailyState = function (type, state) {
     const todayStr = Utils.formatDate(new Date());
-    const idx = AppState.tasks.findIndex(t => t.date === todayStr);
+    let idx = AppState.tasks.findIndex(t => t.date === todayStr);
+
+    if (idx === -1) {
+        const newTask = {
+            id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            date: todayStr,
+            note: ''
+        };
+        if (Array.isArray(window.customActions)) {
+            window.customActions.forEach(a => { newTask[a.id] = false; });
+        }
+        AppState.tasks.push(newTask);
+        idx = AppState.tasks.length - 1;
+    }
 
     if (idx > -1) {
         AppState.tasks[idx][type] = state;
-        FirebaseService.saveToCloud();
-        renderDailyTracker();
-        renderDailyLogs();
+        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+            window.FirebaseService.saveToCloud();
+        }
+        if (typeof renderDailyTracker === 'function') renderDailyTracker();
+        if (typeof renderDailyLogs === 'function') renderDailyLogs();
+        if (typeof window.renderSpectraCommitmentsChart === 'function') window.renderSpectraCommitmentsChart();
 
         const dbModal = document.getElementById('daily-actions-db-modal');
-        if (dbModal && !dbModal.classList.contains('hidden')) window.openDailyActionsDBModal();
+        if (dbModal && !dbModal.classList.contains('hidden') && typeof window.openDailyActionsDBModal === 'function') {
+            window.openDailyActionsDBModal();
+        }
 
         if (window.chartDebounce) clearTimeout(window.chartDebounce);
         window.chartDebounce = setTimeout(() => {
-            requestAnimationFrame(renderTrendCharts);
+            if (typeof renderTrendCharts === 'function') requestAnimationFrame(renderTrendCharts);
         }, 500);
     }
 };
@@ -12354,6 +12989,62 @@ window.updateSubProgDropdown = function () {
     }
 };
 
+window.appendNewAction = function () {
+    const titleEl = document.getElementById('add-act-title');
+    const descEl = document.getElementById('add-act-desc');
+    const colorEl = document.getElementById('add-act-color');
+    const iconEl = document.getElementById('add-act-icon');
+    const trackEl = document.getElementById('add-act-track');
+
+    const title = titleEl ? titleEl.value.trim() : '';
+    const desc = descEl ? descEl.value.trim() : '';
+    const color = colorEl ? colorEl.value : 'indigo';
+    const icon = iconEl ? iconEl.value : 'generic';
+    const track = trackEl ? trackEl.value : '';
+
+    if (!title) return showToast("Action title required.", "error");
+
+    if (!Array.isArray(window.customActions)) {
+        window.customActions = [];
+    }
+
+    if (window.customActions.some(a => (a.title || '').toLowerCase() === title.toLowerCase())) {
+        return showToast("Daily Action Tracker with this title already exists.", "error");
+    }
+
+    const slug = 'act_' + (title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '') || Date.now());
+    const nextPriority = window.customActions.length + 1;
+
+    const newAction = {
+        id: slug,
+        title: title,
+        question: desc || `Did you complete ${title}?`,
+        color: color,
+        icon: icon,
+        track: track,
+        priority: nextPriority,
+        order: nextPriority
+    };
+
+    window.customActions.push(newAction);
+
+    if (Array.isArray(window.tasks)) {
+        window.tasks.forEach(t => {
+            if (t[newAction.id] === undefined) t[newAction.id] = false;
+        });
+    }
+
+    if (titleEl) titleEl.value = '';
+    if (descEl) descEl.value = '';
+
+    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+        window.FirebaseService.saveToCloud();
+    }
+
+    renderUI();
+    showToast("Daily Action Tracker created & added to The X Commitments!", "success");
+};
+
 window.appendNewProgram = function () {
     const track = document.getElementById('add-prog-track').value;
     const name = document.getElementById('add-prog-name').value.trim();
@@ -16678,6 +17369,7 @@ window.switchPage = function (pageId) {
             if (window.renderSpectraCircleChart) setTimeout(window.renderSpectraCircleChart, 50);
             if (window.renderTimerAnalyticsChart) setTimeout(window.renderTimerAnalyticsChart, 50);
             if (window.renderSpectraFocusHeatmap) setTimeout(window.renderSpectraFocusHeatmap, 50);
+            if (window.renderSpectraCommitmentsChart) setTimeout(window.renderSpectraCommitmentsChart, 50);
         }
         } else if (pageId === 'subjects') {
         setTimeout(() => {
@@ -19954,4 +20646,12 @@ window.renderFiscalCharts = function () {
         });
     }
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if (typeof window.renderSpectraCommitmentsChart === 'function') {
+            window.renderSpectraCommitmentsChart();
+        }
+    }, 200);
+});
 

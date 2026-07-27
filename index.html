@@ -1023,6 +1023,73 @@
                     </div>
                 </div>
 
+                <!-- The 7 Officer Commitments Habit Radar Chart Card -->
+                <div class="relative bg-white dark:bg-slate-800 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col w-full overflow-hidden">
+                    <!-- Tooltip for Habit Radar -->
+                    <div id="spectra-commitments-tooltip"
+                        class="fixed hidden bg-slate-950/95 text-white text-[11px] font-bold px-3 py-2 rounded-xl border border-white/15 shadow-2xl pointer-events-none z-[100] backdrop-blur-md transition-all duration-75 flex flex-col gap-1">
+                    </div>
+
+                    <!-- Header & Controls Row -->
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/80 mb-3.5 shrink-0">
+                        <div class="space-y-0.5">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 text-[8.5px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 rounded-full border border-emerald-500/20">Habit Radar</span>
+                                <span class="px-2 py-0.5 text-[8.5px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-500/10 rounded-full border border-indigo-500/20">Daily Consistency</span>
+                            </div>
+                            <h3 class="text-base md:text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2 mt-0.5">
+                                The X Commitments
+                            </h3>
+                            <p class="text-slate-500 dark:text-slate-400 text-[11px] leading-tight max-w-xl">
+                                Daily commitment tracker & radial habit grid. Click any cell to log or toggle completion for that day.
+                            </p>
+                        </div>
+
+                        <!-- Action & Navigation Controls -->
+                        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto justify-between lg:justify-end">
+                            <!-- Month Selector -->
+                            <div class="flex items-center bg-slate-100 dark:bg-slate-900/70 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                                <button onclick="window.prevCommitmentMonth()" type="button" title="Previous Month"
+                                    class="p-1 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                                </button>
+                                <span id="spectra-commitments-month-label" class="px-2.5 text-[11px] font-black text-slate-800 dark:text-slate-100 min-w-[95px] text-center uppercase tracking-wider">July 2026</span>
+                                <button onclick="window.nextCommitmentMonth()" type="button" title="Next Month"
+                                    class="p-1 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layout Container: Vertical Left-Side Stats + Chart -->
+                    <div class="flex flex-col lg:flex-row items-center lg:items-center justify-between gap-4 lg:gap-6 mt-3">
+                        <!-- Summary Stats Vertical Bar (Left Side) -->
+                        <div class="w-full lg:w-52 xl:w-60 flex-shrink-0 grid grid-cols-2 sm:grid-cols-4 lg:flex lg:flex-col gap-2.5">
+                            <div class="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Monthly Completion</span>
+                                <span id="spectra-commitments-pct" class="text-base sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">0%</span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Total Fulfilled</span>
+                                <span id="spectra-commitments-count" class="text-base sm:text-xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5">0 / 0</span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Active Streak</span>
+                                <span id="spectra-commitments-streak" class="text-base sm:text-xl font-black text-amber-500 mt-0.5">0 Days 🔥</span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col justify-center">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Days Logged</span>
+                                <span id="spectra-commitments-days-logged" class="text-base sm:text-xl font-black text-slate-800 dark:text-slate-200 mt-0.5">0 Days</span>
+                            </div>
+                        </div>
+
+                        <!-- SVG Chart Display Container (Right Side) -->
+                        <div id="spectra-commitments-chart-wrapper" class="relative w-full flex-1 flex items-center justify-center min-h-[350px] sm:min-h-[440px] overflow-x-auto py-1">
+                            <!-- Rendered via JS -->
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Embedded Focus Analytics Section (Spectra Pulse Page) -->
                 <div class="bg-white dark:bg-slate-800 p-5 sm:p-7 md:p-8 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm overflow-hidden mb-6 md:mb-8 flex flex-col">
                     <!-- Header Row -->
