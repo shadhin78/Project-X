@@ -6179,8 +6179,9 @@ window.renderSpectraCommitmentsChart = function () {
     const gridStroke = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : '#cbd5e1';
     const textFill = isDarkMode ? '#e2e8f0' : '#1e293b';
     const lineStroke = isDarkMode ? 'rgba(255, 255, 255, 0.2)' : '#64748b';
-    const cellFillActive = isDarkMode ? '#6366f1' : '#4f46e5'; // Primary Indigo Theme Color
-    const cellFillInactive = isDarkMode ? 'rgba(15, 23, 42, 0.75)' : '#ffffff';
+    const cellFillActive = isDarkMode ? '#10b981' : '#059669'; // Deep Green for completed commitments
+    const cellFillInactive = 'rgb(190, 18, 60)'; // Deep Red Rose for past incomplete commitments
+    const cellStrokeUpcoming = isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(100, 116, 139, 0.35)'; // Subtle stroke outline for upcoming/today boxes
     const digit7Fill = isDarkMode ? '#818cf8' : '#4f46e5';
 
     function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
@@ -6191,43 +6192,81 @@ window.renderSpectraCommitmentsChart = function () {
         };
     }
 
+    // Radial & Angular gaps between boxes for distinct transparent-spaced box grid layout
+    const radialGap = 2.2; // Physical gap between rings in pixels
+    const angularGapPx = 2.2; // Physical gap between day sectors in pixels
+
     // Generate Polar Grid Cells
     for (let h = 0; h < numHabits; h++) {
-        const outerR = rOuter - h * ringStep;
-        const innerR = rOuter - (h + 1) * ringStep;
+        const baseOuterR = rOuter - h * ringStep;
+        const baseInnerR = rOuter - (h + 1) * ringStep;
+
+        // Inset radial bounds for cell
+        const cellOuterR = baseOuterR - (radialGap / 2);
+        const cellInnerR = baseInnerR + (radialGap / 2);
 
         for (let d = 0; d < daysInMonth; d++) {
             const dayNum = d + 1;
-            const a1 = startAngleDeg + d * angleStepDeg;
-            const a2 = startAngleDeg + (d + 1) * angleStepDeg;
+            const a1Base = startAngleDeg + d * angleStepDeg;
+            const a2Base = startAngleDeg + (d + 1) * angleStepDeg;
 
-            const p1 = polarToCartesian(cx, cy, innerR, a1);
-            const p2 = polarToCartesian(cx, cy, outerR, a1);
-            const p3 = polarToCartesian(cx, cy, outerR, a2);
-            const p4 = polarToCartesian(cx, cy, innerR, a2);
+            // Inset angular bounds for cell based on physical pixel gap at inner and outer radii
+            const angleInsetOuter = ((angularGapPx / 2) / cellOuterR) * (180 / Math.PI);
+            const angleInsetInner = ((angularGapPx / 2) / cellInnerR) * (180 / Math.PI);
 
-            const largeArcFlag = (a2 - a1) <= 180 ? '0' : '1';
+            const aOuter1 = a1Base + angleInsetOuter;
+            const aOuter2 = a2Base - angleInsetOuter;
+            const aInner1 = a1Base + angleInsetInner;
+            const aInner2 = a2Base - angleInsetInner;
+
+            const p1 = polarToCartesian(cx, cy, cellInnerR, aInner1);
+            const p2 = polarToCartesian(cx, cy, cellOuterR, aOuter1);
+            const p3 = polarToCartesian(cx, cy, cellOuterR, aOuter2);
+            const p4 = polarToCartesian(cx, cy, cellInnerR, aInner2);
+
+            const largeArcFlag = (aOuter2 - aOuter1) <= 180 ? '0' : '1';
 
             const pathData = [
                 `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`,
                 `L ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`,
-                `A ${outerR.toFixed(2)} ${outerR.toFixed(2)} 0 ${largeArcFlag} 1 ${p3.x.toFixed(2)} ${p3.y.toFixed(2)}`,
+                `A ${cellOuterR.toFixed(2)} ${cellOuterR.toFixed(2)} 0 ${largeArcFlag} 1 ${p3.x.toFixed(2)} ${p3.y.toFixed(2)}`,
                 `L ${p4.x.toFixed(2)} ${p4.y.toFixed(2)}`,
-                `A ${innerR.toFixed(2)} ${innerR.toFixed(2)} 0 ${largeArcFlag} 0 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`,
+                `A ${cellInnerR.toFixed(2)} ${cellInnerR.toFixed(2)} 0 ${largeArcFlag} 0 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`,
                 'Z'
             ].join(' ');
 
             const dayKey = String(dayNum);
             const isCompleted = !!(monthData[dayKey] && monthData[dayKey][h]);
-            const fillColor = isCompleted ? cellFillActive : cellFillInactive;
+
+            const isPastDay = (year < today.getFullYear()) ||
+                (year === today.getFullYear() && month < today.getMonth()) ||
+                (isCurrentMonth && dayNum < today.getDate());
+
+            let fillColor = 'none';
+            let strokeAttr = 'stroke="none"';
+            let cellClass = 'commitment-cell';
+
+            if (isCompleted) {
+                fillColor = cellFillActive;
+                strokeAttr = 'stroke="none"';
+                cellClass += ' commitment-cell-active';
+            } else if (isPastDay) {
+                fillColor = cellFillInactive;
+                strokeAttr = 'stroke="none"';
+                cellClass += ' commitment-cell-inactive';
+            } else {
+                // Today or upcoming day (not passed) & uncompleted: No color fill, but stroke outline to indicate box
+                fillColor = 'none';
+                strokeAttr = `stroke="${cellStrokeUpcoming}" stroke-width="1.1"`;
+                cellClass += ' commitment-cell-upcoming';
+            }
+
             const labelText = labels[h];
-            const cellClass = isCompleted ? 'commitment-cell commitment-cell-active' : 'commitment-cell commitment-cell-inactive';
 
             svgPaths += `
                 <path d="${pathData}"
                     fill="${fillColor}"
-                    stroke="${gridStroke}"
-                    stroke-width="1.1"
+                    ${strokeAttr}
                     class="${cellClass}"
                     data-day="${dayNum}"
                     data-habit="${h}"

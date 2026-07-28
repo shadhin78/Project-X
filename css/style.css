@@ -821,8 +821,9 @@ select optgroup {
 }
 
 .commitment-cell {
-    transition: fill 0.18s ease, opacity 0.18s ease, stroke 0.18s ease, filter 0.18s ease;
+    transition: fill 0.18s ease, opacity 0.18s ease, filter 0.18s ease;
     cursor: default;
+    stroke: none !important;
 }
 
 .commitment-checkbox-group rect,
@@ -836,18 +837,42 @@ select optgroup {
 }
 
 /* Dynamic Dark/Light Theme Integration for Commitment Chart */
-.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive,
-html.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive,
-body.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive {
-    fill: rgba(15, 23, 42, 0.75) !important;
-    stroke: rgba(255, 255, 255, 0.12) !important;
+#spectra-commitments-chart-wrapper .commitment-cell-active {
+    fill: #059669 !important;
+    stroke: none !important;
 }
 
 .dark #spectra-commitments-chart-wrapper .commitment-cell-active,
 html.dark #spectra-commitments-chart-wrapper .commitment-cell-active,
 body.dark #spectra-commitments-chart-wrapper .commitment-cell-active {
-    fill: #6366f1 !important;
-    stroke: rgba(255, 255, 255, 0.15) !important;
+    fill: #10b981 !important;
+    stroke: none !important;
+}
+
+#spectra-commitments-chart-wrapper .commitment-cell-inactive {
+    fill: rgb(190, 18, 60) !important;
+    stroke: none !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive,
+html.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive,
+body.dark #spectra-commitments-chart-wrapper .commitment-cell-inactive {
+    fill: rgb(190, 18, 60) !important;
+    stroke: none !important;
+}
+
+#spectra-commitments-chart-wrapper .commitment-cell-upcoming {
+    fill: none !important;
+    stroke: rgba(100, 116, 139, 0.35) !important;
+    stroke-width: 1.1px !important;
+}
+
+.dark #spectra-commitments-chart-wrapper .commitment-cell-upcoming,
+html.dark #spectra-commitments-chart-wrapper .commitment-cell-upcoming,
+body.dark #spectra-commitments-chart-wrapper .commitment-cell-upcoming {
+    fill: none !important;
+    stroke: rgba(255, 255, 255, 0.25) !important;
+    stroke-width: 1.1px !important;
 }
 
 .dark #spectra-commitments-chart-wrapper .commitment-leader-line,
