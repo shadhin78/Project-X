@@ -2959,6 +2959,7 @@ function renderUI() {
     if (window.renderDashboardDailyChecklist) window.renderDashboardDailyChecklist();
     if (window.renderOutcomeProgramToggles) window.renderOutcomeProgramToggles();
     if (window.renderSchedulePage) window.renderSchedulePage();
+    if (window.renderDashboardFiscalSummary) window.renderDashboardFiscalSummary();
 
     // Dynamic Form & Manage UI Syncs
     window.populateTrackDropdowns();
@@ -17759,9 +17760,10 @@ window.renderDashboardFiscalSummary = function () {
     transactions.forEach(tx => {
         const amt = parseFloat(tx.amount) || 0;
         const isCr = tx.type === 'cr' || tx.type === 'inflow' || tx.type === 'income';
+        const isDr = tx.type === 'dr' || tx.type === 'outflow' || tx.type === 'expense';
         if (isCr) {
             totalInflow += amt;
-        } else {
+        } else if (isDr) {
             totalOutflow += amt;
         }
     });

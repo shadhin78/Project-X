@@ -134,7 +134,12 @@ const stateKeys = [
 stateKeys.forEach(key => {
     Object.defineProperty(window, key, {
         get: () => window.AppState[key],
-        set: (val) => { window.AppState[key] = val; },
+        set: (val) => {
+            window.AppState[key] = val;
+            if (key === 'fiscalLedger' && typeof window.renderDashboardFiscalSummary === 'function') {
+                window.renderDashboardFiscalSummary();
+            }
+        },
         configurable: true
     });
 });
