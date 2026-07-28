@@ -683,6 +683,52 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Focus Matrix Heatmap Card (2-Month Compact) -->
+                    <div id="dashboard-heatmap-section"
+                        class="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm flex flex-col animate-page-enter select-none h-[225px] md:h-[250px] min-h-[225px] md:min-h-[250px]">
+                        <!-- Header Row -->
+                        <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 dark:border-slate-700/60 shrink-0 gap-1.5">
+                            <div class="flex items-center space-x-2 min-w-0 flex-1">
+                                <div
+                                    class="p-1.5 bg-fuchsia-50 dark:bg-fuchsia-950/30 text-fuchsia-600 dark:text-fuchsia-400 rounded-lg shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3
+                                        class="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 truncate">
+                                        Focus Heatmap</h3>
+                                    <span
+                                        class="text-[8px] text-slate-400 uppercase tracking-wider block font-black truncate">2 Month Grid</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-1.5 shrink-0">
+                                <div id="dash-hm-selected-detail"
+                                    class="text-[9px] font-black text-fuchsia-600 dark:text-fuchsia-400 bg-fuchsia-50/80 dark:bg-fuchsia-950/50 px-2 py-0.5 rounded-lg border border-fuchsia-500/20 shadow-sm flex items-center gap-1">
+                                    <!-- Dynamic date & duration detail -->
+                                </div>
+                                <button onclick="window.switchPage('spectra-analytics')"
+                                    class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition-all active:scale-95 shrink-0"
+                                    title="Go to Spectra Pulse Heatmap">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Compact Heatmap Grid Area -->
+                        <div class="flex-1 flex flex-col justify-between overflow-hidden py-1 w-full min-h-0">
+                            <div id="dashboard-focus-heatmap-grid" class="w-full h-full flex flex-col justify-between">
+                                <!-- Populated dynamically via JS -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
 
@@ -1261,59 +1307,7 @@
 
                 <!-- Focus Analytics GitHub Box Chart Heatmap (Spectra Pulse Page) -->
                 <div class="bg-white dark:bg-slate-800 p-5 sm:p-7 md:p-8 rounded-2xl md:rounded-[2rem] border border-slate-200/50 dark:border-slate-700/50 shadow-sm overflow-hidden mb-6 md:mb-8 flex flex-col relative">
-                    <!-- Custom Tooltip for Heatmap -->
-                    <div id="spectra-focus-heatmap-tooltip"
-                        class="fixed hidden bg-slate-950/95 text-white text-[11px] font-bold px-3.5 py-2.5 rounded-xl border border-white/15 shadow-2xl pointer-events-none z-[100] backdrop-blur-md transition-all duration-75 flex flex-col gap-1">
-                    </div>
-
-                    <!-- Focus Analytics Day Detail Side Note Modal -->
-                    <div id="spectra-heatmap-day-modal" class="hidden fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all flex flex-col max-h-[85vh]">
-                            <!-- Modal Header -->
-                            <div class="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-                                <div class="flex items-center space-x-3">
-                                    <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 id="spectra-hm-modal-date" class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Day Focus Detail</h3>
-                                        <span id="spectra-hm-modal-tier-badge" class="inline-block mt-0.5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md">Tier Badge</span>
-                                    </div>
-                                </div>
-                                <button onclick="window.closeSpectraHeatmapDayModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </button>
-                            </div>
-                            
-                            <!-- Modal Content Body -->
-                            <div class="p-5 space-y-4 overflow-y-auto">
-                                <!-- Focus Metrics Grid -->
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div class="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Focus Time</span>
-                                        <div id="spectra-hm-modal-time" class="text-lg font-black text-slate-800 dark:text-white mt-0.5">0.00h</div>
-                                    </div>
-                                    <div class="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Daily Target Met</span>
-                                        <div id="spectra-hm-modal-target-pct" class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">0%</div>
-                                    </div>
-                                </div>
-
-                                <!-- Sessions List Section -->
-                                <div>
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Logged Sessions</span>
-                                        <span id="spectra-hm-modal-session-count" class="text-[10px] font-bold text-slate-500">0 sessions</span>
-                                    </div>
-                                    <div id="spectra-hm-modal-sessions-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                        <!-- Populated via JS -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Header Row -->
 
                     <!-- Header Row -->
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-slate-100 dark:border-slate-700 gap-4 shrink-0">
@@ -7306,6 +7300,59 @@
                 </div>
             </div>
 
+            <!-- Custom Tooltip for Heatmap -->
+            <div id="spectra-focus-heatmap-tooltip"
+                class="fixed hidden bg-slate-950/95 text-white text-[11px] font-bold px-3.5 py-2.5 rounded-xl border border-white/15 shadow-2xl pointer-events-none z-[100] backdrop-blur-md transition-all duration-75 flex flex-col gap-1">
+            </div>
+
+            <!-- Focus Analytics Day Detail Side Note Modal -->
+            <div id="spectra-heatmap-day-modal" class="hidden fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all flex flex-col max-h-[85vh]">
+                    <!-- Modal Header -->
+                    <div class="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 id="spectra-hm-modal-date" class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Day Focus Detail</h3>
+                                <span id="spectra-hm-modal-tier-badge" class="inline-block mt-0.5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md">Tier Badge</span>
+                            </div>
+                        </div>
+                        <button onclick="window.closeSpectraHeatmapDayModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Modal Content Body -->
+                    <div class="p-5 space-y-4 overflow-y-auto">
+                        <!-- Focus Metrics Grid -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Focus Time</span>
+                                <div id="spectra-hm-modal-time" class="text-lg font-black text-slate-800 dark:text-white mt-0.5">0.00h</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-800">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Daily Target Met</span>
+                                <div id="spectra-hm-modal-target-pct" class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">0%</div>
+                            </div>
+                        </div>
+
+                        <!-- Sessions List Section -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Logged Sessions</span>
+                                <span id="spectra-hm-modal-session-count" class="text-[10px] font-bold text-slate-500">0 sessions</span>
+                            </div>
+                            <div id="spectra-hm-modal-sessions-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 </body>
 
 </html>

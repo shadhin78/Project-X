@@ -17371,11 +17371,12 @@ window.switchPage = function (pageId) {
         // Resize and repaint again after entry transition completes (400ms animation) to prevent GPU caching/blank canvas bugs
         setTimeout(resizeAndUpdateAll, 420);
 
+        if (window.renderSpectraFocusHeatmap) setTimeout(window.renderSpectraFocusHeatmap, 50);
+
         if (pageId === 'spectra-analytics') {
             if (window.updateTimerAnalyticsControls) setTimeout(window.updateTimerAnalyticsControls, 50);
             if (window.renderSpectraCircleChart) setTimeout(window.renderSpectraCircleChart, 50);
             if (window.renderTimerAnalyticsChart) setTimeout(window.renderTimerAnalyticsChart, 50);
-            if (window.renderSpectraFocusHeatmap) setTimeout(window.renderSpectraFocusHeatmap, 50);
             if (window.renderSpectraCommitmentsChart) setTimeout(window.renderSpectraCommitmentsChart, 50);
         }
         } else if (pageId === 'subjects') {
