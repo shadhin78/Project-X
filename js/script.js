@@ -2995,12 +2995,16 @@ function renderUI() {
         window.TimerService.restore();
     }
 
-    // Real-time sync: Refresh Spectra Pulse Focus Analytics & Heatmap on cross-device data updates
+    // Real-time sync: Refresh Focus Analytics & Heatmap on cross-device data updates
+    if (typeof window.updateTimerAnalyticsControls === 'function') {
+        setTimeout(window.updateTimerAnalyticsControls, 50);
+    }
+    if (typeof window.renderTimerAnalyticsChart === 'function') {
+        setTimeout(window.renderTimerAnalyticsChart, 60);
+    }
+
     const spectraPage = document.getElementById('page-spectra-analytics');
     if (spectraPage && !spectraPage.classList.contains('hidden')) {
-        if (typeof window.renderTimerAnalyticsChart === 'function') {
-            setTimeout(window.renderTimerAnalyticsChart, 60);
-        }
         if (typeof window.renderSpectraFocusHeatmap === 'function') {
             setTimeout(window.renderSpectraFocusHeatmap, 80);
         }
@@ -17349,7 +17353,9 @@ window.switchPage = function (pageId) {
                 window.yearlyChartActions,
                 window.spectraPaceTrendChartInstance,
                 window.globalPaceTrendChartInstance,
-                window.dbProgressChartInstance
+                window.dbProgressChartInstance,
+                window.spectraFocusAnalyticsChartInstance,
+                window.timerAnalyticsChartInstance
             ];
             charts.forEach(chart => {
                 if (chart && typeof chart.resize === 'function') {
@@ -17366,6 +17372,7 @@ window.switchPage = function (pageId) {
         setTimeout(resizeAndUpdateAll, 420);
 
         if (pageId === 'spectra-analytics') {
+            if (window.updateTimerAnalyticsControls) setTimeout(window.updateTimerAnalyticsControls, 50);
             if (window.renderSpectraCircleChart) setTimeout(window.renderSpectraCircleChart, 50);
             if (window.renderTimerAnalyticsChart) setTimeout(window.renderTimerAnalyticsChart, 50);
             if (window.renderSpectraFocusHeatmap) setTimeout(window.renderSpectraFocusHeatmap, 50);

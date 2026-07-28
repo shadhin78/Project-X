@@ -457,10 +457,10 @@
                 });
             }
 
-            // Include current active running timer/stopwatch if its subject matches
-            if (AppState.activeTimerState && (AppState.activeTimerState.selectedSubject || 'General Study') === subject) {
+            // Include current active running timer/stopwatch if its subject matches AND it is currently running
+            if (AppState.activeTimerState && AppState.activeTimerState.isRunning && (AppState.activeTimerState.selectedSubject || 'General Study') === subject) {
                 let activeElapsedMs = AppState.activeTimerState.elapsedBeforeStart || 0;
-                if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                if (AppState.activeTimerState.startTime) {
                     activeElapsedMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
                 }
                 doneSeconds += Math.floor(activeElapsedMs / 1000);
@@ -1334,6 +1334,7 @@
             window.timerAnalyticsGrouping = 'daily';
         }
         window.updateTimerAnalyticsControls();
+        window.renderTimerAnalyticsChart();
         window.openModal('timer-analytics-modal');
     };
 
@@ -1393,6 +1394,7 @@
             if (window.FirebaseService) {
                 window.FirebaseService.saveToCloud(true);
             }
+            window.updateTimerAnalyticsControls();
             window.renderTimerAnalyticsChart();
         }
     };
@@ -1474,20 +1476,22 @@
                 });
             }
 
-            // Real-time addition for active timer/stopwatch if currently running or has active elapsed time
+            // Real-time addition for active timer/stopwatch ONLY if currently running
             if (AppState.activeTimerState) {
                 let activeMs = 0;
                 if (AppState.activeTimerState.timerStates) {
                     Object.values(AppState.activeTimerState.timerStates).forEach(store => {
-                        let ms = store.elapsedBeforeStart || 0;
-                        if (store.isRunning && store.startTime) {
-                            ms += (window.getServerTime() - parseStartTime(store.startTime));
+                        if (store.isRunning) {
+                            let ms = store.elapsedBeforeStart || 0;
+                            if (store.startTime) {
+                                ms += (window.getServerTime() - parseStartTime(store.startTime));
+                            }
+                            activeMs += ms;
                         }
-                        activeMs += ms;
                     });
-                } else {
+                } else if (AppState.activeTimerState.isRunning) {
                     activeMs = AppState.activeTimerState.elapsedBeforeStart || 0;
-                    if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                    if (AppState.activeTimerState.startTime) {
                         activeMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
                     }
                 }
@@ -1524,44 +1528,50 @@
             const sumTarget = dayTarget;
             const successRate = sumTarget > 0 ? Math.round((sumActual / sumTarget) * 100) : 0;
 
-            // Update Stats UI for Today
-            const avgDisplay = document.getElementById('timer-average-focus');
-            if (avgDisplay) avgDisplay.innerText = formatHoursToHrMin(sumActual);
+            // Update Stats UI for Today (both Modal and Spectra Pulse page)
+            ['timer-average-focus', 'spectra-timer-average-focus'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = formatHoursToHrMin(sumActual);
+            });
 
-            const avgTargetDisplay = document.getElementById('timer-average-target');
-            if (avgTargetDisplay) avgTargetDisplay.innerText = formatHoursToHrMin(sumTarget);
+            ['timer-average-target', 'spectra-timer-average-target'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = formatHoursToHrMin(sumTarget);
+            });
 
-            const totalDisplay = document.getElementById('timer-total-focus');
-            if (totalDisplay) totalDisplay.innerText = formatHoursToHrMin(sumActual);
+            ['timer-total-focus', 'spectra-timer-total-focus'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = formatHoursToHrMin(sumActual);
+            });
 
-            const successDisplay = document.getElementById('timer-success-rate');
-            if (successDisplay) {
-                successDisplay.innerText = `${successRate}%`;
-                if (successRate >= 75) {
-                    successDisplay.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
-                } else if (successRate >= 40) {
-                    successDisplay.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
-                } else {
-                    successDisplay.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
+            ['timer-success-rate', 'spectra-timer-success-rate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.innerText = `${successRate}%`;
+                    if (successRate >= 75) {
+                        el.className = "text-base md:text-lg font-black text-emerald-600 dark:text-emerald-400";
+                    } else if (successRate >= 40) {
+                        el.className = "text-base md:text-lg font-black text-amber-600 dark:text-amber-400";
+                    } else {
+                        el.className = "text-base md:text-lg font-black text-rose-600 dark:text-rose-400";
+                    }
                 }
-            }
+            });
 
-            const successSubtitle = document.getElementById('timer-success-rate-subtitle');
-            if (successSubtitle) {
-                successSubtitle.innerText = `Today (Hourly)`;
-            }
+            ['timer-success-rate-subtitle', 'spectra-timer-success-rate-subtitle'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = `Today (Hourly)`;
+            });
 
-            const peakValueDisplay = document.getElementById('timer-peak-value');
-            const peakDateDisplay = document.getElementById('timer-peak-date');
-            if (peakValueDisplay && peakDateDisplay) {
-                if (peakHour.actual > 0) {
-                    peakValueDisplay.innerText = formatHoursToHrMin(peakHour.actual);
-                    peakDateDisplay.innerText = peakHour.label;
-                } else {
-                    peakValueDisplay.innerText = "0 min";
-                    peakDateDisplay.innerText = "No Data";
-                }
-            }
+            ['timer-peak-value', 'spectra-timer-peak-value'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = peakHour.actual > 0 ? formatHoursToHrMin(peakHour.actual) : "0 min";
+            });
+
+            ['timer-peak-date', 'spectra-timer-peak-date'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = peakHour.actual > 0 ? peakHour.label : "No Data";
+            });
         } else {
             // 1. Gather daily data points
             const dailyPoints = [];
@@ -2178,20 +2188,22 @@
             });
         }
 
-        // Include current active running timer if any
+        // Include current active running timer ONLY if currently running
         if (AppState.activeTimerState) {
             let activeMs = 0;
             if (AppState.activeTimerState.timerStates) {
                 Object.values(AppState.activeTimerState.timerStates).forEach(store => {
-                    let ms = store.elapsedBeforeStart || 0;
-                    if (store.isRunning && store.startTime) {
-                        ms += (window.getServerTime() - parseStartTime(store.startTime));
+                    if (store.isRunning) {
+                        let ms = store.elapsedBeforeStart || 0;
+                        if (store.startTime) {
+                            ms += (window.getServerTime() - parseStartTime(store.startTime));
+                        }
+                        activeMs += ms;
                     }
-                    activeMs += ms;
                 });
-            } else {
+            } else if (AppState.activeTimerState.isRunning) {
                 activeMs = AppState.activeTimerState.elapsedBeforeStart || 0;
-                if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                if (AppState.activeTimerState.startTime) {
                     activeMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
                 }
             }
@@ -2218,7 +2230,9 @@
         let curr = new Date(startDate);
 
         let activeDaysCount = 0;
+        let zeroCount = 0;
         let redCount = 0;
+        let blueCount = 0;
         let greenCount = 0;
         let goldCount = 0;
         let gemCount = 0;
@@ -2231,8 +2245,10 @@
 
             if (!isFuture) {
                 if (hours > 0) activeDaysCount++;
-                if (hours > 0 && hours < 4.0) redCount++;
-                else if (hours >= 4.0 && hours < 6.0) greenCount++;
+                if (hours === 0) zeroCount++;
+                else if (hours > 0 && hours <= 2.0) redCount++;
+                else if (hours > 2.0 && hours <= 4.0) blueCount++;
+                else if (hours > 4.0 && hours < 6.0) greenCount++;
                 else if (hours >= 6.0 && hours < 8.0) goldCount++;
                 else if (hours >= 8.0) gemCount++;
             }
@@ -2275,14 +2291,18 @@
         // Update Stat Counters in UI
         const elActive = document.getElementById('spectra-hm-stat-active-days');
         const elStreak = document.getElementById('spectra-hm-stat-streak');
+        const elZero = document.getElementById('spectra-hm-stat-zero');
         const elRed = document.getElementById('spectra-hm-stat-red');
+        const elBlue = document.getElementById('spectra-hm-stat-blue');
         const elGreen = document.getElementById('spectra-hm-stat-green');
         const elGold = document.getElementById('spectra-hm-stat-gold');
         const elGem = document.getElementById('spectra-hm-stat-gem');
 
         if (elActive) elActive.innerText = activeDaysCount;
         if (elStreak) elStreak.innerText = `${streak} days 🔥`;
+        if (elZero) elZero.innerText = zeroCount;
         if (elRed) elRed.innerText = redCount;
+        if (elBlue) elBlue.innerText = blueCount;
         if (elGreen) elGreen.innerText = greenCount;
         if (elGold) elGold.innerText = goldCount;
         if (elGem) elGem.innerText = gemCount;
@@ -2326,17 +2346,28 @@
                 }
 
                 const hrs = dayObj.hours;
-                let bgClass = "bg-slate-100 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 opacity-70";
-                let tierText = "No Focus (0h)";
-                let badgeClass = "bg-slate-500/20 text-slate-400 border border-slate-500/30";
+                let bgClass = "";
+                let tierText = "";
+                let badgeClass = "";
+                let boxInner = "";
 
-                if (hrs > 0 && hrs < 4.0) {
-                    bgClass = "bg-rose-500 text-white border border-rose-400 dark:bg-rose-600 dark:border-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.45)] spectra-heatmap-box";
-                    tierText = "🔴 Below 4h Focus";
-                    badgeClass = "bg-rose-500/20 text-rose-400 border border-rose-500/40";
-                } else if (hrs >= 4.0 && hrs < 6.0) {
+                if (hrs === 0) {
+                    bgClass = "bg-rose-500/20 text-rose-500 border border-rose-300/60 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/50 spectra-heatmap-box";
+                    tierText = "❌ No Focus (0h)";
+                    badgeClass = "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                    boxInner = `<svg class="w-2 h-2 sm:w-2.5 sm:h-2.5 text-rose-500/90 dark:text-rose-400/90 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`;
+                } else if (hrs > 0 && hrs <= 2.0) {
+                    bgClass = "bg-rose-600 text-white border border-rose-500 dark:bg-rose-700 dark:border-rose-600 shadow-[0_0_6px_rgba(225,29,72,0.45)] spectra-heatmap-box";
+                    tierText = "⭕ Low Focus (0-2h)";
+                    badgeClass = "bg-rose-600/20 text-rose-400 border border-rose-600/40";
+                    boxInner = `<svg class="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white/90 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>`;
+                } else if (hrs > 2.0 && hrs <= 4.0) {
+                    bgClass = "bg-blue-500 text-white border border-blue-400 dark:bg-blue-600 dark:border-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.45)] spectra-heatmap-box";
+                    tierText = "🔵 Moderate Focus (2-4h)";
+                    badgeClass = "bg-blue-500/20 text-blue-400 border border-blue-500/40";
+                } else if (hrs > 4.0 && hrs < 6.0) {
                     bgClass = "bg-emerald-500 text-white border border-emerald-400 dark:bg-emerald-600 dark:border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)] spectra-heatmap-box";
-                    tierText = "🟢 Target Met (≥ 4h)";
+                    tierText = "🟢 Target Met (> 4h)";
                     badgeClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
                 } else if (hrs >= 6.0 && hrs < 8.0) {
                     bgClass = "bg-amber-400 text-amber-950 border border-amber-300 dark:bg-amber-500 dark:border-amber-400 animate-gold-pulse spectra-heatmap-box";
@@ -2351,7 +2382,7 @@
                 const formattedDate = dayObj.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
                 const formattedTime = formatHoursToHrMin(hrs);
 
-                gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] ${bgClass} shrink-0 cursor-pointer"
+                gridRowsHtml += `<div class="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[3px] ${bgClass} shrink-0 cursor-pointer flex items-center justify-center overflow-hidden"
                     data-date="${formattedDate}"
                     data-datekey="${dayObj.dateKey}"
                     data-time="${formattedTime}"
@@ -2360,8 +2391,7 @@
                     onclick="window.showSpectraHeatmapDayDetail('${dayObj.dateKey}')"
                     onmouseenter="window.showSpectraHeatmapTooltip(event, this)"
                     onmousemove="window.moveSpectraHeatmapTooltip(event)"
-                    onmouseleave="window.hideSpectraHeatmapTooltip()">
-                </div>`;
+                    onmouseleave="window.hideSpectraHeatmapTooltip()">${boxInner}</div>`;
             });
 
             gridRowsHtml += `</div></div>`;
@@ -2408,22 +2438,24 @@
             });
         }
 
-        // Active timer addition if today
+        // Active timer addition if today AND currently running
         const today = new Date();
         const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         if (dateKey === todayKey && AppState.activeTimerState) {
             let activeMs = 0;
             if (AppState.activeTimerState.timerStates) {
                 Object.values(AppState.activeTimerState.timerStates).forEach(store => {
-                    let ms = store.elapsedBeforeStart || 0;
-                    if (store.isRunning && store.startTime) {
-                        ms += (window.getServerTime() - parseStartTime(store.startTime));
+                    if (store.isRunning) {
+                        let ms = store.elapsedBeforeStart || 0;
+                        if (store.startTime) {
+                            ms += (window.getServerTime() - parseStartTime(store.startTime));
+                        }
+                        activeMs += ms;
                     }
-                    activeMs += ms;
                 });
-            } else {
+            } else if (AppState.activeTimerState.isRunning) {
                 activeMs = AppState.activeTimerState.elapsedBeforeStart || 0;
-                if (AppState.activeTimerState.isRunning && AppState.activeTimerState.startTime) {
+                if (AppState.activeTimerState.startTime) {
                     activeMs += (window.getServerTime() - parseStartTime(AppState.activeTimerState.startTime));
                 }
             }
@@ -2445,14 +2477,17 @@
         const target = window.getDailyFocusHoursTargetForDate ? window.getDailyFocusHoursTargetForDate(dateObj) : (window.dailyFocusHoursTarget || 4.0);
         const targetPct = target > 0 ? Math.round((hrs / target) * 100) : 0;
 
-        let tierText = "No Focus (0h)";
-        let badgeClass = "bg-slate-500/20 text-slate-400 border border-slate-500/30";
+        let tierText = "❌ No Focus (0h)";
+        let badgeClass = "bg-rose-500/10 text-rose-400 border border-rose-500/20";
 
-        if (hrs > 0 && hrs < 4.0) {
-            tierText = "🔴 Below 4h Focus";
-            badgeClass = "bg-rose-500/20 text-rose-400 border border-rose-500/40";
-        } else if (hrs >= 4.0 && hrs < 6.0) {
-            tierText = "🟢 Target Met (≥ 4h)";
+        if (hrs > 0 && hrs <= 2.0) {
+            tierText = "⭕ Low Focus (0-2h)";
+            badgeClass = "bg-rose-600/20 text-rose-400 border border-rose-600/40";
+        } else if (hrs > 2.0 && hrs <= 4.0) {
+            tierText = "🔵 Moderate Focus (2-4h)";
+            badgeClass = "bg-blue-500/20 text-blue-400 border border-blue-500/40";
+        } else if (hrs > 4.0 && hrs < 6.0) {
+            tierText = "🟢 Target Met (> 4h)";
             badgeClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
         } else if (hrs >= 6.0 && hrs < 8.0) {
             tierText = "🟡 Glowing Golden Focus (≥ 6h)";
@@ -3290,27 +3325,16 @@
             if (typeof window.renderTimerPage === 'function') {
                 window.renderTimerPage();
             }
-            // Real-time synchronization for Focus Analytics Modal if open
-            const timerAnalyticsModal = document.getElementById('timer-analytics-modal');
-            if (timerAnalyticsModal && !timerAnalyticsModal.classList.contains('hidden')) {
-                if (typeof window.updateTimerAnalyticsControls === 'function') {
-                    window.updateTimerAnalyticsControls();
-                }
-                if (typeof window.renderTimerAnalyticsChart === 'function') {
-                    window.renderTimerAnalyticsChart();
-                }
-                const targetInput = document.getElementById('timer-target-input');
-                if (targetInput && document.activeElement !== targetInput) {
-                    targetInput.value = window.dailyFocusHoursTarget || 4.0;
-                }
+            // Real-time synchronization for Focus Analytics (both Modal & Spectra Pulse page)
+            if (typeof window.updateTimerAnalyticsControls === 'function') {
+                window.updateTimerAnalyticsControls();
+            }
+            if (typeof window.renderTimerAnalyticsChart === 'function') {
+                window.renderTimerAnalyticsChart();
             }
 
-            // Real-time synchronization for Spectra Pulse page Focus Analytics & Heatmap
             const spectraPage = document.getElementById('page-spectra-analytics');
             if (spectraPage && !spectraPage.classList.contains('hidden')) {
-                if (typeof window.renderTimerAnalyticsChart === 'function') {
-                    window.renderTimerAnalyticsChart();
-                }
                 if (typeof window.renderSpectraFocusHeatmap === 'function') {
                     window.renderSpectraFocusHeatmap();
                 }
