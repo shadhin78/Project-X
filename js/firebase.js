@@ -227,9 +227,20 @@ window.FirebaseService = {
                 scheduleBlocks: window.scheduleBlocks || [],
                 scheduleBlocks2: window.scheduleBlocks2 || [],
                 scheduleGroups: window.scheduleGroups || [],
-                fiscalLedger: AppState.fiscalLedger || { transactions: [], budgets: [], vaults: [] }
+                fiscalLedger: AppState.fiscalLedger || { transactions: [], budgets: [], vaults: [] },
+                examSessions: AppState.examSessions || [],
+                examRoutine: AppState.examRoutine || [],
+                selectedCountdownExamId: AppState.selectedCountdownExamId || 'auto'
             };
             window.appState = payload;
+
+            if (typeof safeStorage !== 'undefined') {
+                try {
+                    safeStorage.setItem('cached_examSessions', JSON.stringify(payload.examSessions));
+                    safeStorage.setItem('cached_examRoutine', JSON.stringify(payload.examRoutine));
+                    safeStorage.setItem('cached_selectedCountdownExamId', payload.selectedCountdownExamId);
+                } catch(e){}
+            }
 
             window.isSyncing = true;
             showSync('saving');
@@ -350,6 +361,18 @@ window.FirebaseService = {
                 if (data.scheduleBlocks2) window.scheduleBlocks2 = data.scheduleBlocks2;
                 if (data.scheduleGroups) window.scheduleGroups = data.scheduleGroups;
                 if (data.fiscalLedger) AppState.fiscalLedger = data.fiscalLedger;
+                if (data.examSessions) {
+                    AppState.examSessions = data.examSessions;
+                    if (typeof safeStorage !== 'undefined') safeStorage.setItem('cached_examSessions', JSON.stringify(data.examSessions));
+                }
+                if (data.examRoutine) {
+                    AppState.examRoutine = data.examRoutine;
+                    if (typeof safeStorage !== 'undefined') safeStorage.setItem('cached_examRoutine', JSON.stringify(data.examRoutine));
+                }
+                if (data.selectedCountdownExamId) {
+                    AppState.selectedCountdownExamId = data.selectedCountdownExamId;
+                    if (typeof safeStorage !== 'undefined') safeStorage.setItem('cached_selectedCountdownExamId', data.selectedCountdownExamId);
+                }
 
                 window.ensureConfigDefaults();
                 window.migrateLegacyData();

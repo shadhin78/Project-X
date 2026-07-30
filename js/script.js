@@ -299,6 +299,20 @@ window.migrateLegacyData = function () {
         }
     }
 
+    // Purge legacy preset sample exams
+    if (Array.isArray(AppState.examRoutine)) {
+        const origLength = AppState.examRoutine.length;
+        AppState.examRoutine = AppState.examRoutine.filter(e => {
+            if (!e) return false;
+            if (e.id && e.id.startsWith('exam_sample_')) return false;
+            if (e.subject === 'Software Engineering' || e.subject === 'Database Systems') return false;
+            return true;
+        });
+        if (AppState.examRoutine.length !== origLength) {
+            dataPurged = true;
+        }
+    }
+
     // And AppState.customActions
     if (Array.isArray(window.customActions)) {
         window.customActions.forEach((a, idx) => {
@@ -1730,6 +1744,11 @@ setInterval(() => {
     if (window.updateAlarmStartText) {
         window.updateAlarmStartText();
     }
+
+    // Periodically update live exam countdowns
+    if (window.updateExamCountdown) {
+        window.updateExamCountdown();
+    }
 }, 1000);
 
 window.selectScheduleColor = function (color, btnEl) {
@@ -2960,6 +2979,7 @@ function renderUI() {
     if (window.renderOutcomeProgramToggles) window.renderOutcomeProgramToggles();
     if (window.renderSchedulePage) window.renderSchedulePage();
     if (window.renderDashboardFiscalSummary) window.renderDashboardFiscalSummary();
+    if (window.renderExamPage) window.renderExamPage();
 
     // Dynamic Form & Manage UI Syncs
     window.populateTrackDropdowns();
@@ -10507,6 +10527,10 @@ window.openConfirmModal = function (title, message, actionCallback) {
     const backdrop = document.getElementById('cm-backdrop');
     const content = document.getElementById('cm-content');
     if (!modal || !backdrop || !content) return;
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+    modal.style.zIndex = '9999999';
     modal.classList.remove('hidden'); void modal.offsetWidth;
     backdrop.classList.remove('opacity-0'); backdrop.classList.add('opacity-100');
     content.classList.remove('scale-95', 'opacity-0', 'translate-y-4'); content.classList.add('scale-100', 'opacity-100', 'translate-y-0');
@@ -17339,7 +17363,7 @@ window.closeMobileSidebar = function () {
 };
 
 window.switchPage = function (pageId) {
-    const pages = ['dashboard', 'spectra-analytics', 'fiscal-ledger', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome'];
+    const pages = ['dashboard', 'spectra-analytics', 'fiscal-ledger', 'timer', 'daily-actions', 'schedule', 'subjects', 'paces-management', 'master-config', 'outcome', 'exam'];
     pages.forEach(p => {
         const el = document.getElementById(`page-${p}`);
         if (el) {
@@ -17361,7 +17385,9 @@ window.switchPage = function (pageId) {
         'subjects': { active: 'bg-violet-600 text-white border-violet-600 shadow-lg', hover: 'hover:border-violet-400' },
         'paces-management': { active: 'bg-red-600 text-white border-red-600 shadow-lg', hover: 'hover:border-red-400' },
         'master-config': { active: 'bg-indigo-600 text-white border-indigo-600 shadow-lg', hover: 'hover:border-indigo-400' },
-        'outcome': { active: 'bg-yellow-500 text-white border-yellow-500 shadow-lg', hover: 'hover:border-yellow-400' },        'timer': { active: 'bg-emerald-600 text-white border-emerald-600 shadow-lg', hover: 'hover:border-emerald-400' },
+        'outcome': { active: 'bg-yellow-500 text-white border-yellow-500 shadow-lg', hover: 'hover:border-yellow-400' },
+        'exam': { active: 'bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-500/20', hover: 'hover:border-rose-400' },
+        'timer': { active: 'bg-emerald-600 text-white border-emerald-600 shadow-lg', hover: 'hover:border-emerald-400' },
         'schedule': { active: 'bg-cyan-600 text-white border-cyan-600 shadow-lg', hover: 'hover:border-cyan-400' }
     };
 
@@ -17438,6 +17464,8 @@ window.switchPage = function (pageId) {
         setTimeout(() => {
             if (window.resultsTrendChartInstance) window.resultsTrendChartInstance.resize();
         }, 50);
+    } else if (pageId === 'exam') {
+        if (typeof window.renderExamPage === 'function') window.renderExamPage();
     } else if (pageId === 'schedule') {
         window.renderSchedulePage();
     } else if (pageId === 'fiscal-ledger') {
@@ -20703,4 +20731,833 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 200);
 });
+
+/* ==========================================
+ * EXAM ROUTINE & COUNTDOWN SYSTEM
+ * ========================================== */
+window.examCurrentFilter = 'all';
+
+window.setExamFilter = function(filter) {
+    window.examCurrentFilter = filter;
+    ['all', 'upcoming', 'completed'].forEach(f => {
+        const btn = document.getElementById(`btn-exam-filter-${f}`);
+        if (btn) {
+            if (f === filter) {
+                btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm transition-all";
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all";
+            }
+        }
+    });
+    window.renderExamRoutine();
+};
+
+window.renderExamPage = function() {
+    window.updateExamCountdown();
+    window.renderExamRoutine();
+};
+
+window.onSelectCountdownTarget = function(examId) {
+    AppState.selectedCountdownExamId = examId || 'auto';
+    if (typeof safeStorage !== 'undefined') {
+        safeStorage.setItem('cached_selectedCountdownExamId', AppState.selectedCountdownExamId);
+    }
+    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+        window.FirebaseService.saveToCloud(true);
+    }
+    window.updateExamCountdown();
+};
+
+window.updateExamCountdown = function() {
+    const heroTitle = document.getElementById('exam-hero-title');
+    const heroSub = document.getElementById('exam-hero-subject-badge');
+    const heroDetails = document.getElementById('exam-hero-details');
+    const heroVenue = document.getElementById('exam-hero-venue');
+    const heroDateTime = document.getElementById('exam-hero-datetime');
+    const targetSelect = document.getElementById('exam-hero-select-target');
+
+    const cdDays = document.getElementById('exam-cd-days');
+    const cdHours = document.getElementById('exam-cd-hours');
+    const cdMins = document.getElementById('exam-cd-mins');
+    const cdSecs = document.getElementById('exam-cd-secs');
+
+    if (!cdDays || !cdHours || !cdMins || !cdSecs) return;
+
+    const exams = AppState.examRoutine || [];
+    const sessions = AppState.examSessions || [];
+    const now = Date.now();
+
+    // Robust local timestamp parser for YYYY-MM-DD and HH:mm
+    const getExamTimestamp = (dateStr, timeStr) => {
+        if (!dateStr) return NaN;
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return NaN;
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        
+        let hours = 0, minutes = 0;
+        if (timeStr) {
+            const timeParts = timeStr.split(':');
+            hours = parseInt(timeParts[0], 10) || 0;
+            minutes = parseInt(timeParts[1], 10) || 0;
+        }
+        return new Date(year, month, day, hours, minutes, 0, 0).getTime();
+    };
+
+    // All valid subject exams added by the user (excluding legacy preset samples)
+    const userExams = exams
+        .filter(e => {
+            if (!e || !e.subject || !e.date) return false;
+            if (e.id && e.id.startsWith('exam_sample_')) return false;
+            if (e.subject === 'Software Engineering' || e.subject === 'Database Systems') return false;
+            return true;
+        })
+        .map(e => {
+            const timeMs = getExamTimestamp(e.date, e.time);
+            return { ...e, timeMs };
+        })
+        .filter(e => !isNaN(e.timeMs))
+        .sort((a, b) => a.timeMs - b.timeMs);
+
+    // Populate target selector dropdown with user-added subject exams
+    if (targetSelect) {
+        let selectHtml = `<option value="auto" class="bg-slate-900 text-white" ${AppState.selectedCountdownExamId === 'auto' ? 'selected' : ''}>⚡ Auto (Nearest Subject Exam)</option>`;
+        userExams.forEach(e => {
+            const parent = sessions.find(s => s.id === e.sessionId);
+            const tag = parent ? parent.program : (e.program || 'Custom');
+            const statusTag = e.status === 'completed' ? ' [Completed]' : '';
+            selectHtml += `<option value="${e.id}" class="bg-slate-900 text-white" ${AppState.selectedCountdownExamId === e.id ? 'selected' : ''}>📚 ${e.subject} (${e.date}) - ${tag}${statusTag}</option>`;
+        });
+        targetSelect.innerHTML = selectHtml;
+    }
+
+    // Filter upcoming non-completed exams for auto selection
+    const upcomingExams = userExams.filter(e => e.status !== 'completed' && e.timeMs > (now - 7200000));
+
+    let nextExam = null;
+    if (AppState.selectedCountdownExamId && AppState.selectedCountdownExamId !== 'auto') {
+        nextExam = userExams.find(e => e.id === AppState.selectedCountdownExamId);
+    }
+    if (!nextExam) {
+        nextExam = upcomingExams[0];
+    }
+
+    if (!nextExam) {
+        if (heroTitle) heroTitle.textContent = "No Subject Exam Scheduled";
+        if (heroSub) {
+            heroSub.textContent = "N/A";
+            heroSub.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+        }
+        if (heroDetails) heroDetails.innerHTML = `<svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>Add a subject exam inside a session block to activate the live countdown.</span>`;
+        if (heroVenue) heroVenue.style.display = 'none';
+        if (heroDateTime) heroDateTime.textContent = "Date: --";
+
+        cdDays.textContent = "00";
+        cdHours.textContent = "00";
+        cdMins.textContent = "00";
+        cdSecs.textContent = "00";
+        return;
+    }
+
+    const parentSession = sessions.find(s => s.id === nextExam.sessionId);
+    const diff = nextExam.timeMs - now;
+
+    // Display Subject as the primary countdown title
+    const subjectDisplayName = nextExam.title && nextExam.title.toLowerCase() !== nextExam.subject.toLowerCase() 
+        ? `${nextExam.subject} — ${nextExam.title}` 
+        : nextExam.subject;
+
+    if (heroTitle) heroTitle.textContent = subjectDisplayName;
+
+    if (heroSub) {
+        const sessionNameStr = parentSession 
+            ? (parentSession.name ? `${parentSession.name} (${parentSession.program})` : `${parentSession.program} Session`)
+            : (nextExam.program || 'Session Exam');
+        heroSub.textContent = sessionNameStr;
+        const color = typeof getSubjectColor === 'function' ? getSubjectColor(nextExam.subject) : '#ef4444';
+        heroSub.style.backgroundColor = typeof hexToRgba === 'function' ? hexToRgba(color, 0.3) : 'rgba(244, 63, 94, 0.3)';
+    }
+
+    if (heroVenue) heroVenue.style.display = 'none';
+
+    const dateObj = new Date(nextExam.timeMs);
+    const dateFormatted = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (heroDateTime) heroDateTime.textContent = `Date: ${dateFormatted}`;
+
+    if (diff <= 0) {
+        if (heroDetails) heroDetails.innerHTML = `<span class="text-emerald-400 font-black flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>${nextExam.subject.toUpperCase()} EXAM IS IN PROGRESS NOW!</span>`;
+        cdDays.textContent = "00";
+        cdHours.textContent = "00";
+        cdMins.textContent = "00";
+        cdSecs.textContent = "00";
+    } else {
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+        if (heroDetails) {
+            heroDetails.innerHTML = `<svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>Target Subject Exam: <strong class="text-white font-black">${nextExam.subject}</strong> (${dateFormatted})</span>`;
+        }
+
+        cdDays.textContent = String(days).padStart(2, '0');
+        cdHours.textContent = String(hours).padStart(2, '0');
+        cdMins.textContent = String(mins).padStart(2, '0');
+        cdSecs.textContent = String(secs).padStart(2, '0');
+    }
+};
+
+window.setExamMode = function(mode) {
+    const modeInput = document.getElementById('exam-mode');
+    if (modeInput) modeInput.value = mode;
+
+    const btnProgram = document.getElementById('btn-exam-mode-program');
+    const btnNonProgram = document.getElementById('btn-exam-mode-non-program');
+    const programContainer = document.getElementById('exam-program-wise-fields');
+    const nonProgramContainer = document.getElementById('exam-non-program-fields');
+
+    const progSelect = document.getElementById('exam-program-select');
+    const subjSelect = document.getElementById('exam-subject-select');
+    const customSettingInput = document.getElementById('exam-custom-setting');
+
+    if (mode === 'program') {
+        if (btnProgram) {
+            btnProgram.className = "py-2 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-rose-600 text-white shadow-sm";
+        }
+        if (btnNonProgram) {
+            btnNonProgram.className = "py-2 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50";
+        }
+        if (programContainer) programContainer.classList.remove('hidden');
+        if (nonProgramContainer) nonProgramContainer.classList.add('hidden');
+
+        if (progSelect) progSelect.setAttribute('required', 'required');
+        if (subjSelect) subjSelect.setAttribute('required', 'required');
+        if (customSettingInput) customSettingInput.removeAttribute('required');
+    } else {
+        if (btnNonProgram) {
+            btnNonProgram.className = "py-2 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-rose-600 text-white shadow-sm";
+        }
+        if (btnProgram) {
+            btnProgram.className = "py-2 px-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50";
+        }
+        if (nonProgramContainer) nonProgramContainer.classList.remove('hidden');
+        if (programContainer) programContainer.classList.add('hidden');
+
+        if (customSettingInput) customSettingInput.setAttribute('required', 'required');
+        if (progSelect) progSelect.removeAttribute('required');
+        if (subjSelect) subjSelect.removeAttribute('required');
+    }
+};
+
+window.onExamProgramChange = function(selectedSubjToPreserve = null) {
+    const progSelect = document.getElementById('exam-program-select');
+    const subjSelect = document.getElementById('exam-subject-select');
+    if (!progSelect || !subjSelect) return;
+
+    const progName = progSelect.value;
+    if (!progName) {
+        subjSelect.innerHTML = `<option value="">-- Select Program First --</option>`;
+        return;
+    }
+
+    const allSubs = typeof window.getAllSubjects === 'function' ? window.getAllSubjects() : [];
+    const filteredSubs = allSubs.filter(s => s && s.program === progName);
+
+    let html = `<option value="">-- Select Subject --</option>`;
+    if (filteredSubs.length > 0) {
+        const uniqueSubNames = Array.from(new Set(filteredSubs.map(s => s.subject))).sort();
+        uniqueSubNames.forEach(sub => {
+            html += `<option value="${sub}">${sub}</option>`;
+        });
+    } else {
+        html += `<option value="" disabled>No subjects found under this program</option>`;
+    }
+    subjSelect.innerHTML = html;
+
+    if (selectedSubjToPreserve) {
+        subjSelect.value = selectedSubjToPreserve;
+    }
+};
+
+window.openSessionModal = function(sessionId = null) {
+    const modal = document.getElementById('session-modal');
+    if (!modal) return;
+
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    const modalTitle = document.getElementById('session-modal-title');
+    const idInput = document.getElementById('session-id');
+    const progSelect = document.getElementById('session-program');
+    const nameInput = document.getElementById('session-name');
+    const startInput = document.getElementById('session-start-date');
+    const endInput = document.getElementById('session-end-date');
+
+    // Populate Program options
+    if (progSelect) {
+        const programs = typeof window.getAllPrograms === 'function' ? window.getAllPrograms() : [];
+        const progNames = Array.from(new Set(programs.map(p => p.name || p))).sort();
+        let progHtml = `<option value="">-- Select Program --</option>`;
+        progHtml += `<option value="Non-Program">⚙️ Non-Program Wise (Custom)</option>`;
+        progNames.forEach(pName => {
+            progHtml += `<option value="${pName}">🎓 ${pName}</option>`;
+        });
+        progSelect.innerHTML = progHtml;
+    }
+
+    if (sessionId) {
+        const session = (AppState.examSessions || []).find(s => s.id === sessionId);
+        if (session) {
+            if (modalTitle) modalTitle.textContent = "Edit Session";
+            if (idInput) idInput.value = session.id || '';
+            if (progSelect) progSelect.value = session.program || 'Non-Program';
+            if (nameInput) nameInput.value = session.name || '';
+            if (startInput) startInput.value = session.startDate || '';
+            if (endInput) endInput.value = session.endDate || '';
+        }
+    } else {
+        if (modalTitle) modalTitle.textContent = "Add Session";
+        if (idInput) idInput.value = '';
+        if (progSelect) progSelect.value = '';
+        if (nameInput) nameInput.value = '';
+        if (startInput) startInput.value = new Date().toISOString().split('T')[0];
+        if (endInput) {
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            endInput.value = nextWeek.toISOString().split('T')[0];
+        }
+    }
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999';
+};
+
+window.closeSessionModal = function() {
+    const modal = document.getElementById('session-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+};
+
+window.saveSessionForm = function(event) {
+    event.preventDefault();
+    const id = document.getElementById('session-id')?.value;
+    const program = document.getElementById('session-program')?.value || 'Non-Program';
+    const name = document.getElementById('session-name')?.value.trim() || '';
+    const startDate = document.getElementById('session-start-date')?.value || '';
+    const endDate = document.getElementById('session-end-date')?.value || '';
+
+    if (!Array.isArray(AppState.examSessions)) {
+        AppState.examSessions = [];
+    }
+
+    if (id) {
+        const idx = AppState.examSessions.findIndex(s => s.id === id);
+        if (idx !== -1) {
+            AppState.examSessions[idx] = {
+                ...AppState.examSessions[idx],
+                program, name, startDate, endDate,
+                updatedAt: Date.now()
+            };
+        }
+    } else {
+        const newSession = {
+            id: 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            program, name, startDate, endDate,
+            createdAt: Date.now()
+        };
+        AppState.examSessions.push(newSession);
+    }
+
+    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+        window.FirebaseService.saveToCloud(true);
+    }
+
+    window.closeSessionModal();
+    window.renderExamPage();
+    if (typeof showToast === 'function') showToast("Exam session saved successfully!", "success");
+};
+
+window.deleteSession = function(sessionId) {
+    const session = (AppState.examSessions || []).find(s => s.id === sessionId);
+    const sessionName = session ? (session.name ? `${session.name} (${session.program})` : session.program) : 'this session';
+
+    window.openConfirmModal(
+        "Delete Exam Session",
+        `Are you sure you want to delete "${sessionName}"? All associated subject exams will also be deleted.`,
+        () => {
+            AppState.examSessions = (AppState.examSessions || []).filter(s => s.id !== sessionId);
+            AppState.examRoutine = (AppState.examRoutine || []).filter(e => e.sessionId !== sessionId);
+
+            if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+                window.FirebaseService.saveToCloud(true);
+            }
+
+            window.renderExamPage();
+            if (typeof showToast === 'function') showToast("Session and associated exams deleted.", "info");
+        }
+    );
+};
+
+window.renderExamRoutine = function() {
+    const container = document.getElementById('exam-routine-container');
+    if (!container) return;
+
+    const query = (document.getElementById('exam-search-input')?.value || '').toLowerCase().trim();
+    const sessions = (AppState.examSessions || []).slice();
+    let exams = (AppState.examRoutine || []).slice();
+
+    // Sort sessions by startDate ascending
+    sessions.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    // Sort exams by date & time ascending
+    exams.sort((a, b) => {
+        const ta = new Date(`${a.date}T${a.time || '00:00'}:00`).getTime();
+        const tb = new Date(`${b.date}T${b.time || '00:00'}:00`).getTime();
+        return ta - tb;
+    });
+
+    if (window.examCurrentFilter === 'upcoming') {
+        exams = exams.filter(e => e.status !== 'completed');
+    } else if (window.examCurrentFilter === 'completed') {
+        exams = exams.filter(e => e.status === 'completed');
+    }
+
+    if (query) {
+        exams = exams.filter(e =>
+            (e.title || '').toLowerCase().includes(query) ||
+            (e.subject || '').toLowerCase().includes(query) ||
+            (e.program || '').toLowerCase().includes(query)
+        );
+    }
+
+    if (sessions.length === 0) {
+        container.innerHTML = `
+            <div class="py-12 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 w-full col-span-full">
+                <div class="w-12 h-12 mx-auto mb-3 text-slate-400 flex items-center justify-center bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01"></path></svg>
+                </div>
+                <h4 class="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">No Sessions Found</h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">No sessions have been created yet. Click "Add Session" to create your first session block.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const now = Date.now();
+    let blocksHtml = '';
+
+    sessions.forEach(session => {
+        // Find exams linked to this session
+        // Backwards compatibility fallback: if an exam doesn't have a sessionId but its program matches, associate it
+        let sessionExams = exams.filter(e => e.sessionId === session.id);
+        if (sessionExams.length === 0 && session.program !== 'Non-Program') {
+            sessionExams = exams.filter(e => !e.sessionId && e.program === session.program);
+            // Associate them on the fly to migrate them safely
+            sessionExams.forEach(e => { e.sessionId = session.id; });
+        }
+
+        // If search query is present, check if session name matches OR if any exam in it matches. If neither, skip this session block
+        if (query) {
+            const matchesSessionName = (session.name || '').toLowerCase().includes(query) || (session.program || '').toLowerCase().includes(query);
+            if (!matchesSessionName && sessionExams.length === 0) {
+                return;
+            }
+        }
+
+        const totalCount = sessionExams.length;
+        const completedCount = sessionExams.filter(e => e.status === 'completed').length;
+        const upcomingCount = totalCount - completedCount;
+
+        const isNonProgramSession = session.program === 'Non-Program';
+        const sessionDisplayName = session.name ? `${session.name} (${session.program})` : `${session.program} Session`;
+        const sessionIcon = isNonProgramSession ? '⚙️' : '🎓';
+
+        let examsGridHtml = '';
+
+        if (sessionExams.length === 0) {
+            examsGridHtml = `
+                <div class="col-span-full py-8 text-center bg-white/40 dark:bg-slate-800/10 border border-dashed border-slate-200/50 dark:border-slate-700/50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-medium">No exams scheduled in this session yet.</p>
+                </div>
+            `;
+        } else {
+            sessionExams.forEach(ex => {
+                const isCompleted = ex.status === 'completed';
+                
+                const exTimeMs = (function(dStr, tStr) {
+                    if (!dStr) return NaN;
+                    const parts = dStr.split('-');
+                    if (parts.length !== 3) return NaN;
+                    const [yr, mo, dy] = parts.map(Number);
+                    const [hr, mn] = (tStr || '00:00').split(':').map(Number);
+                    return new Date(yr, mo - 1, dy, hr || 0, mn || 0).getTime();
+                })(ex.date, ex.time);
+
+                const diffMs = isNaN(exTimeMs) ? NaN : exTimeMs - now;
+
+                let countdownBadge = '';
+                if (isCompleted) {
+                    countdownBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">✓ Completed</span>`;
+                } else if (!isNaN(diffMs) && diffMs < 0 && diffMs > -7200000) {
+                    countdownBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">● Live Exam Today</span>`;
+                } else if (!isNaN(diffMs) && diffMs > 0) {
+                    const cdD = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    const cdH = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const cdM = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    
+                    let countdownStr = '';
+                    if (cdD > 0) {
+                        countdownStr = `${cdD}d ${cdH}h ${cdM}m remaining`;
+                    } else if (cdH > 0) {
+                        countdownStr = `${cdH}h ${cdM}m remaining`;
+                    } else {
+                        countdownStr = `${cdM}m remaining`;
+                    }
+
+                    countdownBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-1.5"><svg class="w-3 h-3 text-rose-500 animate-spin" style="animation-duration: 4s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>${countdownStr}</span></span>`;
+                } else {
+                    countdownBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-700/60 text-slate-500">Ended</span>`;
+                }
+
+                const subjColor = typeof getSubjectColor === 'function' ? getSubjectColor(ex.subject || 'General') : '#ef4444';
+                const dtObj = !isNaN(exTimeMs) ? new Date(exTimeMs) : new Date();
+                const dtFormatted = dtObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+                examsGridHtml += `
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 sm:p-5 hover:shadow-lg transition-all duration-300 flex flex-col justify-between group ${isCompleted ? 'opacity-70' : ''}">
+                        <div>
+                            <!-- Secondary Top Header: Live Subject Countdown -->
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                ${countdownBadge}
+                                <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${subjColor}" title="Subject Accent"></span>
+                            </div>
+
+                            <!-- Main Subject Title (White in dark mode) -->
+                            <h4 class="text-base sm:text-lg font-black text-slate-800 dark:text-white leading-snug group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                                ${ex.subject || 'General Subject'}
+                            </h4>
+
+                            <!-- Time & Date -->
+                            <div class="mt-3 space-y-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>${dtFormatted} at ${ex.time || '00:00'}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Footer -->
+                        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                            <button onclick="window.toggleExamStatus('${ex.id}')" class="text-xs font-bold px-3 py-1.5 rounded-xl transition-all ${isCompleted ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300' : 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100'}">
+                                ${isCompleted ? 'Mark Pending' : '✓ Mark Complete'}
+                            </button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="window.openExamModal('${ex.id}', '${session.id}')" class="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all" title="Edit Subject">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                                <button onclick="window.deleteExam('${ex.id}')" class="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all" title="Delete Subject">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        blocksHtml += `
+            <div class="bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/70 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 w-full">
+                <!-- Session Block Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-lg border border-rose-500/20 shadow-sm shrink-0">
+                            ${sessionIcon}
+                        </div>
+                        <div>
+                            <h4 class="text-base sm:text-lg font-black text-slate-800 dark:text-white leading-tight flex items-center gap-2">
+                                <span>${sessionDisplayName}</span>
+                                <span class="text-xs font-mono text-slate-400 font-bold">(${session.startDate} to ${session.endDate})</span>
+                            </h4>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60">
+                                    ${upcomingCount} Upcoming
+                                </span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                                    ${completedCount} Completed
+                                </span>
+                                <span class="text-[10px] font-bold text-slate-400">
+                                    (${totalCount} Total Exam${totalCount === 1 ? '' : 's'})
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                        <button onclick="window.openSessionModal('${session.id}')" class="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all" title="Edit Session">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </button>
+                        <button onclick="window.deleteSession('${session.id}')" class="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all" title="Delete Session">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                        <button onclick="window.openExamModal(null, '${session.id}')" class="bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] uppercase tracking-wider px-3.5 py-2 rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                            Add Subject
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Session Exams Inner Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                    ${examsGridHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = blocksHtml;
+};
+
+window.openExamModal = function(examId = null, sessionId = null) {
+    const modal = document.getElementById('exam-modal');
+    if (!modal) return;
+
+    // Ensure modal is directly under document.body to break out of hidden/scrolling containers
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    const modalTitle = document.getElementById('exam-modal-title');
+    const idInput = document.getElementById('exam-id');
+    const sessIdInput = document.getElementById('exam-session-id');
+    const infoDisplay = document.getElementById('exam-session-info-display');
+    const progSelect = document.getElementById('exam-program-select');
+    const subjSelect = document.getElementById('exam-subject-select');
+    const customSettingInput = document.getElementById('exam-custom-setting');
+    const dateInput = document.getElementById('exam-date');
+    const timeInput = document.getElementById('exam-time');
+
+    // Populate Program Dropdown
+    if (progSelect) {
+        const programs = typeof window.getAllPrograms === 'function' ? window.getAllPrograms() : [];
+        const progNames = Array.from(new Set(programs.map(p => p.name || p))).sort();
+        let progHtml = `<option value="">-- Select Program --</option>`;
+        progNames.forEach(pName => {
+            progHtml += `<option value="${pName}">${pName}</option>`;
+        });
+        progSelect.innerHTML = progHtml;
+    }
+
+    let activeSessionId = sessionId;
+    if (examId) {
+        const exam = (AppState.examRoutine || []).find(e => e.id === examId);
+        if (exam) {
+            activeSessionId = exam.sessionId || activeSessionId;
+        }
+    }
+
+    const session = (AppState.examSessions || []).find(s => s.id === activeSessionId);
+    if (!session) {
+        if (typeof showToast === 'function') showToast("Please select a session first to add an exam.", "warning");
+        return;
+    }
+
+    // Prefill session info
+    if (sessIdInput) sessIdInput.value = session.id;
+    if (infoDisplay) {
+        const displayName = session.name ? `${session.name} (${session.program})` : session.program;
+        infoDisplay.innerHTML = `<span class="text-rose-500 font-black">Active Session:</span> ${displayName} (${session.startDate} to ${session.endDate})`;
+        infoDisplay.classList.remove('hidden');
+    }
+
+    // Auto configure program wise mode based on the session program
+    const isProgramWise = session.program !== 'Non-Program';
+    window.setExamMode(isProgramWise ? 'program' : 'non-program');
+
+    // Hide/disable switcher as mode is determined by the session itself
+    const switcherEl = document.getElementById('btn-exam-mode-program')?.parentElement;
+    if (switcherEl) switcherEl.parentElement.classList.add('hidden');
+
+    if (isProgramWise) {
+        if (progSelect) {
+            progSelect.value = session.program;
+            progSelect.disabled = true; // Lock to the session program
+        }
+        window.onExamProgramChange();
+    } else {
+        if (customSettingInput) {
+            customSettingInput.placeholder = "e.g. Custom Midterm Subject";
+        }
+    }
+
+    if (examId) {
+        const exam = (AppState.examRoutine || []).find(e => e.id === examId);
+        if (exam) {
+            if (modalTitle) modalTitle.textContent = "Edit Subject Exam";
+            if (idInput) idInput.value = exam.id || '';
+            if (dateInput) dateInput.value = exam.date || '';
+            if (timeInput) timeInput.value = exam.time || '';
+
+            if (isProgramWise) {
+                if (subjSelect) subjSelect.value = exam.subject || '';
+            } else {
+                if (customSettingInput) customSettingInput.value = exam.subject || '';
+            }
+        }
+    } else {
+        if (modalTitle) modalTitle.textContent = "Add Subject Exam";
+        if (idInput) idInput.value = '';
+        // Set date to session start date by default
+        if (dateInput) dateInput.value = session.startDate || new Date().toISOString().split('T')[0];
+        if (timeInput) timeInput.value = '10:00';
+        if (isProgramWise) {
+            if (subjSelect) subjSelect.value = '';
+        } else {
+            if (customSettingInput) customSettingInput.value = '';
+        }
+    }
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    modal.style.zIndex = '999999';
+};
+
+window.closeExamModal = function() {
+    const modal = document.getElementById('exam-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+    // Restore switcher layout visibility
+    const switcherEl = document.getElementById('btn-exam-mode-program')?.parentElement;
+    if (switcherEl) switcherEl.parentElement.classList.remove('hidden');
+    const progSelect = document.getElementById('exam-program-select');
+    if (progSelect) progSelect.disabled = false;
+};
+
+window.saveExamForm = function(event) {
+    event.preventDefault();
+    const id = document.getElementById('exam-id')?.value;
+    const sessionId = document.getElementById('exam-session-id')?.value;
+    const mode = document.getElementById('exam-mode')?.value || 'program';
+    const date = document.getElementById('exam-date')?.value || new Date().toISOString().split('T')[0];
+    const time = document.getElementById('exam-time')?.value || '10:00';
+
+    if (!sessionId) {
+        if (typeof showToast === 'function') showToast("Parent session ID is missing.", "error");
+        return;
+    }
+
+    const session = (AppState.examSessions || []).find(s => s.id === sessionId);
+    if (!session) {
+        if (typeof showToast === 'function') showToast("Parent session not found.", "error");
+        return;
+    }
+
+    // Validate exam date is within session date range
+    if (date < session.startDate || date > session.endDate) {
+        if (typeof showToast === 'function') {
+            showToast(`Exam date must be within session range: ${session.startDate} to ${session.endDate}`, "warning");
+        }
+        return;
+    }
+
+    let program = '';
+    let subject = '';
+
+    if (mode === 'program') {
+        program = session.program; // Safe from parent session
+        subject = document.getElementById('exam-subject-select')?.value || '';
+        if (!program || !subject) {
+            if (typeof showToast === 'function') showToast("Please select a Subject.", "warning");
+            return;
+        }
+    } else {
+        const customSetting = document.getElementById('exam-custom-setting')?.value.trim();
+        if (!customSetting) {
+            if (typeof showToast === 'function') showToast("Please enter a Custom Setting Name.", "warning");
+            return;
+        }
+        program = 'Non-Program';
+        subject = customSetting;
+    }
+
+    const title = subject;
+
+    if (!Array.isArray(AppState.examRoutine)) {
+        AppState.examRoutine = [];
+    }
+
+    if (id) {
+        const idx = AppState.examRoutine.findIndex(e => e.id === id);
+        if (idx !== -1) {
+            AppState.examRoutine[idx] = {
+                ...AppState.examRoutine[idx],
+                sessionId, mode, program, subject, title, date, time,
+                updatedAt: Date.now()
+            };
+        }
+    } else {
+        const newExam = {
+            id: 'exam_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            sessionId, mode, program, subject, title, date, time,
+            status: 'upcoming',
+            createdAt: Date.now()
+        };
+        AppState.examRoutine.push(newExam);
+    }
+
+    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+        window.FirebaseService.saveToCloud(true);
+    }
+
+    window.closeExamModal();
+    window.renderExamPage();
+    if (typeof showToast === 'function') showToast("Exam routine saved successfully!", "success");
+};
+
+window.toggleExamStatus = function(examId) {
+    const exam = (AppState.examRoutine || []).find(e => e.id === examId);
+    if (exam) {
+        exam.status = exam.status === 'completed' ? 'upcoming' : 'completed';
+        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+            window.FirebaseService.saveToCloud(true);
+        }
+        window.renderExamPage();
+        if (typeof showToast === 'function') {
+            showToast(exam.status === 'completed' ? "Exam marked as completed!" : "Exam status reset to upcoming.", "info");
+        }
+    }
+};
+
+window.deleteExam = function(examId) {
+    const exam = (AppState.examRoutine || []).find(e => e.id === examId);
+    const examName = exam ? (exam.subject || exam.title || 'this subject exam') : 'this subject exam';
+
+    window.openConfirmModal(
+        "Delete Subject Exam",
+        `Are you sure you want to delete "${examName}"? This action cannot be undone.`,
+        () => {
+            AppState.examRoutine = (AppState.examRoutine || []).filter(e => e.id !== examId);
+            if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+                window.FirebaseService.saveToCloud(true);
+            }
+            window.renderExamPage();
+            if (typeof showToast === 'function') showToast("Exam deleted.", "info");
+        }
+    );
+};
+
+// Interval for real-time live countdown timer ticker
+setInterval(() => {
+    const pageEl = document.getElementById('page-exam');
+    if (pageEl && !pageEl.classList.contains('hidden')) {
+        window.updateExamCountdown();
+    }
+}, 1000);
+
 

@@ -108,7 +108,10 @@ window.AppState = {
     PLAN_END_DATE: initPlanEndDate,
     showSync: false,
     serverTimeOffset: 0,
-    fiscalLedger: { transactions: [], budgets: [], vaults: [] }
+    fiscalLedger: { transactions: [], budgets: [], vaults: [] },
+    examSessions: [],
+    examRoutine: [],
+    selectedCountdownExamId: 'auto'
 };
 
 // Define transparent properties on window to alias AppState keys
@@ -128,7 +131,7 @@ const stateKeys = [
     'currentGhmTab', 'subjectColors', 'twColors', 'customActions', 'paceGoals',
     'globalStartDate', 'globalEndDate', 'dynamicLineColors', 'isInitialLoad',
     'currentFilter', 'PLAN_START_DATE', 'PLAN_END_DATE', 'showSync', 'serverTimeOffset',
-    'fiscalLedger'
+    'fiscalLedger', 'examSessions', 'examRoutine', 'selectedCountdownExamId'
 ];
 
 stateKeys.forEach(key => {
@@ -143,6 +146,17 @@ stateKeys.forEach(key => {
         configurable: true
     });
 });
+
+if (typeof safeStorage !== 'undefined') {
+    try {
+        const cachedSess = safeStorage.getItem('cached_examSessions');
+        if (cachedSess) AppState.examSessions = JSON.parse(cachedSess);
+    } catch(e){}
+    try {
+        const cachedRout = safeStorage.getItem('cached_examRoutine');
+        if (cachedRout) AppState.examRoutine = JSON.parse(cachedRout);
+    } catch(e){}
+}
 
 window.syllabusStructure = window.syllabusStructure || {};
 
