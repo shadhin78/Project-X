@@ -816,7 +816,7 @@ function ensureAvailableSlots(slotsNeeded, track, startIndex) {
     AppState.PLAN_END_DATE = newEndDate;
 }
 
-window.customPrograms = {};
+window.customPrograms = window.customPrograms || {};
 
 window.syllabusStructure = window.syllabusStructure || {};
 
@@ -13395,8 +13395,8 @@ window.renderPassConfig = function () {
 };
 
 // --- Weekly Targets System Logic ---
-window.weeklyTargetsDatabase = {};
-window.dailyTargetsDatabase = {};
+window.weeklyTargetsDatabase = window.weeklyTargetsDatabase || {};
+window.dailyTargetsDatabase = window.dailyTargetsDatabase || {};
 window.currentDailyTargetsDate = new Date();
 
 window.getCompletedSizeForWeeklyTarget = function (target, weekKey) {
@@ -17446,6 +17446,8 @@ window.switchPage = function (pageId) {
             if (window.renderSpectraCommitmentsChart) setTimeout(window.renderSpectraCommitmentsChart, 50);
         }
         } else if (pageId === 'subjects') {
+        if (typeof renderSubjectNavigation === 'function') renderSubjectNavigation();
+        if (typeof renderCategoryProgress === 'function') renderCategoryProgress(typeof latestChartStats !== 'undefined' && latestChartStats?.subjects ? latestChartStats.subjects : {});
         setTimeout(() => {
             if (AppState.progressChart) {
                 const oldData = AppState.progressChart.data.datasets[0].data.slice();
@@ -17460,10 +17462,21 @@ window.switchPage = function (pageId) {
                 }
             }
         }, 50);
+    } else if (pageId === 'daily-actions') {
+        if (typeof renderDailyTracker === 'function') renderDailyTracker();
+        if (typeof renderDailyLogs === 'function') renderDailyLogs();
+    } else if (pageId === 'paces-management') {
+        if (typeof window.renderPaceGoals === 'function') window.renderPaceGoals(typeof latestChartStats !== 'undefined' && latestChartStats?.subjects ? latestChartStats.subjects : {});
     } else if (pageId === 'outcome') {
+        if (typeof window.renderResults === 'function') window.renderResults();
         setTimeout(() => {
             if (window.resultsTrendChartInstance) window.resultsTrendChartInstance.resize();
         }, 50);
+    } else if (pageId === 'master-config') {
+        if (typeof window.populateTrackDropdowns === 'function') window.populateTrackDropdowns();
+        if (typeof window.updateManageDropdown === 'function') window.updateManageDropdown();
+        if (typeof window.renderPassConfig === 'function') window.renderPassConfig();
+        if (typeof window.renderPriorityConfig === 'function') window.renderPriorityConfig();
     } else if (pageId === 'exam') {
         if (typeof window.renderExamPage === 'function') window.renderExamPage();
     } else if (pageId === 'schedule') {

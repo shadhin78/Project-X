@@ -111,7 +111,16 @@ window.AppState = {
     fiscalLedger: { transactions: [], budgets: [], vaults: [] },
     examSessions: [],
     examRoutine: [],
-    selectedCountdownExamId: 'auto'
+    selectedCountdownExamId: 'auto',
+    syllabusStructure: {},
+    customPrograms: {},
+    programVisibility: {},
+    weeklyTargetsDatabase: {},
+    dailyTargetsDatabase: {},
+    scheduleBlocks: [],
+    scheduleBlocks2: [],
+    scheduleGroups: [],
+    hasLoadedFromCloud: false
 };
 
 // Define transparent properties on window to alias AppState keys
@@ -131,7 +140,10 @@ const stateKeys = [
     'currentGhmTab', 'subjectColors', 'twColors', 'customActions', 'paceGoals',
     'globalStartDate', 'globalEndDate', 'dynamicLineColors', 'isInitialLoad',
     'currentFilter', 'PLAN_START_DATE', 'PLAN_END_DATE', 'showSync', 'serverTimeOffset',
-    'fiscalLedger', 'examSessions', 'examRoutine', 'selectedCountdownExamId'
+    'fiscalLedger', 'examSessions', 'examRoutine', 'selectedCountdownExamId',
+    'syllabusStructure', 'customPrograms', 'programVisibility', 'weeklyTargetsDatabase',
+    'dailyTargetsDatabase', 'scheduleBlocks', 'scheduleBlocks2', 'scheduleGroups',
+    'hasLoadedFromCloud'
 ];
 
 stateKeys.forEach(key => {
@@ -149,6 +161,40 @@ stateKeys.forEach(key => {
 
 if (typeof safeStorage !== 'undefined') {
     try {
+        const cachedFull = safeStorage.getItem('cached_fullAppState');
+        if (cachedFull) {
+            const data = JSON.parse(cachedFull);
+            if (data.tasks) AppState.tasks = data.tasks;
+            if (data.tracks) AppState.tracks = data.tracks;
+            if (data.customSyllabus || data.syllabusStructure) AppState.syllabusStructure = data.customSyllabus || data.syllabusStructure;
+            if (data.customPrograms) AppState.customPrograms = data.customPrograms;
+            if (data.customActions) AppState.customActions = data.customActions;
+            if (data.paceGoals) AppState.paceGoals = data.paceGoals;
+            if (data.passedItems) AppState.passedItems = data.passedItems;
+            if (data.revisionData) AppState.revisionData = data.revisionData;
+            if (data.programVisibility) AppState.programVisibility = data.programVisibility;
+            if (data.subjectTimeLinks) AppState.subjectTimeLinks = data.subjectTimeLinks;
+            if (data.successResults) AppState.successResults = data.successResults;
+            if (data.timerLogs) AppState.timerLogs = data.timerLogs;
+            if (data.dailyFocusHoursTarget !== undefined) AppState.dailyFocusHoursTarget = data.dailyFocusHoursTarget;
+            if (data.dailyFocusHoursTargetDate !== undefined) AppState.dailyFocusHoursTargetDate = data.dailyFocusHoursTargetDate;
+            if (data.dailyFocusHoursTargetHistory !== undefined) AppState.dailyFocusHoursTargetHistory = data.dailyFocusHoursTargetHistory;
+            if (data.subjectFocusTargets) AppState.subjectFocusTargets = data.subjectFocusTargets;
+            if (data.dashboardConfig) AppState.dashboardConfig = data.dashboardConfig;
+            if (data.weeklyTargetsDatabase) AppState.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+            if (data.dailyTargetsDatabase) AppState.dailyTargetsDatabase = data.dailyTargetsDatabase;
+            if (data.scheduleBlocks) AppState.scheduleBlocks = data.scheduleBlocks;
+            if (data.scheduleBlocks2) AppState.scheduleBlocks2 = data.scheduleBlocks2;
+            if (data.scheduleGroups) AppState.scheduleGroups = data.scheduleGroups;
+            if (data.fiscalLedger) AppState.fiscalLedger = data.fiscalLedger;
+            if (data.examSessions) AppState.examSessions = data.examSessions;
+            if (data.examRoutine) AppState.examRoutine = data.examRoutine;
+            if (data.selectedCountdownExamId) AppState.selectedCountdownExamId = data.selectedCountdownExamId;
+        }
+    } catch (e) {
+        console.warn("Failed to parse cached_fullAppState:", e);
+    }
+    try {
         const cachedSess = safeStorage.getItem('cached_examSessions');
         if (cachedSess) AppState.examSessions = JSON.parse(cachedSess);
     } catch(e){}
@@ -157,8 +203,6 @@ if (typeof safeStorage !== 'undefined') {
         if (cachedRout) AppState.examRoutine = JSON.parse(cachedRout);
     } catch(e){}
 }
-
-window.syllabusStructure = window.syllabusStructure || {};
 
 window.getServerTime = function() {
     return Date.now() + (window.serverTimeOffset || 0);
