@@ -6,25 +6,7 @@
     "projectId": "project-x-787898"
   },
   "timerAnalyticsGrouping": "daily",
-  "examSessions": [
-    {
-      "id": "session_1785415819121_ae41",
-      "createdAt": 1785415819121,
-      "updatedAt": 1785419255756,
-      "endDate": "2027-08-13",
-      "startDate": "2027-08-06",
-      "program": "CL",
-      "name": "August 26"
-    },
-    {
-      "id": "session_1785430598399_urvd",
-      "createdAt": 1785430598399,
-      "endDate": "2026-08-06",
-      "startDate": "2026-07-30",
-      "program": "Non-Program",
-      "name": "125"
-    }
-  ],
+  "examSessions": [],
   "scheduleBlocks2": [],
   "passedItems": {
     "programs": [],
@@ -6350,43 +6332,7 @@
     }
   ],
   "timerAnalyticsRange": 30,
-  "examRoutine": [
-    {
-      "date": "2026-07-29",
-      "createdAt": 1785356666111,
-      "id": "exam_1785356666111_hqt0",
-      "time": "10:00",
-      "title": "125",
-      "mode": "program",
-      "status": "completed",
-      "program": "BBA 1st",
-      "subject": "Accounting  B1"
-    },
-    {
-      "program": "BBA 1st",
-      "subject": "Introduction to Business",
-      "mode": "program",
-      "status": "completed",
-      "title": "ff",
-      "date": "2026-07-29",
-      "id": "exam_1785356685358_6ju7",
-      "createdAt": 1785356685358,
-      "time": "10:00"
-    },
-    {
-      "title": "MI",
-      "time": "12:30",
-      "createdAt": 1785415907488,
-      "id": "exam_1785415907488_5cb0",
-      "date": "2027-08-10",
-      "subject": "MI",
-      "program": "CL",
-      "status": "upcoming",
-      "sessionId": "session_1785415819121_ae41",
-      "mode": "program",
-      "updatedAt": 1785419259880
-    }
-  ],
+  "examRoutine": [],
   "activeTimerState": {
     "timerStates": {
       "timer": {
