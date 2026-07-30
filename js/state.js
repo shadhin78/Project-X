@@ -159,37 +159,60 @@ stateKeys.forEach(key => {
     });
 });
 
+window.applyFullAppState = function(data, saveCloud = true) {
+    if (!data || typeof data !== 'object') return false;
+    delete data._metadata;
+
+    if (data.tasks) AppState.tasks = data.tasks;
+    if (data.tracks) AppState.tracks = data.tracks;
+    if (data.customSyllabus || data.syllabusStructure) AppState.syllabusStructure = data.customSyllabus || data.syllabusStructure;
+    if (data.customPrograms) AppState.customPrograms = data.customPrograms;
+    if (data.customActions) AppState.customActions = data.customActions;
+    if (data.paceGoals) AppState.paceGoals = data.paceGoals;
+    if (data.passedItems) AppState.passedItems = data.passedItems;
+    if (data.revisionData) AppState.revisionData = data.revisionData;
+    if (data.programVisibility) AppState.programVisibility = data.programVisibility;
+    if (data.subjectTimeLinks) AppState.subjectTimeLinks = data.subjectTimeLinks;
+    if (data.successResults) AppState.successResults = data.successResults;
+    if (data.timerLogs) AppState.timerLogs = data.timerLogs;
+    if (data.dailyFocusHoursTarget !== undefined) AppState.dailyFocusHoursTarget = data.dailyFocusHoursTarget;
+    if (data.dailyFocusHoursTargetDate !== undefined) AppState.dailyFocusHoursTargetDate = data.dailyFocusHoursTargetDate;
+    if (data.dailyFocusHoursTargetHistory !== undefined) AppState.dailyFocusHoursTargetHistory = data.dailyFocusHoursTargetHistory;
+    if (data.subjectFocusTargets) AppState.subjectFocusTargets = data.subjectFocusTargets;
+    if (data.dashboardConfig) AppState.dashboardConfig = data.dashboardConfig;
+    if (data.weeklyTargetsDatabase) AppState.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
+    if (data.dailyTargetsDatabase) AppState.dailyTargetsDatabase = data.dailyTargetsDatabase;
+    if (data.scheduleBlocks) AppState.scheduleBlocks = data.scheduleBlocks;
+    if (data.scheduleBlocks2) AppState.scheduleBlocks2 = data.scheduleBlocks2;
+    if (data.scheduleGroups) AppState.scheduleGroups = data.scheduleGroups;
+    if (data.fiscalLedger) AppState.fiscalLedger = data.fiscalLedger;
+    if (data.examSessions) AppState.examSessions = data.examSessions;
+    if (data.examRoutine) AppState.examRoutine = data.examRoutine;
+    if (data.selectedCountdownExamId) AppState.selectedCountdownExamId = data.selectedCountdownExamId;
+
+    if (typeof safeStorage !== 'undefined') {
+        try {
+            safeStorage.setItem('cached_fullAppState', JSON.stringify(data));
+            if (data.examSessions) safeStorage.setItem('cached_examSessions', JSON.stringify(data.examSessions));
+            if (data.examRoutine) safeStorage.setItem('cached_examRoutine', JSON.stringify(data.examRoutine));
+        } catch(e){}
+    }
+
+    if (saveCloud && typeof window.saveToCloud === 'function') {
+        window.saveToCloud(true);
+    }
+
+    if (typeof window.recalculateTotals === 'function') window.recalculateTotals();
+    if (typeof window.renderUI === 'function') window.renderUI();
+    return true;
+};
+
 if (typeof safeStorage !== 'undefined') {
     try {
         const cachedFull = safeStorage.getItem('cached_fullAppState');
         if (cachedFull) {
             const data = JSON.parse(cachedFull);
-            if (data.tasks) AppState.tasks = data.tasks;
-            if (data.tracks) AppState.tracks = data.tracks;
-            if (data.customSyllabus || data.syllabusStructure) AppState.syllabusStructure = data.customSyllabus || data.syllabusStructure;
-            if (data.customPrograms) AppState.customPrograms = data.customPrograms;
-            if (data.customActions) AppState.customActions = data.customActions;
-            if (data.paceGoals) AppState.paceGoals = data.paceGoals;
-            if (data.passedItems) AppState.passedItems = data.passedItems;
-            if (data.revisionData) AppState.revisionData = data.revisionData;
-            if (data.programVisibility) AppState.programVisibility = data.programVisibility;
-            if (data.subjectTimeLinks) AppState.subjectTimeLinks = data.subjectTimeLinks;
-            if (data.successResults) AppState.successResults = data.successResults;
-            if (data.timerLogs) AppState.timerLogs = data.timerLogs;
-            if (data.dailyFocusHoursTarget !== undefined) AppState.dailyFocusHoursTarget = data.dailyFocusHoursTarget;
-            if (data.dailyFocusHoursTargetDate !== undefined) AppState.dailyFocusHoursTargetDate = data.dailyFocusHoursTargetDate;
-            if (data.dailyFocusHoursTargetHistory !== undefined) AppState.dailyFocusHoursTargetHistory = data.dailyFocusHoursTargetHistory;
-            if (data.subjectFocusTargets) AppState.subjectFocusTargets = data.subjectFocusTargets;
-            if (data.dashboardConfig) AppState.dashboardConfig = data.dashboardConfig;
-            if (data.weeklyTargetsDatabase) AppState.weeklyTargetsDatabase = data.weeklyTargetsDatabase;
-            if (data.dailyTargetsDatabase) AppState.dailyTargetsDatabase = data.dailyTargetsDatabase;
-            if (data.scheduleBlocks) AppState.scheduleBlocks = data.scheduleBlocks;
-            if (data.scheduleBlocks2) AppState.scheduleBlocks2 = data.scheduleBlocks2;
-            if (data.scheduleGroups) AppState.scheduleGroups = data.scheduleGroups;
-            if (data.fiscalLedger) AppState.fiscalLedger = data.fiscalLedger;
-            if (data.examSessions) AppState.examSessions = data.examSessions;
-            if (data.examRoutine) AppState.examRoutine = data.examRoutine;
-            if (data.selectedCountdownExamId) AppState.selectedCountdownExamId = data.selectedCountdownExamId;
+            window.applyFullAppState(data, false);
         }
     } catch (e) {
         console.warn("Failed to parse cached_fullAppState:", e);
@@ -204,6 +227,32 @@ if (typeof safeStorage !== 'undefined') {
     } catch(e){}
 }
 
+window.autoRestoreFromLocalBackup = async function() {
+    const hasData = (Array.isArray(AppState.tracks) && AppState.tracks.length > 0) ||
+                    (AppState.fiscalLedger && Array.isArray(AppState.fiscalLedger.transactions) && AppState.fiscalLedger.transactions.length > 0) ||
+                    (Array.isArray(AppState.examSessions) && AppState.examSessions.length > 0);
+    if (!hasData) {
+        try {
+            console.log("No workspace data in cache. Auto-loading from firestore_backup_userData.json...");
+            const res = await fetch('./firestore_backup_userData.json');
+            if (res.ok) {
+                const data = await res.json();
+                window.applyFullAppState(data, true);
+                console.log("Workspace successfully restored from firestore_backup_userData.json!");
+            }
+        } catch(err) {
+            console.warn("Auto-restore from firestore_backup_userData.json failed:", err);
+        }
+    }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { window.autoRestoreFromLocalBackup(); });
+} else {
+    setTimeout(() => { window.autoRestoreFromLocalBackup(); }, 100);
+}
+
 window.getServerTime = function() {
     return Date.now() + (window.serverTimeOffset || 0);
 };
+

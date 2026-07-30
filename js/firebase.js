@@ -131,6 +131,13 @@ window.FirebaseService = {
             firebase.initializeApp(config);
             if (typeof firebase.firestore === 'function') {
                 AppState.db = firebase.firestore();
+                try {
+                    AppState.db.settings({
+                        experimentalAutoDetectLongPolling: true
+                    });
+                } catch (e) {
+                    console.warn("Could not set Firestore settings:", e);
+                }
             }
             console.log("Firebase initialized successfully.");
         }
