@@ -38,12 +38,12 @@ window.FirebaseService = {
         if (window.location.protocol === 'file:') {
             console.log("file:// protocol detected in fetchConfig. Using offline fallback config.");
             return {
-                apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
-                authDomain: "project-x-787898.firebaseapp.com",
-                projectId: "project-x-787898",
-                storageBucket: "project-x-787898.firebasestorage.app",
-                messagingSenderId: "1011303841705",
-                appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                apiKey: "AIzaSyCLBC8EbRf7rgfOzy7LnpTMSeL0LRAaa1s",
+                authDomain: "project-x-29.firebaseapp.com",
+                projectId: "project-x-29",
+                storageBucket: "project-x-29.firebasestorage.app",
+                messagingSenderId: "671463039667",
+                appId: "1:671463039667:web:a93f66bd192f00f56206c6"
             };
         }
 
@@ -102,18 +102,25 @@ window.FirebaseService = {
                 console.warn("Network config fetch failed, checking localStorage fallback...", fallbackErr);
                 const cachedConfig = safeStorage.getItem('firebaseConfig');
                 if (cachedConfig) {
-                    config = JSON.parse(cachedConfig);
-                    console.log("Loaded Firebase config from localStorage cache for offline boot.");
-                } else {
+                    try {
+                        const parsed = JSON.parse(cachedConfig);
+                        if (parsed && parsed.projectId === 'project-x-29') {
+                            config = parsed;
+                            console.log("Loaded Firebase config from localStorage cache for offline boot.");
+                        }
+                    } catch(e) {}
+                }
+                if (!config) {
                     console.warn("Failed to load Firebase configuration, using offline fallback config.");
                     config = {
-                        apiKey: "AIzaSyDfYjJ7CKqXb4CsQc65CSL205bxQG6cj0E",
-                        authDomain: "project-x-787898.firebaseapp.com",
-                        projectId: "project-x-787898",
-                        storageBucket: "project-x-787898.firebasestorage.app",
-                        messagingSenderId: "1011303841705",
-                        appId: "1:1011303841705:web:4bc5a13023b5a1cd1e8eb8"
+                        apiKey: "AIzaSyCLBC8EbRf7rgfOzy7LnpTMSeL0LRAaa1s",
+                        authDomain: "project-x-29.firebaseapp.com",
+                        projectId: "project-x-29",
+                        storageBucket: "project-x-29.firebasestorage.app",
+                        messagingSenderId: "671463039667",
+                        appId: "1:671463039667:web:a93f66bd192f00f56206c6"
                     };
+                    safeStorage.setItem('firebaseConfig', JSON.stringify(config));
                 }
             }
         }
