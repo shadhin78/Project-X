@@ -208,23 +208,31 @@ window.applyFullAppState = function(data, saveCloud = true) {
 };
 
 if (typeof safeStorage !== 'undefined') {
-    try {
-        const cachedFull = safeStorage.getItem('cached_fullAppState');
-        if (cachedFull) {
-            const data = JSON.parse(cachedFull);
-            window.applyFullAppState(data, false);
+    if (safeStorage.getItem('workspace_clean_reset_v1') !== 'done') {
+        safeStorage.removeItem('cached_fullAppState');
+        safeStorage.removeItem('cached_examSessions');
+        safeStorage.removeItem('cached_examRoutine');
+        safeStorage.setItem('workspace_clean_reset_v1', 'done');
+        console.log("Workspace browser localStorage cache purged for 0-chapter reset.");
+    } else {
+        try {
+            const cachedFull = safeStorage.getItem('cached_fullAppState');
+            if (cachedFull) {
+                const data = JSON.parse(cachedFull);
+                window.applyFullAppState(data, false);
+            }
+        } catch (e) {
+            console.warn("Failed to parse cached_fullAppState:", e);
         }
-    } catch (e) {
-        console.warn("Failed to parse cached_fullAppState:", e);
+        try {
+            const cachedSess = safeStorage.getItem('cached_examSessions');
+            if (cachedSess) AppState.examSessions = JSON.parse(cachedSess);
+        } catch(e){}
+        try {
+            const cachedRout = safeStorage.getItem('cached_examRoutine');
+            if (cachedRout) AppState.examRoutine = JSON.parse(cachedRout);
+        } catch(e){}
     }
-    try {
-        const cachedSess = safeStorage.getItem('cached_examSessions');
-        if (cachedSess) AppState.examSessions = JSON.parse(cachedSess);
-    } catch(e){}
-    try {
-        const cachedRout = safeStorage.getItem('cached_examRoutine');
-        if (cachedRout) AppState.examRoutine = JSON.parse(cachedRout);
-    } catch(e){}
 }
 
 window.autoRestoreFromLocalBackup = async function() {
