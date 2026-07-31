@@ -1244,10 +1244,9 @@
         );
     };
 
-    const cachedRange = safeStorage.getItem('timerAnalyticsRange');
-    window.timerAnalyticsRange = cachedRange ? parseInt(cachedRange, 10) : 180;
-    window.timerAnalyticsChartStyle = safeStorage.getItem('timerAnalyticsChartStyle') || 'combo';
-    window.timerAnalyticsGrouping = safeStorage.getItem('timerAnalyticsGrouping') || 'daily';
+    window.timerAnalyticsRange = 180;
+    window.timerAnalyticsChartStyle = 'combo';
+    window.timerAnalyticsGrouping = 'daily';
 
     window.updateTimerAnalyticsControls = function () {
         const range = window.timerAnalyticsRange || 180;
@@ -1401,10 +1400,8 @@
 
     window.setTimerAnalyticsRange = function (days) {
         window.timerAnalyticsRange = days;
-        safeStorage.setItem('timerAnalyticsRange', days);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
-        if (window.FirebaseService) window.FirebaseService.saveToCloud();
     };
 
     window.setTimerAnalyticsGrouping = function (grouping) {
@@ -1415,18 +1412,14 @@
         if (range === 180 && grouping === 'hourly') return;
 
         window.timerAnalyticsGrouping = grouping;
-        safeStorage.setItem('timerAnalyticsGrouping', grouping);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
-        if (window.FirebaseService) window.FirebaseService.saveToCloud();
     };
 
     window.setTimerAnalyticsChartStyle = function (style) {
         window.timerAnalyticsChartStyle = style;
-        safeStorage.setItem('timerAnalyticsChartStyle', style);
         window.updateTimerAnalyticsControls();
         window.renderTimerAnalyticsChart();
-        if (window.FirebaseService) window.FirebaseService.saveToCloud();
     };
 
     window.renderTimerAnalyticsChart = function () {

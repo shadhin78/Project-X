@@ -308,12 +308,6 @@ window.renderExamPage = function() {
 
 window.onSelectCountdownTarget = function(examId) {
     AppState.selectedCountdownExamId = examId || 'auto';
-    if (typeof safeStorage !== 'undefined') {
-        safeStorage.setItem('cached_selectedCountdownExamId', AppState.selectedCountdownExamId);
-    }
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud(true);
-    }
     window.updateExamCountdown();
 };
 

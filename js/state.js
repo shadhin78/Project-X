@@ -190,49 +190,12 @@ window.applyFullAppState = function(data, saveCloud = true) {
     if (data.examRoutine) AppState.examRoutine = data.examRoutine;
     if (data.selectedCountdownExamId) AppState.selectedCountdownExamId = data.selectedCountdownExamId;
 
-    if (typeof safeStorage !== 'undefined') {
-        try {
-            safeStorage.setItem('cached_fullAppState', JSON.stringify(data));
-            if (data.examSessions) safeStorage.setItem('cached_examSessions', JSON.stringify(data.examSessions));
-            if (data.examRoutine) safeStorage.setItem('cached_examRoutine', JSON.stringify(data.examRoutine));
-        } catch(e){}
-    }
-
-    if (saveCloud && typeof window.saveToCloud === 'function') {
-        window.saveToCloud(true);
-    }
-
     if (typeof window.recalculateTotals === 'function') window.recalculateTotals();
     if (typeof window.renderUI === 'function') window.renderUI();
     return true;
 };
 
 window.DEFAULT_COMMITMENT_LABELS = ['Action 1', 'Action 2', 'Action 3', 'Action 4', 'Action 5', 'Action 6', 'Action 7'];
-
-if (typeof safeStorage !== 'undefined') {
-    try {
-        const cachedFull = safeStorage.getItem('cached_fullAppState');
-        if (cachedFull) {
-            const data = JSON.parse(cachedFull);
-            if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
-                window.applyFullAppState(data, false);
-            } else {
-                safeStorage.removeItem('cached_fullAppState');
-                safeStorage.removeItem('cached_examSessions');
-                safeStorage.removeItem('cached_examRoutine');
-                AppState.examSessions = [];
-                AppState.examRoutine = [];
-            }
-        } else {
-            safeStorage.removeItem('cached_examSessions');
-            safeStorage.removeItem('cached_examRoutine');
-            AppState.examSessions = [];
-            AppState.examRoutine = [];
-        }
-    } catch (e) {
-        console.warn("Failed to parse cached_fullAppState:", e);
-    }
-}
 
 window.getServerTime = function() {
     return Date.now() + (window.serverTimeOffset || 0);
