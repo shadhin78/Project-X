@@ -610,8 +610,8 @@ window.saveSessionForm = function(event) {
         AppState.examSessions.push(newSession);
     }
 
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud(true);
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud(true);
     }
 
     window.closeSessionModal();
@@ -630,8 +630,8 @@ window.deleteSession = function(sessionId) {
             AppState.examSessions = (AppState.examSessions || []).filter(s => s.id !== sessionId);
             AppState.examRoutine = (AppState.examRoutine || []).filter(e => e.sessionId !== sessionId);
 
-            if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-                window.FirebaseService.saveToCloud(true);
+            if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+                window.SupabaseService.saveToCloud(true);
             }
 
             window.renderExamPage();
@@ -1028,8 +1028,8 @@ window.saveExamForm = function(event) {
         AppState.examRoutine.push(newExam);
     }
 
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud(true);
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud(true);
     }
 
     window.closeExamModal();
@@ -1041,8 +1041,8 @@ window.toggleExamStatus = function(examId) {
     const exam = (AppState.examRoutine || []).find(e => e.id === examId);
     if (exam) {
         exam.status = exam.status === 'completed' ? 'upcoming' : 'completed';
-        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-            window.FirebaseService.saveToCloud(true);
+        if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+            window.SupabaseService.saveToCloud(true);
         }
         window.renderExamPage();
         if (typeof showToast === 'function') {
@@ -1060,8 +1060,8 @@ window.deleteExam = function(examId) {
         `Are you sure you want to delete "${examName}"? This action cannot be undone.`,
         () => {
             AppState.examRoutine = (AppState.examRoutine || []).filter(e => e.id !== examId);
-            if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-                window.FirebaseService.saveToCloud(true);
+            if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+                window.SupabaseService.saveToCloud(true);
             }
             window.renderExamPage();
             if (typeof showToast === 'function') showToast("Exam deleted.", "info");

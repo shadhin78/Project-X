@@ -37,7 +37,7 @@ jsLines.forEach(line => {
         markers.push({ name: 'Sync Manager (db.js)', line: line.num });
     }
     if (line.text.includes('window.firestoreDiagnostics = {')) {
-        markers.push({ name: 'Firebase Diagnostics (firebase.js)', line: line.num });
+        markers.push({ name: 'Supabase Diagnostics (supabase.js)', line: line.num });
     }
     if (line.text.includes('// Navigation & State globals')) {
         markers.push({ name: 'Navigation & State (state.js)', line: line.num });

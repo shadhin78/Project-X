@@ -18,7 +18,7 @@ console.log('Total JS Block: lines ' + jsStart + ' to ' + jsEnd + ' (' + (jsEnd 
 const fileMilestones = [
   { file: 'js/state.js', trigger: 'window.ensureConfigDefaults = function' },
   { file: 'js/db.js', trigger: 'window.localDB = new Dexie' },
-  { file: 'js/firebase.js', trigger: 'window.isCloudSyncAllowed = function' },
+  { file: 'js/supabase.js', trigger: 'window.isCloudSyncAllowed = function' },
   { file: 'js/utils.js', trigger: 'window.formatDaysPassed = function' },
   { file: 'js/ui/schedule.js', trigger: 'window.switchRoutineSet = function' },
   { file: 'js/ui/subjects.js', trigger: 'function getSubjectColor' },

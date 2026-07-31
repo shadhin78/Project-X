@@ -299,7 +299,18 @@ window.migrateLegacyData = function () {
         }
     }
 
-    // Purge legacy preset sample exams
+    // Purge legacy preset sample exams & sessions
+    if (Array.isArray(AppState.examSessions)) {
+        const origLength = AppState.examSessions.length;
+        AppState.examSessions = AppState.examSessions.filter(s => {
+            if (!s) return false;
+            if (s.id && s.id.startsWith('session_sample_')) return false;
+            return true;
+        });
+        if (AppState.examSessions.length !== origLength) {
+            dataPurged = true;
+        }
+    }
     if (Array.isArray(AppState.examRoutine)) {
         const origLength = AppState.examRoutine.length;
         AppState.examRoutine = AppState.examRoutine.filter(e => {
@@ -576,12 +587,12 @@ window.getSortedTrackSubjects = function (track) {
 
 
 /******************************************************************
- * FIREBASE
+ * AUTHENTICATION & SUPABASE LOGOUT
  ******************************************************************/
-// js/firebase.js (Firebase service delegation wrapper)
+// js/supabase.js (Supabase service wrapper)
 
 window.handleLogout = function () {
-    FirebaseService.logout().then(() => {
+    SupabaseService.logout().then(() => {
         window.location.href = 'login.html';
     }).catch(err => {
         console.error("Logout error:", err);
@@ -924,7 +935,7 @@ window.toggleRevisionMode = function (sub) {
         window.revisionData.active.push(sub);
         if (!window.revisionData.progress[sub]) window.revisionData.progress[sub] = {};
     }
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderRevisionModalContent();
 
@@ -977,7 +988,7 @@ window.toggleRevisionChapter = function (sub, chNum, isChecked) {
     if (barEl) barEl.style.width = `${progressPct}%`;
 
     updateMetrics();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
 
     if (window.chartDebounce) clearTimeout(window.chartDebounce);
     window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
@@ -1089,12 +1100,10 @@ window.submitAccountUpdate = function () {
         profileAvatarEl.textContent = newName.charAt(0).toUpperCase();
     }
 
-    if (typeof FirebaseService !== 'undefined') {
-        const fbUser = FirebaseService.getCurrentUser();
-        if (fbUser) {
-            fbUser.updateProfile({
-                displayName: newName
-            }).catch(err => console.warn("Firebase updateProfile failed:", err));
+    if (typeof SupabaseService !== 'undefined') {
+        const currentUser = SupabaseService.getCurrentUser();
+        if (currentUser) {
+            currentUser.displayName = newName;
         }
     }
 
@@ -1221,7 +1230,7 @@ window.submitCreateScheduleGroup = function () {
         showToast(`Group "${name}" created with ${items.length} items.`, 'success');
     }
 
-    FirebaseService.saveToCloud(true);
+    SupabaseService.saveToCloud(true);
     closeModal('create-schedule-group-modal');
     if (window.renderSchedulePage) window.renderSchedulePage();
     if (window.renderFiscalLedgerPage) window.renderFiscalLedgerPage();
@@ -1231,7 +1240,7 @@ window.deleteScheduleGroup = function (groupId) {
     window.openConfirmModal('Delete Group', 'Remove this group? Items will become ungrouped.', () => {
         if (!window.scheduleGroups) return;
         window.scheduleGroups = window.scheduleGroups.filter(g => g.id !== groupId);
-        FirebaseService.saveToCloud(true);
+        SupabaseService.saveToCloud(true);
         if (window.renderSchedulePage) window.renderSchedulePage();
         showToast('Group deleted.', 'success');
     });
@@ -1249,7 +1258,7 @@ window.assignSlotToGroup = function (workName, groupId) {
         if (!grp.items) grp.items = [];
         grp.items.push(workName);
     }
-    FirebaseService.saveToCloud(true);
+    SupabaseService.saveToCloud(true);
     if (window.renderSchedulePage) window.renderSchedulePage();
 };
 
@@ -1258,7 +1267,7 @@ window.removeSlotFromGroup = function (workName) {
     window.scheduleGroups.forEach(g => {
         g.items = (g.items || []).filter(n => n !== workName);
     });
-    FirebaseService.saveToCloud(true);
+    SupabaseService.saveToCloud(true);
     if (window.renderSchedulePage) window.renderSchedulePage();
 };
 
@@ -1879,14 +1888,14 @@ window.deleteScheduleBlock = function (blockId) {
         if (currentSet === 2) {
             if (window.scheduleBlocks2) {
                 window.scheduleBlocks2 = window.scheduleBlocks2.filter(b => b.id !== blockId);
-                FirebaseService.saveToCloud(true);
+                SupabaseService.saveToCloud(true);
                 renderUI();
                 showToast("Routine 2 slot deleted.", "success");
             }
         } else {
             if (window.scheduleBlocks) {
                 window.scheduleBlocks = window.scheduleBlocks.filter(b => b.id !== blockId);
-                FirebaseService.saveToCloud(true);
+                SupabaseService.saveToCloud(true);
                 renderUI();
                 showToast("Routine slot deleted.", "success");
             }
@@ -1995,7 +2004,7 @@ window.submitAddScheduleBlock = function () {
         }
     }
 
-    FirebaseService.saveToCloud(true);
+    SupabaseService.saveToCloud(true);
     closeModal('add-schedule-modal');
     renderUI();
 };
@@ -2442,7 +2451,7 @@ window.saveHeaderConfigFromForm = function () {
     safeSetText('dash-sub-title-mobile', window.dashboardConfig.subTitle);
     document.title = `${window.dashboardConfig.topTag} - ${window.dashboardConfig.mainTitle}`;
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     showToast("Dashboard titles updated!", "success");
 };
 
@@ -2459,7 +2468,7 @@ function rebuildTaskDates(shouldSave = true) {
     newEndDate.setDate(newEndDate.getDate() + (AppState.tasks[AppState.tasks.length - 1].id - 1));
     AppState.PLAN_END_DATE = newEndDate;
     if (shouldSave) {
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
     }
 }
 
@@ -2649,7 +2658,7 @@ window.selectActivePaceGoal = function (goalId) {
 };
 
 window.saveTrendsSettings = function () {
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('edit-trends-pace-modal');
     showToast("Active pacing timeline updated!", "success");
@@ -3898,7 +3907,7 @@ function handleTaskToggle(e) {
 
     // Core Global updates & Saves
     updateMetrics();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
 
     // Smart background debounce for heavy canvas operations
     if (window.chartDebounce) clearTimeout(window.chartDebounce);
@@ -5953,8 +5962,8 @@ window.toggleCommitmentCell = function (dayNum, habitIndex) {
     }
 
     // Cloud Save
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud();
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud();
     }
 
     // Debounce non-critical heavy chart updates
@@ -6041,8 +6050,8 @@ window.saveCommitmentLabels = function () {
     window.saveCommitmentLabelsData(newLabels);
     window.closeCommitmentsModal();
 
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud();
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud();
     }
 
     if (typeof renderUI === 'function') {
@@ -7328,7 +7337,7 @@ window.toggleDataset = function (chartKey, dsKey) {
     }
     window.updateLegends();
     if (chartKey === 'prog') {
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
     }
 };
@@ -7600,8 +7609,8 @@ window.setDailyState = function (type, state) {
 
     if (idx > -1) {
         AppState.tasks[idx][type] = state;
-        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-            window.FirebaseService.saveToCloud();
+        if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+            window.SupabaseService.saveToCloud();
         }
         if (typeof renderDailyTracker === 'function') renderDailyTracker();
         if (typeof renderDailyLogs === 'function') renderDailyLogs();
@@ -8198,7 +8207,7 @@ window.saveSubjectTimeGoal = function () {
         delete window.subjectTimeLinks[sub];
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('subject-time-modal');
     showToast("Subject Time Goal updated!", "success");
@@ -8210,7 +8219,7 @@ window.clearSubjectTimeGoal = function () {
     if (window.subjectTimeLinks && window.subjectTimeLinks[sub]) {
         delete window.subjectTimeLinks[sub];
     }
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('subject-time-modal');
     showToast("Time Goal reset to default timeline.", "success");
@@ -8359,7 +8368,7 @@ window.saveSubjectEditModal = function () {
             }
         }
 
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         if (window.chartDebounce) clearTimeout(window.chartDebounce);
         window.chartDebounce = setTimeout(() => requestAnimationFrame(renderTrendCharts), 600);
@@ -8401,7 +8410,7 @@ window.executeDeleteSubjectFromModal = function (targetName) {
     if (window.subjectTimeLinks && window.subjectTimeLinks[targetName]) delete window.subjectTimeLinks[targetName];
 
     recalculateTotals();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('edit-subject-modal');
     showToast(`Subject "${targetName}" deleted.`, "success");
@@ -10180,7 +10189,7 @@ window.saveResult = function () {
     }
 
     window.syncPassFreezeFromResults();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('result-modal');
     showToast("Result saved successfully!", "success");
@@ -10190,7 +10199,7 @@ window.deleteResult = function (id) {
     window.openConfirmModal("Delete Result", "Are you sure you want to delete this result?", () => {
         window.successResults = window.successResults.filter(r => r.id !== id);
         window.syncPassFreezeFromResults();
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         showToast("Result deleted", "success");
     });
@@ -10200,7 +10209,7 @@ window.deleteProgramGroup = function (programName) {
     window.openConfirmModal("Delete Program Card", `Are you sure you want to delete this program card and all its subject results?`, () => {
         window.successResults = window.successResults.filter(r => !(r.type === 'cgpa' && r.title === programName));
         window.syncPassFreezeFromResults();
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         showToast("Program card deleted", "success");
     });
@@ -12513,13 +12522,13 @@ window.savePaceEdit = function () {
 
     goal.startDate = startStr;
     goal.deadline = deadStr;
-    FirebaseService.saveToCloud(); renderUI(); closeModal('edit-pace-modal'); showToast("Pace Goal timeline updated!", "success");
+    SupabaseService.saveToCloud(); renderUI(); closeModal('edit-pace-modal'); showToast("Pace Goal timeline updated!", "success");
 };
 
 window.toggleModalDay = function (taskId, typeKey) {
     const taskIndex = AppState.tasks.findIndex(t => t.id === taskId);
     if (taskIndex > -1) {
-        AppState.tasks[taskIndex][typeKey] = !AppState.tasks[taskIndex][typeKey]; FirebaseService.saveToCloud();
+        AppState.tasks[taskIndex][typeKey] = !AppState.tasks[taskIndex][typeKey]; SupabaseService.saveToCloud();
         requestAnimationFrame(() => {
             renderTrendCharts(); renderDailyTracker(); renderDailyLogs();
             const modal = document.getElementById('analytics-modal');
@@ -12598,7 +12607,7 @@ window.toggleSkipTask = function () {
         }
     }
     recalculateTotals();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('edit-task-modal');
     showToast("Chapter status updated!", "success");
@@ -12632,7 +12641,7 @@ window.saveTaskEdit = function () {
         const newS = (syllabusStructure[prog] || []).find(s => s.subject === newSubject); if (newS) newS.chapters++;
         reorderSubjectChapters(prog, oldSubject); reorderSubjectChapters(prog, newSubject);
     }
-    recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task updated successfully!", "success");
+    recalculateTotals(); SupabaseService.saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task updated successfully!", "success");
 };
 
 window.requestDeleteTask = function () {
@@ -12674,7 +12683,7 @@ window.deleteTask = function () {
             AppState.tasks[slot.tIdx][key][slot.bIdx] = { ...chObj, id: AppState.tasks[slot.tIdx][key][slot.bIdx].id };
         }
     }
-    recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
+    recalculateTotals(); SupabaseService.saveToCloud(); renderUI(); closeModal('edit-task-modal'); showToast("Task deleted and schedule shifted up.", "success");
 };
 
 // --- Configuration & Expansion System Logic ---
@@ -12860,7 +12869,7 @@ window.executeManageEdit = function () {
     }
 
     document.getElementById('manage-new-name').value = '';
-    FirebaseService.saveToCloud(); renderUI(); updateManageDropdown();
+    SupabaseService.saveToCloud(); renderUI(); updateManageDropdown();
 };
 
 window.requestManageDelete = function () {
@@ -12936,7 +12945,7 @@ window.executeManageDelete = function () {
         }
     }
 
-    recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); updateManageDropdown();
+    recalculateTotals(); SupabaseService.saveToCloud(); renderUI(); updateManageDropdown();
 };
 
 window.resetToCleanSlate = function (confirmFirst = true) {
@@ -12996,11 +13005,11 @@ window.resetToCleanSlate = function (confirmFirst = true) {
 
         if (typeof recalculateTotals === 'function') recalculateTotals();
 
-        if (window.FirebaseService) {
-            if (typeof window.FirebaseService.wipeCloudWorkspace === 'function') {
-                window.FirebaseService.wipeCloudWorkspace();
-            } else if (typeof window.FirebaseService.saveToCloud === 'function') {
-                window.FirebaseService.saveToCloud(true);
+        if (window.SupabaseService) {
+            if (typeof window.SupabaseService.wipeCloudWorkspace === 'function') {
+                window.SupabaseService.wipeCloudWorkspace();
+            } else if (typeof window.SupabaseService.saveToCloud === 'function') {
+                window.SupabaseService.saveToCloud(true);
             }
         }
 
@@ -13111,8 +13120,8 @@ window.appendNewAction = function () {
     if (titleEl) titleEl.value = '';
     if (descEl) descEl.value = '';
 
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud();
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud();
     }
 
     renderUI();
@@ -13138,7 +13147,7 @@ window.appendNewProgram = function () {
     window.sortAllCustomData();
 
     document.getElementById('add-prog-name').value = '';
-    FirebaseService.saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
+    SupabaseService.saveToCloud(); renderUI(); showToast("Program successfully added!", "success");
 };
 
 window.appendNewSubject = function () {
@@ -13192,7 +13201,7 @@ window.appendNewSubject = function () {
     document.getElementById('add-sub-bulk-num').classList.add('hidden');
 
     recalculateTotals();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
 
     // Unblock main thread to allow modal to close immediately before heavy render
     setTimeout(() => {
@@ -13241,7 +13250,7 @@ window.appendNewChapter = function () {
     const targetSub = (syllabusStructure[track] || []).find(s => s.subject === subj);
     if (targetSub) targetSub.chapters++;
 
-    recalculateTotals(); FirebaseService.saveToCloud(); renderUI();
+    recalculateTotals(); SupabaseService.saveToCloud(); renderUI();
     document.getElementById('add-ch-num').value = ''; document.getElementById('add-ch-title').value = '';
     showToast("Chapter added and sequenced!", "success");
 };
@@ -13273,7 +13282,7 @@ window.appendNewAction = function () {
     document.getElementById('add-act-title').value = '';
     document.getElementById('add-act-desc').value = '';
     if (trackSelect) trackSelect.value = '';
-    FirebaseService.saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
+    SupabaseService.saveToCloud(); renderUI(); showToast("Daily Action Tracker created!", "success");
 };
 
 // --- Outcomes Program Visibility Logic ---
@@ -13327,7 +13336,7 @@ window.toggleOutcomeProgram = function (pName) {
     }
 
     // Save and re-render everything
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
 };
 
@@ -13692,7 +13701,7 @@ window.addWeeklyTarget = function () {
     if (scopeEl) scopeEl.value = '';
     if (sizeEl) sizeEl.value = '';
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('add-weekly-target-modal');
     showToast("Weekly target chapter added!", "success");
@@ -13727,7 +13736,7 @@ window.deleteWeeklyTarget = function (idx) {
         }
 
         window.weeklyTargetsDatabase[selectedWeekKey].splice(idx, 1);
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         showToast("Weekly target removed.", "success");
     }
@@ -13761,7 +13770,7 @@ window.toggleWeeklyTargetCompletion = function (idx, isCompleted) {
         recalculateTotals();
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     showToast("Chapter completion state synchronized!", "success");
 };
@@ -14270,7 +14279,7 @@ window.addDailyTarget = function () {
     if (sizeEl) sizeEl.value = '';
     if (totalSizeEl) totalSizeEl.value = '';
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('add-daily-target-modal');
     showToast("Daily target chapter added!", "success");
@@ -14497,7 +14506,7 @@ window.saveWeeklyTarget = function (idx, weekKey = null) {
 
     if (window.autoSyncWeeklyToDailyTargets) window.autoSyncWeeklyToDailyTargets();
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('add-weekly-target-modal');
     showToast("Weekly target updated!", "success");
@@ -14644,7 +14653,7 @@ window.saveDailyTarget = function (idx, dateKey = null) {
         target.totalChapterSize = dailySize;
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('add-daily-target-modal');
     showToast("Daily target updated!", "success");
@@ -14716,7 +14725,7 @@ window.autoSyncWeeklyToDailyTargets = function () {
     });
 
     if (updated) {
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
     }
 };
 
@@ -14766,7 +14775,7 @@ window.addCustomTodoTarget = function () {
     if (titleInput) titleInput.value = '';
     if (trackInput) trackInput.value = '';
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     closeModal('add-daily-target-modal');
     showToast("Custom to-do task added!", "success");
@@ -14799,7 +14808,7 @@ window.deleteDailyTarget = function (idx) {
             }
         }
 
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         showToast("Daily target removed.", "success");
     }
@@ -14816,7 +14825,7 @@ window.toggleDailyTargetCompletion = function (idx, isCompleted) {
     target.completedAt = isCompleted ? new Date().toISOString() : null;
 
     if (target.isTodo) {
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         showToast("To-Do task updated!", "success");
         return;
@@ -14859,7 +14868,7 @@ window.toggleDailyTargetCompletion = function (idx, isCompleted) {
         recalculateTotals();
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     showToast("Daily target completion state synchronized!", "success");
 };
@@ -15127,7 +15136,7 @@ window.toggleDashboardDailyTargetCompletion = function (idx, isCompleted) {
     target.completedAt = isCompleted ? new Date().toISOString() : null;
 
     if (target.isTodo) {
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         showToast("To-Do task updated!", "success");
         return;
@@ -15151,7 +15160,7 @@ window.toggleDashboardDailyTargetCompletion = function (idx, isCompleted) {
         recalculateTotals();
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     showToast("Daily checklist completion synchronized!", "success");
 };
@@ -15292,7 +15301,7 @@ window.toggleDashboardWeeklyTargetCompletion = function (idx, isCompleted) {
         recalculateTotals();
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     showToast("Weekly checklist completion synchronized!", "success");
 };
@@ -15497,7 +15506,7 @@ window.addWtdbTarget = function () {
         completedAt: completedAtBefore
     });
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderWtdbList();
     showToast("Target added to week: " + targetWeek, "success");
@@ -15506,7 +15515,7 @@ window.addWtdbTarget = function () {
 window.deleteWtdbTarget = function (weekKey, idx) {
     if (window.weeklyTargetsDatabase && window.weeklyTargetsDatabase[weekKey] && window.weeklyTargetsDatabase[weekKey][idx]) {
         window.weeklyTargetsDatabase[weekKey].splice(idx, 1);
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         window.renderWtdbList();
         showToast("Weekly target removed.", "success");
@@ -15527,7 +15536,7 @@ window.toggleWtdbTargetCompletion = function (weekKey, idx, isCompleted) {
         recalculateTotals();
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderWtdbList();
     showToast("Target completion state updated!", "success");
@@ -15943,7 +15952,7 @@ window.toggleDtdbTargetCompletion = function (dateKey, idx, isCompleted) {
     target.completedAt = isCompleted ? new Date().toISOString() : null;
 
     if (target.isTodo) {
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         window.renderDtdbList();
         showToast("To-Do task updated!", "success");
@@ -15987,7 +15996,7 @@ window.toggleDtdbTargetCompletion = function (dateKey, idx, isCompleted) {
         recalculateTotals();
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderDtdbList();
     showToast("Daily target completion state synchronized!", "success");
@@ -16017,7 +16026,7 @@ window.deleteDtdbTarget = function (dateKey, idx) {
             }
         }
 
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         window.populateDtdbFilters();
         window.renderDtdbList();
@@ -16050,7 +16059,7 @@ window.updateDtdbTargetSize = function (dateKey, idx, size) {
             }
         }
 
-        FirebaseService.saveToCloud();
+        SupabaseService.saveToCloud();
         renderUI();
         window.renderDtdbList();
         showToast("Target size updated!", "success");
@@ -16125,7 +16134,7 @@ window.togglePassStatus = function (type, name, isChecked) {
         }
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     updateSuccessScore();
     renderUI();
     window.renderPassConfig();
@@ -16328,7 +16337,7 @@ window.moveTrack = function (index, direction) {
     // Re-assign order
     list.forEach((t, idx) => t.order = idx);
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderPriorityConfig();
     showToast("Track order updated!", "success");
@@ -16382,7 +16391,7 @@ window.moveProgramGlobal = function (flatIndex, direction) {
             window.customPrograms[t.id].sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || (a.order ?? 999) - (b.order ?? 999));
         }
     });
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderPriorityConfig();
     showToast("Program order updated!", "success");
@@ -16414,7 +16423,7 @@ window.moveSubjectGlobal = function (index, direction) {
     });
 
     window.sortAllCustomData();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderPriorityConfig();
     showToast("Subject order updated!", "success");
@@ -16448,7 +16457,7 @@ window.moveAction = function (index, direction) {
     list.forEach((a, idx) => a.order = idx);
 
     window.sortAllCustomData();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderPriorityConfig();
     showToast("Daily action order updated!", "success");
@@ -16550,7 +16559,7 @@ window.onPriorityDropdownChange = function (category, itemId, newValue) {
     }
 
     window.sortAllCustomData();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderPriorityConfig();
 };
@@ -16810,7 +16819,7 @@ window.renderPriorityConfig = function () {
 window.savePriorities = function () {
     window.syncPriorityInputsFromDOM();
     window.sortAllCustomData();
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     renderUI();
     window.renderPriorityConfig();
     showToast("Priorities saved and synced successfully!", "success");
@@ -17016,7 +17025,7 @@ window.addPaceGoal = function () {
     document.getElementById('add-pace-name').value = '';
     document.getElementById('add-pace-start').value = '';
     document.getElementById('add-pace-date').value = '';
-    FirebaseService.saveToCloud(); renderUI(); showToast("Custom Pace Goal added!", "success");
+    SupabaseService.saveToCloud(); renderUI(); showToast("Custom Pace Goal added!", "success");
 };
 
 window.requestDeletePaceGoal = function (id) {
@@ -17029,7 +17038,7 @@ window.deletePaceGoal = function (id) {
         const defaultGoal = window.paceGoals.find(g => g.id === 'global-timeline') || window.paceGoals[0];
         window.dashboardConfig.activePaceGoalId = defaultGoal ? defaultGoal.id : null;
     }
-    FirebaseService.saveToCloud(); renderUI(); showToast("Pace Goal deleted.", "success");
+    SupabaseService.saveToCloud(); renderUI(); showToast("Pace Goal deleted.", "success");
 };
 
 function showToast(msg, type) {
@@ -17170,7 +17179,7 @@ window.appendNewTrack = function () {
     }
 
     nameInput.value = '';
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.populateTrackDropdowns();
     renderUI();
     window.renderTrackList();
@@ -17195,7 +17204,7 @@ window.saveTrackEditModal = function () {
     if (!track) return;
 
     track.name = newName;
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.populateTrackDropdowns();
     renderUI();
     window.renderTrackList();
@@ -17321,7 +17330,7 @@ window.executeDeleteTrack = function (id) {
     }
 
     // Save to cloud, repopulate, and redraw
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.populateTrackDropdowns();
     renderUI();
     if (AppState.currentFilter && (programsToCleanup.includes(AppState.currentFilter) || subjectsToCleanup.includes(AppState.currentFilter))) {
@@ -17531,25 +17540,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Start progress
     if (window.setLoadingProgress) window.setLoadingProgress(15, 'Initializing workspace...');
 
-    // Load configurations & Initialize Firebase Service
+    // Load configurations & Initialize Supabase Service
     try {
-        const config = await FirebaseService.fetchConfig();
+        const config = await SupabaseService.fetchConfig();
         if (window.setLoadingProgress) window.setLoadingProgress(40, 'Connecting to server...');
-        FirebaseService.init(config);
+        SupabaseService.init(config);
         if (window.setLoadingProgress) window.setLoadingProgress(55, 'Authenticating session...');
     } catch (e) {
-        console.error("Firebase init failed:", e);
+        console.error("Supabase init failed:", e);
     }
 
     // Route guard
-    FirebaseService.onAuthStateChanged(async (user) => {
+    SupabaseService.onAuthStateChanged(async (user) => {
         if (!user) {
             window.location.href = 'login.html';
             return;
         }
 
         if (user.email !== 'ris2k29@gmail.com') {
-            FirebaseService.logout().then(() => {
+            SupabaseService.logout().then(() => {
                 window.location.href = 'login.html?error=denied';
             });
             return;
@@ -17574,7 +17583,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Subscribe and sync from cloud
-        FirebaseService.loadFromCloud();
+        SupabaseService.loadFromCloud();
         window.switchPage('dashboard');
     });
 
@@ -17656,20 +17665,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         errorBanner.classList.add('hidden');
     }
 
-    // Load configurations & Initialize Firebase
+    // Load configurations & Initialize Supabase Service
     let config;
     try {
-        config = await FirebaseService.fetchConfig();
-        FirebaseService.init(config);
-        console.log("Firebase initialized for login.");
+        config = await SupabaseService.fetchConfig();
+        SupabaseService.init(config);
+        console.log("Supabase initialized for login.");
     } catch (e) {
-        console.error("Firebase init error:", e);
-        showError("Firebase initialization failed.");
+        console.error("Supabase init error:", e);
+        showError("Initialization failed.");
         return;
     }
 
     // Route guard checking if user is already logged in as admin
-    FirebaseService.onAuthStateChanged((user) => {
+    SupabaseService.onAuthStateChanged((user) => {
         if (user && user.email === 'ris2k29@gmail.com') {
             window.location.href = 'index.html';
         }
@@ -17687,11 +17696,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         spinner.classList.remove('hidden');
 
         try {
-            const userCredential = await FirebaseService.login(email, password);
+            const userCredential = await SupabaseService.login(email, password);
             const user = userCredential.user;
 
             if (user.email !== 'ris2k29@gmail.com') {
-                await FirebaseService.logout();
+                await SupabaseService.logout();
                 showError("Access denied. Project X is private.");
                 btnSubmit.disabled = false;
                 spinner.classList.add('hidden');
@@ -18616,7 +18625,7 @@ window.toggleVaultLiquidStatus = function (vltId) {
         showToast(`Vault [${targetVault.name}] unset as Liquid Source`, "info");
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
 };
 
@@ -18699,7 +18708,7 @@ window.saveFiscalVault = function (event) {
         }
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-vault-modal');
     showToast(toastMsg, "success");
@@ -18984,7 +18993,7 @@ window.saveFiscalTransaction = function (event) {
         showToast(oldTx ? "Cash flow entry updated!" : "Cash flow entry saved!", "success");
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-tx-modal');
 };
@@ -19055,7 +19064,7 @@ window.executeFiscalDelete = function () {
     }
 
     window.pendingFiscalDelete = null;
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-delete-modal');
 };
@@ -19214,7 +19223,7 @@ window.saveFiscalBudget = function (event) {
         });
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-budget-modal');
 
@@ -19273,7 +19282,7 @@ window.processFiscalTransfer = function (event) {
         showToast(`Withdrew ৳${amount.toFixed(2)} from ${vlt.name}`, "info");
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-deposit-modal');
 };
@@ -19410,7 +19419,7 @@ window.executeVaultToVaultTransfer = function (event) {
         status: 'cleared'
     });
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-vault-transfer-modal');
     showToast(`Transferred ৳${amount.toFixed(2)} from [${senderVlt.name}] to [${receiverVlt.name}]!`, "success");
@@ -19660,7 +19669,7 @@ window.executeVaultToBudgetTransfer = function (event) {
         showToast(`Funded ৳${amount.toFixed(2)} from Vault [${senderVlt.name}] into [${receiverBgt.category}] budget!`, "success");
     }
 
-    FirebaseService.saveToCloud();
+    SupabaseService.saveToCloud();
     window.renderFiscalLedgerPage();
     closeModal('fiscal-vault-to-budget-modal');
 };
@@ -21177,8 +21186,8 @@ window.saveSessionForm = function(event) {
         AppState.examSessions.push(newSession);
     }
 
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud(true);
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud(true);
     }
 
     window.closeSessionModal();
@@ -21197,8 +21206,8 @@ window.deleteSession = function(sessionId) {
             AppState.examSessions = (AppState.examSessions || []).filter(s => s.id !== sessionId);
             AppState.examRoutine = (AppState.examRoutine || []).filter(e => e.sessionId !== sessionId);
 
-            if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-                window.FirebaseService.saveToCloud(true);
+            if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+                window.SupabaseService.saveToCloud(true);
             }
 
             window.renderExamPage();
@@ -21595,8 +21604,8 @@ window.saveExamForm = function(event) {
         AppState.examRoutine.push(newExam);
     }
 
-    if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-        window.FirebaseService.saveToCloud(true);
+    if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+        window.SupabaseService.saveToCloud(true);
     }
 
     window.closeExamModal();
@@ -21608,8 +21617,8 @@ window.toggleExamStatus = function(examId) {
     const exam = (AppState.examRoutine || []).find(e => e.id === examId);
     if (exam) {
         exam.status = exam.status === 'completed' ? 'upcoming' : 'completed';
-        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-            window.FirebaseService.saveToCloud(true);
+        if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+            window.SupabaseService.saveToCloud(true);
         }
         window.renderExamPage();
         if (typeof showToast === 'function') {
@@ -21627,8 +21636,8 @@ window.deleteExam = function(examId) {
         `Are you sure you want to delete "${examName}"? This action cannot be undone.`,
         () => {
             AppState.examRoutine = (AppState.examRoutine || []).filter(e => e.id !== examId);
-            if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-                window.FirebaseService.saveToCloud(true);
+            if (window.SupabaseService && typeof window.SupabaseService.saveToCloud === 'function') {
+                window.SupabaseService.saveToCloud(true);
             }
             window.renderExamPage();
             if (typeof showToast === 'function') showToast("Exam deleted.", "info");

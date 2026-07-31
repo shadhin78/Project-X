@@ -173,7 +173,7 @@
                 saveActiveStateToStore();
 
                 playCompletionChime();
-                FirebaseService.saveTimerToCloud();
+                SupabaseService.saveTimerToCloud();
 
                 const saveBtn = document.getElementById('timer-btn-save');
                 if (saveBtn) {
@@ -655,8 +655,8 @@
 
         window.subjectFocusTargets[subject] = { hours, minutes, createdAt };
 
-        if (window.FirebaseService) {
-            window.FirebaseService.saveToCloud(true);
+        if (window.SupabaseService) {
+            window.SupabaseService.saveToCloud(true);
         }
 
         window.closeSubjectTargetModal();
@@ -670,8 +670,8 @@
             () => {
                 if (window.subjectFocusTargets && window.subjectFocusTargets[subject]) {
                     delete window.subjectFocusTargets[subject];
-                    if (window.FirebaseService) {
-                        window.FirebaseService.saveToCloud(true);
+                    if (window.SupabaseService) {
+                        window.SupabaseService.saveToCloud(true);
                     }
                     updateSubjectTargetUI();
                     showToast(`Target for ${subject} deleted.`, "success");
@@ -894,7 +894,7 @@
         });
 
         if (stateChanged) {
-            FirebaseService.saveTimerToCloud();
+            SupabaseService.saveTimerToCloud();
             window.TimerService.updateDisplay();
         }
     }
@@ -1052,7 +1052,7 @@
         saveActiveStateToStore();
 
         loadActiveStateFromStore(mode);
-        FirebaseService.saveTimerToCloud();
+        SupabaseService.saveTimerToCloud();
         window.TimerService.restore();
     };
 
@@ -1065,7 +1065,7 @@
         AppState.activeTimerState.elapsedBeforeStart = 0;
         AppState.activeTimerState.startTime = null;
         saveActiveStateToStore();
-        FirebaseService.saveTimerToCloud();
+        SupabaseService.saveTimerToCloud();
         window.TimerService.restore();
         showToast(`Timer set to ${minutes} minutes.`, "success");
     };
@@ -1094,7 +1094,7 @@
         AppState.activeTimerState.elapsedBeforeStart = 0;
         AppState.activeTimerState.startTime = null;
         saveActiveStateToStore();
-        FirebaseService.saveTimerToCloud();
+        SupabaseService.saveTimerToCloud();
         window.TimerService.restore();
         closeModal('custom-timer-modal');
         showToast(`Timer set to ${minutes} minutes.`, "success");
@@ -1223,8 +1223,8 @@
         }
 
         saveActiveStateToStore();
-        FirebaseService.saveToCloud(true);
-        FirebaseService.saveTimerToCloud();
+        SupabaseService.saveToCloud(true);
+        SupabaseService.saveTimerToCloud();
         window.TimerService.restore();
         window.TimerService.updateDisplay();
         showToast(`Saved session: ${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s for ${subject}.`, "success");
@@ -1237,7 +1237,7 @@
             () => {
                 if (!AppState.timerLogs) AppState.timerLogs = [];
                 AppState.timerLogs = AppState.timerLogs.filter(log => log.id !== logId);
-                FirebaseService.saveToCloud(true);
+                SupabaseService.saveToCloud(true);
                 window.TimerService.updateDisplay();
                 showToast("Study session deleted.", "success");
             }
@@ -1390,8 +1390,8 @@
                 });
             }
 
-            if (window.FirebaseService) {
-                window.FirebaseService.saveToCloud(true);
+            if (window.SupabaseService) {
+                window.SupabaseService.saveToCloud(true);
             }
             window.updateTimerAnalyticsControls();
             window.renderTimerAnalyticsChart();
@@ -3132,7 +3132,7 @@
 
         AppState.timerLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        FirebaseService.saveToCloud(true);
+        SupabaseService.saveToCloud(true);
         window.TimerService.updateDisplay();
         closeModal('add-timer-session-modal');
 
@@ -3252,7 +3252,7 @@
 
         AppState.timerLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        FirebaseService.saveToCloud(true);
+        SupabaseService.saveToCloud(true);
         window.TimerService.updateDisplay();
         closeModal('edit-timer-session-modal');
 
@@ -3311,7 +3311,7 @@
                 if (e.target && e.target.id === 'timer-subject-select') {
                     if (AppState.activeTimerState) {
                         AppState.activeTimerState.selectedSubject = e.target.value;
-                        FirebaseService.saveTimerToCloud();
+                        SupabaseService.saveTimerToCloud();
                         updateSubjectTargetUI();
                     }
                 }
@@ -3358,7 +3358,7 @@
                 AppState.activeTimerState.isRunning = true;
                 AppState.activeTimerState.startTime = window.getServerTime();
                 saveActiveStateToStore();
-                FirebaseService.saveTimerToCloud();
+                SupabaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
         },
@@ -3387,7 +3387,7 @@
                 }
 
                 saveActiveStateToStore();
-                FirebaseService.saveTimerToCloud();
+                SupabaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
         },
@@ -3445,7 +3445,7 @@
                 }
 
                 saveActiveStateToStore();
-                FirebaseService.saveTimerToCloud();
+                SupabaseService.saveTimerToCloud();
                 window.TimerService.restore();
             }
         },

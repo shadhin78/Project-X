@@ -42,14 +42,11 @@ const server = http.createServer((req, res) => {
 
   // Route /api/config to environmental response
   if (url === '/api/config') {
+    const currentEnv = parseEnv();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
-      authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
-      projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
-      storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
-      messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
-      appId: env.NEXT_PUBLIC_FIREBASE_APP_ID || ""
+      supabaseUrl: currentEnv.SUPABASE_URL || currentEnv.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      supabasePublishableKey: currentEnv.SUPABASE_PUBLISHABLE_KEY || currentEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || currentEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
     }));
     return;
   }
@@ -102,7 +99,7 @@ server.listen(PORT, () => {
   console.log(`  │                                                     │`);
   console.log(`  │  ⚠  Use ONLY this URL for local development.       │`);
   console.log(`  │     Other ports (5000, 5500, etc.) lack /api/config │`);
-  console.log(`  │     and will cause Firebase config resolution       │`);
-  console.log(`  │     to fall back to .env or hardcoded values.       │`);
+  console.log(`  │     and will cause Supabase config resolution       │`);
+  console.log(`  │     to fall back to .env or cached values.          │`);
   console.log(`  └─────────────────────────────────────────────────────┘\n`);
 });
