@@ -6,6 +6,9 @@
 
 window.dataHydrationComplete = false;
 
+const DEFAULT_SUPABASE_URL = "https://xqqutxmstrpopxldwvzu.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_yng0_UKSuEd0p-14gP8RxQ_srw_rjOA";
+
 function normalizeSupabaseUser(user) {
     if (!user) return null;
     const email = user.email || '';
@@ -27,39 +30,44 @@ window.SupabaseService = {
 
     // 1. Fetch Supabase configuration keys from API or fallbacks
     fetchConfig: async function() {
-        if (window.location.protocol === 'file:') {
-            console.log("file:// protocol detected in SupabaseService.fetchConfig. Checking local cache...");
-            const cachedConfig = safeStorage.getItem('supabaseConfig');
-            if (cachedConfig) {
-                try {
-                    return JSON.parse(cachedConfig);
-                } catch (e) {}
+        let config = {};
+        
+        if (window.location.protocol !== 'file:') {
+            try {
+                const res = await fetch('/api/config');
+                if (res.ok) {
+                    const data = await res.json();
+                    config = {
+                        supabaseUrl: data.supabaseUrl || data.NEXT_PUBLIC_SUPABASE_URL || "",
+                        supabasePublishableKey: data.supabasePublishableKey || data.SUPABASE_PUBLISHABLE_KEY || data.NEXT_PUBLIC_SUPABASE_ANON_KEY || data.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ""
+                    };
+                }
+            } catch (err) {
+                console.warn("Supabase API config endpoint not reached, checking local fallbacks...", err);
             }
-            return { supabaseUrl: "", supabasePublishableKey: "" };
         }
 
-        let config = {};
-        try {
-            const res = await fetch('/api/config');
-            if (!res.ok) throw new Error("API config endpoint not available");
-            const data = await res.json();
-            
-            config = {
-                supabaseUrl: data.supabaseUrl || data.NEXT_PUBLIC_SUPABASE_URL || "",
-                supabasePublishableKey: data.supabasePublishableKey || data.SUPABASE_PUBLISHABLE_KEY || data.NEXT_PUBLIC_SUPABASE_ANON_KEY || data.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ""
-            };
-
-            if (config.supabaseUrl && config.supabasePublishableKey) {
-                safeStorage.setItem('supabaseConfig', JSON.stringify(config));
-            }
-        } catch (err) {
-            console.warn("Supabase config fetch failed, checking localStorage fallback...", err);
+        if (!config.supabaseUrl || !config.supabasePublishableKey) {
             const cachedConfig = safeStorage.getItem('supabaseConfig');
             if (cachedConfig) {
                 try {
-                    config = JSON.parse(cachedConfig);
+                    const parsed = JSON.parse(cachedConfig);
+                    if (parsed.supabaseUrl && parsed.supabasePublishableKey) {
+                        config = parsed;
+                    }
                 } catch(e) {}
             }
+        }
+
+        if (!config.supabaseUrl || !config.supabasePublishableKey) {
+            config = {
+                supabaseUrl: DEFAULT_SUPABASE_URL,
+                supabasePublishableKey: DEFAULT_SUPABASE_PUBLISHABLE_KEY
+            };
+        }
+
+        if (config.supabaseUrl && config.supabasePublishableKey) {
+            safeStorage.setItem('supabaseConfig', JSON.stringify(config));
         }
         return config;
     },
@@ -70,8 +78,8 @@ window.SupabaseService = {
             return this.client;
         }
 
-        const supabaseUrl = (config && config.supabaseUrl) ? config.supabaseUrl : "";
-        const supabaseKey = (config && (config.supabasePublishableKey || config.supabaseAnonKey)) ? (config.supabasePublishableKey || config.supabaseAnonKey) : "";
+        const supabaseUrl = (config && config.supabaseUrl) ? config.supabaseUrl : DEFAULT_SUPABASE_URL;
+        const supabaseKey = (config && (config.supabasePublishableKey || config.supabaseAnonKey)) ? (config.supabasePublishableKey || config.supabaseAnonKey) : DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
         if (!supabaseUrl || !supabaseKey) {
             console.warn("Supabase credentials missing or not yet loaded in config.");
@@ -150,16 +158,8 @@ window.SupabaseService = {
         }
 
         if (!this.client) {
-            const cachedConfig = safeStorage.getItem('supabaseConfig');
-            if (cachedConfig) {
-                try {
-                    this.init(JSON.parse(cachedConfig));
-                } catch(e) {}
-            }
-        }
-
-        if (!this.client) {
-            throw { code: 'auth/service-unavailable', message: 'Supabase client is not initialized.' };
+            const config = await this.fetchConfig();
+            this.init(config);
         }
 
         try {
@@ -171,7 +171,10 @@ window.SupabaseService = {
             if (error) {
                 console.warn("Supabase Auth sign-in error:", error);
                 const msg = (error.message || '').toLowerCase();
-                if (msg.includes('invalid login credentials') || msg.includes('invalid credentials') || error.status === 400) {
+                const errCode = (error.error_code || error.code || '').toLowerCase();
+                if (msg.includes('email not confirmed') || errCode.includes('email_not_confirmed')) {
+                    throw { code: 'auth/email-not-confirmed', message: 'Email not confirmed. Please confirm your email in your inbox or disable "Confirm Email" in Supabase Auth settings.' };
+                } else if (msg.includes('invalid login credentials') || msg.includes('invalid credentials') || errCode.includes('invalid_credentials')) {
                     throw { code: 'auth/wrong-password', message: 'Invalid email or password.' };
                 } else if (msg.includes('invalid email') || msg.includes('email format')) {
                     throw { code: 'auth/invalid-email', message: 'Invalid email address format.' };

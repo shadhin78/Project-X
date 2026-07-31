@@ -17712,10 +17712,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             let friendlyMsg = "Authentication failed. Please check your credentials.";
             if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
                 friendlyMsg = "Invalid email or password.";
+            } else if (error.code === 'auth/email-not-confirmed') {
+                friendlyMsg = error.message || "Email not confirmed. Please confirm your email or disable 'Confirm Email' in Supabase Auth settings.";
             } else if (error.code === 'auth/invalid-email') {
                 friendlyMsg = "Invalid email address format.";
             } else if (error.code === 'auth/user-disabled') {
                 friendlyMsg = "This user account has been disabled.";
+            } else if (error.message) {
+                friendlyMsg = error.message;
             }
             showError(friendlyMsg);
             btnSubmit.disabled = false;
