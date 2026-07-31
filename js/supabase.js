@@ -404,17 +404,18 @@ window.SupabaseService = {
 
         const user = this.getCurrentUser();
 
-        // Baseline local storage cache
+        // Baseline local storage cache - Hydrate immediately for zero-delay instant render
         const localCachedStr = safeStorage.getItem('cached_fullAppState');
         let localData = null;
         if (localCachedStr) {
-            try { localData = JSON.parse(localCachedStr); } catch(e) {}
+            try { 
+                localData = JSON.parse(localCachedStr);
+                window.applyFullAppState(localData, false);
+                window.dataHydrationComplete = true;
+            } catch(e) {}
         }
 
         if (window.location.protocol === 'file:' || !user || !user.id || user.id === 'mock-local-user-id' || !this.client) {
-            if (localData) {
-                window.applyFullAppState(localData, false);
-            }
             completeHydration();
             return;
         }
@@ -428,32 +429,30 @@ window.SupabaseService = {
 
             if (error) {
                 console.warn("Supabase user_workspaces query error:", error);
-                if (localData) {
-                    window.applyFullAppState(localData, false);
-                }
                 completeHydration();
                 return;
             }
 
             if (data && data.state_data && typeof data.state_data === 'object' && Object.keys(data.state_data).length > 0) {
-                console.log("Successfully restored workspace from Supabase user_workspaces.");
-                safeStorage.setItem('cached_fullAppState', JSON.stringify(data.state_data));
-                window.applyFullAppState(data.state_data, false);
+                const remoteTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+                // Only overwrite local state if remote data is at least as fresh as local save time
+                if (!localData || !this._lastLocalSaveTimestamp || remoteTime >= (this._lastLocalSaveTimestamp - 2000)) {
+                    console.log("Successfully restored workspace from Supabase user_workspaces.");
+                    safeStorage.setItem('cached_fullAppState', JSON.stringify(data.state_data));
+                    window.applyFullAppState(data.state_data, false);
+                } else {
+                    console.log("Local workspace is newer than remote. Syncing local workspace to cloud...");
+                    this.saveToCloud(true);
+                }
                 completeHydration();
             } else {
                 console.log("No prior cloud workspace row found in Supabase. Hydrating baseline workspace...");
-                if (localData) {
-                    window.applyFullAppState(localData, false);
-                }
                 completeHydration();
                 // Create initial cloud workspace row for newly authenticated user
                 this.saveToCloud(true);
             }
         } catch (err) {
             console.warn("Supabase loadFromCloud exception:", err);
-            if (localData) {
-                window.applyFullAppState(localData, false);
-            }
             completeHydration();
         }
     },
