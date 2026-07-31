@@ -189,6 +189,14 @@ window.applyFullAppState = function(data, saveCloud = true) {
     if (data.examSessions) AppState.examSessions = data.examSessions;
     if (data.examRoutine) AppState.examRoutine = data.examRoutine;
     if (data.selectedCountdownExamId) AppState.selectedCountdownExamId = data.selectedCountdownExamId;
+    if (data.activeTimerState) {
+        AppState.activeTimerState = data.activeTimerState;
+        if (typeof window.syncTimerStateFromCloud === 'function') {
+            window.syncTimerStateFromCloud();
+        } else if (window.TimerService && typeof window.TimerService.restore === 'function') {
+            window.TimerService.restore();
+        }
+    }
 
     if (typeof window.recalculateTotals === 'function') window.recalculateTotals();
     if (typeof window.renderUI === 'function') window.renderUI();

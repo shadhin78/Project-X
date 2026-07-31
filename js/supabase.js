@@ -360,7 +360,8 @@ window.SupabaseService = {
             fiscalLedger: AppState.fiscalLedger || { transactions: [], budgets: [], vaults: [] },
             examSessions: AppState.examSessions || [],
             examRoutine: AppState.examRoutine || [],
-            selectedCountdownExamId: AppState.selectedCountdownExamId || 'auto'
+            selectedCountdownExamId: AppState.selectedCountdownExamId || 'auto',
+            activeTimerState: AppState.activeTimerState || null
         };
 
         window.appState = payload;
