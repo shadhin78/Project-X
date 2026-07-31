@@ -302,10 +302,30 @@ window.SupabaseService = {
     },
 
     // 8. Save Workspace State to Supabase (user_workspaces.state_data JSONB)
+    _autoSaveDebounceTimer: null,
+    _isSavingProcess: false,
+    _pendingSaveRequested: false,
+
     saveToCloud: async function(immediate = false) {
         if (!window.dataHydrationComplete) {
             console.warn("saveToCloud blocked: Initial workspace hydration from cloud has not completed yet.");
             return;
+        }
+
+        // Debounce auto-saves on frequent inputs (e.g. typing) to prevent network request spam
+        if (!immediate) {
+            if (this._autoSaveDebounceTimer) {
+                clearTimeout(this._autoSaveDebounceTimer);
+            }
+            this._autoSaveDebounceTimer = setTimeout(() => {
+                this.saveToCloud(true);
+            }, 600);
+            return;
+        }
+
+        if (this._autoSaveDebounceTimer) {
+            clearTimeout(this._autoSaveDebounceTimer);
+            this._autoSaveDebounceTimer = null;
         }
 
         const payload = {
@@ -359,6 +379,15 @@ window.SupabaseService = {
             return;
         }
 
+        // If a save request is currently in-flight, queue a follow-up save and return
+        if (this._isSavingProcess) {
+            this._pendingSaveRequested = true;
+            return;
+        }
+
+        this._isSavingProcess = true;
+        if (window.AppState) window.AppState.isSaving = true;
+
         if (typeof showSync === 'function') showSync('saving');
 
         try {
@@ -372,14 +401,21 @@ window.SupabaseService = {
 
             if (error) {
                 console.warn("Supabase user_workspaces upsert error:", error);
-                if (typeof showSync === 'function') showSync('error');
+                if (typeof showSync === 'function') showSync('error', 'Sync Error');
             } else {
                 this._lastLocalSaveTimestamp = Date.now();
                 if (typeof showSync === 'function') showSync('saved');
             }
         } catch (err) {
             console.warn("Supabase saveToCloud exception:", err);
-            if (typeof showSync === 'function') showSync('error');
+            if (typeof showSync === 'function') showSync('error', 'Sync Error');
+        } finally {
+            this._isSavingProcess = false;
+            if (window.AppState) window.AppState.isSaving = false;
+            if (this._pendingSaveRequested) {
+                this._pendingSaveRequested = false;
+                this.saveToCloud(true);
+            }
         }
     },
 
@@ -565,6 +601,14 @@ window.SupabaseService = {
             }
         });
 
+        // Network reconnection listener: auto-sync local workspace back to cloud when online
+        window.addEventListener('online', () => {
+            console.log("Network back online: Syncing local workspace state to cloud...");
+            if (this.getCurrentUser() && window.dataHydrationComplete) {
+                this.saveToCloud(true);
+            }
+        });
+
         // 15-second background heartbeat check for seamless cross-device sync
         setInterval(() => {
             if (document.visibilityState === 'visible' && this.getCurrentUser() && window.dataHydrationComplete && !AppState.isSaving) {
@@ -596,7 +640,7 @@ window.SupabaseService = {
 };
 
 // Global status badge updater UI function
-window.showSync = function(state) {
+window.showSync = function(state, message) {
     const badge = document.getElementById('sync-status-badge') || document.getElementById('sync-status');
     if (!badge) return;
     if (state === 'saving') {
@@ -606,7 +650,8 @@ window.showSync = function(state) {
         badge.textContent = 'Synced';
         badge.className = 'text-xs font-bold text-emerald-500 flex items-center gap-1';
     } else if (state === 'error') {
-        badge.textContent = 'Offline';
+        const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+        badge.textContent = isOffline ? 'Offline' : (message || 'Sync Error');
         badge.className = 'text-xs font-bold text-red-500 flex items-center gap-1';
     }
 };
