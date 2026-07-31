@@ -207,6 +207,8 @@ window.applyFullAppState = function(data, saveCloud = true) {
     return true;
 };
 
+window.DEFAULT_COMMITMENT_LABELS = ['Action 1', 'Action 2', 'Action 3', 'Action 4', 'Action 5', 'Action 6', 'Action 7'];
+
 if (typeof safeStorage !== 'undefined') {
     try {
         const cachedFull = safeStorage.getItem('cached_fullAppState');
@@ -218,44 +220,18 @@ if (typeof safeStorage !== 'undefined') {
                 safeStorage.removeItem('cached_fullAppState');
                 safeStorage.removeItem('cached_examSessions');
                 safeStorage.removeItem('cached_examRoutine');
+                AppState.examSessions = [];
+                AppState.examRoutine = [];
             }
+        } else {
+            safeStorage.removeItem('cached_examSessions');
+            safeStorage.removeItem('cached_examRoutine');
+            AppState.examSessions = [];
+            AppState.examRoutine = [];
         }
     } catch (e) {
         console.warn("Failed to parse cached_fullAppState:", e);
     }
-    try {
-        const cachedSess = safeStorage.getItem('cached_examSessions');
-        if (cachedSess) AppState.examSessions = JSON.parse(cachedSess);
-    } catch(e){}
-    try {
-        const cachedRout = safeStorage.getItem('cached_examRoutine');
-        if (cachedRout) AppState.examRoutine = JSON.parse(cachedRout);
-    } catch(e){}
-}
-
-window.autoRestoreFromLocalBackup = async function() {
-    const hasData = (Array.isArray(AppState.tracks) && AppState.tracks.length > 0) ||
-                    (AppState.fiscalLedger && Array.isArray(AppState.fiscalLedger.transactions) && AppState.fiscalLedger.transactions.length > 0) ||
-                    (Array.isArray(AppState.examSessions) && AppState.examSessions.length > 0);
-    if (!hasData) {
-        try {
-            console.log("No workspace data in cache. Auto-loading from firestore_backup_userData.json...");
-            const res = await fetch('./firestore_backup_userData.json');
-            if (res.ok) {
-                const data = await res.json();
-                window.applyFullAppState(data, true);
-                console.log("Workspace successfully restored from firestore_backup_userData.json!");
-            }
-        } catch(err) {
-            console.warn("Auto-restore from firestore_backup_userData.json failed:", err);
-        }
-    }
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { window.autoRestoreFromLocalBackup(); });
-} else {
-    setTimeout(() => { window.autoRestoreFromLocalBackup(); }, 100);
 }
 
 window.getServerTime = function() {

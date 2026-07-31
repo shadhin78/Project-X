@@ -6148,9 +6148,9 @@
                         </div>
                         
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <button onclick="window.restoreLocalBackup()"
-                                class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 px-3 py-2.5 rounded-xl font-bold text-[11px] transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm text-center">
-                                ⚡ Restore Old Data
+                            <button onclick="window.resetToCleanSlate()"
+                                class="bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 px-3 py-2.5 rounded-xl font-bold text-[11px] transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm text-center">
+                                🗑️ Reset Workspace
                             </button>
 
                             <label class="bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:hover:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 px-3 py-2.5 rounded-xl font-bold text-[11px] transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm text-center cursor-pointer">
@@ -6502,7 +6502,7 @@
                         <div class="flex flex-col gap-2 flex-1">
                             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Whole
                                 Chapter Size</label>
-                            <input type="number" id="dt-input-total-size" placeholder="e.g. 100" min="1"
+                            <input type="number" id="dt-input-total-size" placeholder="e.g. 10" min="1"
                                 class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
                         </div>
                     </div>
@@ -6591,7 +6591,7 @@
                     <div class="flex flex-col gap-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Chapter
                             Size (Optional)</label>
-                        <input type="number" id="wt-input-size" placeholder="e.g. 100 (for pages, questions, etc.)"
+                        <input type="number" id="wt-input-size" placeholder="e.g. 10 (for pages, questions, etc.)"
                             min="1"
                             class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner" />
                     </div>

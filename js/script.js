@@ -12972,50 +12972,88 @@ window.executeManageDelete = function () {
     recalculateTotals(); FirebaseService.saveToCloud(); renderUI(); updateManageDropdown();
 };
 
-// Deprecated
-// Currently unused
-// Retained for compatibility
-window.resetToCleanSlate = function () {
-    window.openConfirmModal(
-        "Reset Dashboard",
-        "Are you sure you want to completely clear all data? This will delete all tracks, programs, subjects, AppState.tasks, and history. This action cannot be undone.",
-        () => {
-            window.tracks = [];
-            window.customPrograms = {};
-            syllabusStructure = {};
-            window.passedItems = { programs: [], subjects: [] };
-            window.revisionData = { active: [], progress: {} };
-            window.subjectTimeLinks = {};
-            window.successResults = [];
-            window.customActions = [];
-            window.paceGoals = [];
+window.resetToCleanSlate = function (confirmFirst = true) {
+    const doWipe = () => {
+        AppState.tracks = [];
+        AppState.syllabusStructure = {};
+        AppState.customPrograms = {};
+        AppState.customActions = [];
+        AppState.paceGoals = [];
+        AppState.examSessions = [];
+        AppState.examRoutine = [];
+        AppState.tasks = [];
+        AppState.timerLogs = [];
+        AppState.scheduleBlocks = [];
+        AppState.scheduleBlocks2 = [];
+        AppState.scheduleGroups = [];
+        AppState.weeklyTargetsDatabase = {};
+        AppState.dailyTargetsDatabase = {};
+        AppState.passedItems = { programs: [], subjects: [] };
+        AppState.revisionData = { active: [], progress: {} };
+        AppState.subjectFocusTargets = {};
+        AppState.subjectTimeLinks = {};
+        AppState.successResults = [];
+        AppState.programVisibility = {};
+        AppState.fiscalLedger = { transactions: [], budgets: [], vaults: [] };
 
-            window.dashboardConfig = {
-                topTag: "",
-                mainTitle: "Study Dashboard",
-                subTitle: "",
-                trendStartDate: new Date().toISOString().split('T')[0]
-            };
+        AppState.dashboardConfig = {
+            topTag: "",
+            mainTitle: "Study Dashboard",
+            subTitle: "",
+            trendStartDate: new Date().toISOString().split('T')[0],
+            trendEndDate: "",
+            showDaysRemaining: false,
+            independentPaces: { tracks: {}, programs: {}, subjects: {} }
+        };
 
-            AppState.PLAN_START_DATE = new Date();
-            AppState.PLAN_START_DATE.setHours(0, 0, 0, 0);
-            AppState.PLAN_END_DATE = new Date();
-            AppState.PLAN_END_DATE.setMonth(AppState.PLAN_END_DATE.getMonth() + 10);
-            AppState.PLAN_END_DATE.setHours(23, 59, 59, 999);
+        AppState.PLAN_START_DATE = new Date();
+        AppState.PLAN_START_DATE.setHours(0, 0, 0, 0);
+        AppState.PLAN_END_DATE = new Date();
+        AppState.PLAN_END_DATE.setMonth(AppState.PLAN_END_DATE.getMonth() + 10);
+        AppState.PLAN_END_DATE.setHours(23, 59, 59, 999);
 
-            AppState.tasks = generateStudyPlan();
-            recalculateTotals();
-
-            FirebaseService.saveToCloud(true);
-            renderUI();
-
-            window.populateTrackDropdowns();
-            window.updateManageDropdown();
-            if (window.renderTrackList) window.renderTrackList();
-
-            showToast("Dashboard reset successfully to a clean slate!", "success");
+        if (typeof safeStorage !== 'undefined') {
+            try {
+                safeStorage.removeItem('cached_fullAppState');
+                safeStorage.removeItem('cached_examSessions');
+                safeStorage.removeItem('cached_examRoutine');
+            } catch (e) { }
         }
-    );
+        try {
+            localStorage.removeItem('spectra_cached_custom_actions');
+            localStorage.removeItem('spectra_commitments_labels');
+            Object.keys(localStorage).forEach(k => {
+                if (k.startsWith('spectra_commitments_')) localStorage.removeItem(k);
+            });
+        } catch (e) { }
+
+        if (typeof recalculateTotals === 'function') recalculateTotals();
+
+        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
+            window.FirebaseService.saveToCloud(true);
+        }
+
+        if (typeof renderUI === 'function') renderUI();
+
+        if (typeof window.populateTrackDropdowns === 'function') window.populateTrackDropdowns();
+        if (typeof window.updateManageDropdown === 'function') window.updateManageDropdown();
+        if (typeof window.renderTrackList === 'function') window.renderTrackList();
+        if (typeof window.renderExamSessions === 'function') window.renderExamSessions();
+
+        if (typeof showToast === 'function') {
+            showToast("Workspace reset successfully to a fresh, clean state!", "success");
+        }
+    };
+
+    if (confirmFirst && typeof window.openConfirmModal === 'function') {
+        window.openConfirmModal(
+            "Reset Workspace Data",
+            "Are you sure you want to completely clear all data? This will delete all tracks, subjects, chapters, daily actions, pace goals, exams, routines, tasks, and history. This action cannot be undone.",
+            doWipe
+        );
+    } else {
+        doWipe();
+    }
 };
 
 
@@ -20742,26 +20780,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 window.restoreLocalBackup = async function() {
-    try {
-        console.log("Restoring local backup from firestore_backup_userData.json...");
-        const res = await fetch('./firestore_backup_userData.json');
-        if (!res.ok) throw new Error("firestore_backup_userData.json not found on server.");
-        const data = await res.json();
-        const success = window.applyFullAppState(data, true);
-        if (success) {
-            if (typeof window.showToast === 'function') {
-                window.showToast("All workspace data restored from firestore_backup_userData.json!", "success");
-            } else {
-                alert("All workspace data restored from firestore_backup_userData.json!");
-            }
-        }
-    } catch(err) {
-        console.error("Restore local backup failed:", err);
-        if (typeof window.showToast === 'function') {
-            window.showToast("Failed to load backup: " + err.message, "error");
-        } else {
-            alert("Failed to load backup: " + err.message);
-        }
+    if (typeof window.showToast === 'function') {
+        window.showToast("No local backup file stored on server. Use 'Import JSON' to restore from a local file.", "info");
+    } else {
+        alert("No local backup file stored on server. Use 'Import JSON' to restore from a local file.");
     }
 };
 
