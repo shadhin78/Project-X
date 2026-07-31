@@ -401,14 +401,27 @@ window.SupabaseService = {
 
             if (error) {
                 console.warn("Supabase user_workspaces upsert error:", error);
-                if (typeof showSync === 'function') showSync('error', 'Sync Error');
+                if (error.code === '42501') {
+                    console.warn("Supabase Row Level Security permission error (42501). Data saved locally to safeStorage.");
+                }
+                const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+                if (isOffline) {
+                    if (typeof showSync === 'function') showSync('error', 'Offline');
+                } else {
+                    if (typeof showSync === 'function') showSync('saved_local', 'Saved (Local)');
+                }
             } else {
                 this._lastLocalSaveTimestamp = Date.now();
                 if (typeof showSync === 'function') showSync('saved');
             }
         } catch (err) {
             console.warn("Supabase saveToCloud exception:", err);
-            if (typeof showSync === 'function') showSync('error', 'Sync Error');
+            const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+            if (isOffline) {
+                if (typeof showSync === 'function') showSync('error', 'Offline');
+            } else {
+                if (typeof showSync === 'function') showSync('saved_local', 'Saved (Local)');
+            }
         } finally {
             this._isSavingProcess = false;
             if (window.AppState) window.AppState.isSaving = false;
@@ -649,6 +662,9 @@ window.showSync = function(state, message) {
     } else if (state === 'saved') {
         badge.textContent = 'Synced';
         badge.className = 'text-xs font-bold text-emerald-500 flex items-center gap-1';
+    } else if (state === 'saved_local') {
+        badge.textContent = message || 'Saved (Local)';
+        badge.className = 'text-xs font-bold text-amber-400 flex items-center gap-1';
     } else if (state === 'error') {
         const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
         badge.textContent = isOffline ? 'Offline' : (message || 'Sync Error');
