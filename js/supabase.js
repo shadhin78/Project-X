@@ -96,14 +96,21 @@ window.SupabaseService = {
                 window.AppState.supabase = this.client;
             }
 
-            // Bind auth state change listener to sync current user state
+            // Bind auth state change listener to sync current user state & realtime channels
             this.client.auth.onAuthStateChange((event, session) => {
                 const user = session ? normalizeSupabaseUser(session.user) : null;
                 this._currentUser = user;
                 this._notifyAuthListeners(user, event, session);
+                if (user) {
+                    this.subscribeToRealtime();
+                } else {
+                    this.unsubscribeFromRealtime();
+                }
             });
 
-            console.log("Supabase client initialized successfully with Auth persistence.");
+            this._setupAutoSyncListeners();
+
+            console.log("Supabase client initialized successfully with Auth persistence & Realtime sync.");
             return this.client;
         } catch (err) {
             console.error("Failed to initialize Supabase client:", err);
@@ -367,6 +374,7 @@ window.SupabaseService = {
                 console.warn("Supabase user_workspaces upsert error:", error);
                 if (typeof showSync === 'function') showSync('error');
             } else {
+                this._lastLocalSaveTimestamp = Date.now();
                 if (typeof showSync === 'function') showSync('saved');
             }
         } catch (err) {
@@ -475,6 +483,132 @@ window.SupabaseService = {
             }
         }
         console.log("Memory and local workspace wiped to clean slate.");
+    },
+
+    // 12. Realtime Cross-Device Synchronization
+    _realtimeChannel: null,
+    _lastLocalSaveTimestamp: 0,
+    _hasBoundAutoSync: false,
+
+    subscribeToRealtime: function() {
+        const user = this.getCurrentUser();
+        if (!this.client || !user || !user.id || user.id === 'mock-local-user-id') return;
+
+        if (this._realtimeChannel) {
+            try { this.client.removeChannel(this._realtimeChannel); } catch(e) {}
+        }
+
+        try {
+            const channelName = `realtime:user_workspaces:${user.id}`;
+            this._realtimeChannel = this.client
+                .channel(channelName)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'user_workspaces',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    (payload) => {
+                        console.log("Supabase Realtime change event received:", payload.eventType);
+                        if (payload.new && payload.new.state_data && typeof payload.new.state_data === 'object') {
+                            const remoteUpdatedAt = payload.new.updated_at ? new Date(payload.new.updated_at).getTime() : Date.now();
+                            if (remoteUpdatedAt > (this._lastLocalSaveTimestamp + 1500)) {
+                                console.log("Applying real-time workspace update from remote device...");
+                                safeStorage.setItem('cached_fullAppState', JSON.stringify(payload.new.state_data));
+                                window.applyFullAppState(payload.new.state_data, false);
+                                if (typeof recalculateTotals === 'function') recalculateTotals();
+                                if (typeof renderUI === 'function') renderUI();
+                                if (typeof window.showSync === 'function') window.showSync('saved');
+                                if (typeof showToast === 'function') showToast("Workspace updated in real-time from another device", "info");
+                            }
+                        }
+                    }
+                )
+                .subscribe((status) => {
+                    console.log("Supabase Realtime subscription status:", status);
+                });
+        } catch (err) {
+            console.warn("Failed to subscribe to Supabase Realtime channel:", err);
+        }
+    },
+
+    unsubscribeFromRealtime: function() {
+        if (this._realtimeChannel && this.client) {
+            try {
+                this.client.removeChannel(this._realtimeChannel);
+                this._realtimeChannel = null;
+            } catch(e) {}
+        }
+    },
+
+    _setupAutoSyncListeners: function() {
+        if (this._hasBoundAutoSync) return;
+        this._hasBoundAutoSync = true;
+
+        let lastFocusCheck = 0;
+        const checkCloudOnFocus = () => {
+            const now = Date.now();
+            if (now - lastFocusCheck > 3000) {
+                lastFocusCheck = now;
+                if (this.getCurrentUser() && window.dataHydrationComplete) {
+                    console.log("Window focused / visible: checking remote workspace status...");
+                    this.checkForRemoteUpdates();
+                }
+            }
+        };
+
+        window.addEventListener('focus', checkCloudOnFocus);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                checkCloudOnFocus();
+            }
+        });
+
+        // 15-second background heartbeat check for seamless cross-device sync
+        setInterval(() => {
+            if (document.visibilityState === 'visible' && this.getCurrentUser() && window.dataHydrationComplete && !AppState.isSaving) {
+                this.checkForRemoteUpdates();
+            }
+        }, 15000);
+    },
+
+    checkForRemoteUpdates: async function() {
+        const user = this.getCurrentUser();
+        if (!this.client || !user || !user.id || user.id === 'mock-local-user-id') return;
+
+        try {
+            const { data, error } = await this.client
+                .from('user_workspaces')
+                .select('updated_at')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (!error && data && data.updated_at) {
+                const remoteTime = new Date(data.updated_at).getTime();
+                if (remoteTime > (this._lastLocalSaveTimestamp + 2000)) {
+                    console.log("Newer remote workspace detected. Reloading from cloud...");
+                    this.loadFromCloud();
+                }
+            }
+        } catch(e) {}
+    }
+};
+
+// Global status badge updater UI function
+window.showSync = function(state) {
+    const badge = document.getElementById('sync-status-badge') || document.getElementById('sync-status');
+    if (!badge) return;
+    if (state === 'saving') {
+        badge.textContent = 'Syncing...';
+        badge.className = 'text-xs font-bold text-amber-500 flex items-center gap-1';
+    } else if (state === 'saved') {
+        badge.textContent = 'Synced';
+        badge.className = 'text-xs font-bold text-emerald-500 flex items-center gap-1';
+    } else if (state === 'error') {
+        badge.textContent = 'Offline';
+        badge.className = 'text-xs font-bold text-red-500 flex items-center gap-1';
     }
 };
 
@@ -483,4 +617,5 @@ window.saveToCloud = window.SupabaseService.saveToCloud.bind(window.SupabaseServ
 window.loadFromCloud = window.SupabaseService.loadFromCloud.bind(window.SupabaseService);
 window.saveTimerToCloud = window.SupabaseService.saveTimerToCloud.bind(window.SupabaseService);
 window.FirebaseService = window.SupabaseService;
+
 

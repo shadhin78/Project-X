@@ -17,3 +17,8 @@ Thumbs.db
 
 # Agents
 .agents/
+
+# Backups
+SUPABASE_WORKSPACE_BACKUP_BEFORE_RESET.json
+*_BACKUP_*.json
+
