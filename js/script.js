@@ -13029,8 +13029,12 @@ window.resetToCleanSlate = function (confirmFirst = true) {
 
         if (typeof recalculateTotals === 'function') recalculateTotals();
 
-        if (window.FirebaseService && typeof window.FirebaseService.saveToCloud === 'function') {
-            window.FirebaseService.saveToCloud(true);
+        if (window.FirebaseService) {
+            if (typeof window.FirebaseService.wipeCloudWorkspace === 'function') {
+                window.FirebaseService.wipeCloudWorkspace();
+            } else if (typeof window.FirebaseService.saveToCloud === 'function') {
+                window.FirebaseService.saveToCloud(true);
+            }
         }
 
         if (typeof renderUI === 'function') renderUI();
@@ -17528,7 +17532,17 @@ window.switchPage = function (pageId) {
 document.addEventListener('DOMContentLoaded', async () => {
     if (!document.getElementById('app-wrapper')) return;
     if (AppState.isAppInitialized) return;
-    AppState.isAppInitialized = true;
+    // Loading screen safety fallback timer (3s max)
+    setTimeout(() => {
+        if (typeof window.dismissLoadingScreen === 'function') {
+            window.dismissLoadingScreen();
+        } else {
+            const loadingEl = document.getElementById('auth-loading');
+            const wrapperEl = document.getElementById('app-wrapper');
+            if (loadingEl) loadingEl.remove();
+            if (wrapperEl) wrapperEl.classList.remove('hidden');
+        }
+    }, 3000);
 
     // Dismiss tooltips on document click
     document.addEventListener('click', () => {
